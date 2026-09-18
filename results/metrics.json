@@ -1,4 +1,516 @@
 {
+  "ablations": [
+    {
+      "ablation": "-IPS_weighting",
+      "delta_ndcg@10": -0.03294468331421753,
+      "ndcg@10_ablated": {
+        "ci_high": 0.06683044756491753,
+        "ci_low": 0.04226832825192874,
+        "mean": 0.0545451358651884,
+        "n_excluded": 0,
+        "n_included": 202
+      },
+      "ndcg@10_full": {
+        "ci_high": 0.10422444095532098,
+        "ci_low": 0.07153074782496736,
+        "mean": 0.08748981917940593,
+        "n_excluded": 0,
+        "n_included": 202
+      },
+      "note": "Free: system 7 (lambdamart, uniform weight) IS this ablation of system 8.",
+      "status": "measured",
+      "wilcoxon_n_pairs": 202,
+      "wilcoxon_p_value": 1.7990703396388758e-05
+    },
+    {
+      "ablation": "-calibration",
+      "delta_ndcg@10": -0.0015666323842651736,
+      "ndcg@10_ablated": {
+        "ci_high": 0.10362522041221037,
+        "ci_low": 0.07003898193621041,
+        "mean": 0.08592318679514076,
+        "n_excluded": 0,
+        "n_included": 202
+      },
+      "ndcg@10_full": {
+        "ci_high": 0.10422444095532098,
+        "ci_low": 0.07153074782496736,
+        "mean": 0.08748981917940593,
+        "n_excluded": 0,
+        "n_included": 202
+      },
+      "note": "Isotonic calibration is a monotonic non-decreasing transform of the raw score, so it cannot change within-trip RANKING (and therefore NDCG@10) except through tie-break reordering at flat isotonic segments -- an at/near-zero delta here is the mathematically EXPECTED result, not a modeling failure. Calibration's actual purpose (cross-traveler score comparability for planner_weight) is not something NDCG@10 measures.",
+      "status": "measured",
+      "wilcoxon_n_pairs": 202,
+      "wilcoxon_p_value": 0.7305390450079203
+    },
+    {
+      "ablation": "-MMR",
+      "delta_ndcg@10": 0.00436682574190006,
+      "ndcg@10_ablated": {
+        "ci_high": 0.17429266961563067,
+        "ci_low": 0.11484946115056588,
+        "mean": 0.1438907403242336,
+        "n_excluded": 25,
+        "n_included": 177
+      },
+      "ndcg@10_full": {
+        "ci_high": 0.1708716756156098,
+        "ci_low": 0.10988508239421108,
+        "mean": 0.13952391458233354,
+        "n_excluded": 25,
+        "n_included": 177
+      },
+      "note": "lambda=1.0 (pure utility ranking, no diversity penalty) vs the configured default lambda=0.8 -- reuses scoring.diversity.mmr_rerank_all_trips directly, no retraining.",
+      "status": "measured",
+      "wilcoxon_n_pairs": 177,
+      "wilcoxon_p_value": 0.18697957498746587
+    },
+    {
+      "ablation": "-CF_channel",
+      "delta_ndcg@10": 0.0017230897000138357,
+      "ndcg@10_ablated": {
+        "ci_high": 0.10601660003129514,
+        "ci_low": 0.07258373483206088,
+        "mean": 0.08921290887941977,
+        "n_excluded": 0,
+        "n_included": 202
+      },
+      "ndcg@10_full": {
+        "ci_high": 0.10422444095532098,
+        "ci_low": 0.07153074782496736,
+        "mean": 0.08748981917940593,
+        "n_excluded": 0,
+        "n_included": 202
+      },
+      "note": "Leave-one-channel-out ('channel_cf' removed from the 6-channel candidate union): re-evaluates the ALREADY-TRAINED lambdamart_ips score over the smaller candidate set, no retraining, no new candidate generation.",
+      "status": "measured",
+      "wilcoxon_n_pairs": 202,
+      "wilcoxon_p_value": 0.012630323368642548
+    },
+    {
+      "ablation": "-long_tail_quota",
+      "delta_ndcg@10": 0.00770384180638127,
+      "ndcg@10_ablated": {
+        "ci_high": 0.11513839918341244,
+        "ci_low": 0.07663210091143023,
+        "mean": 0.0951936609857872,
+        "n_excluded": 0,
+        "n_included": 202
+      },
+      "ndcg@10_full": {
+        "ci_high": 0.10422444095532098,
+        "ci_low": 0.07153074782496736,
+        "mean": 0.08748981917940593,
+        "n_excluded": 0,
+        "n_included": 202
+      },
+      "note": "Leave-one-channel-out ('channel_longtail' removed from the 6-channel candidate union): re-evaluates the ALREADY-TRAINED lambdamart_ips score over the smaller candidate set, no retraining, no new candidate generation.",
+      "status": "measured",
+      "wilcoxon_n_pairs": 202,
+      "wilcoxon_p_value": 3.251467562741879e-07
+    },
+    {
+      "ablation": "-text_embeddings",
+      "delta_ndcg@10": -0.012869431427381034,
+      "ndcg@10_ablated": {
+        "ci_high": 0.08879245437277808,
+        "ci_low": 0.06086246174854704,
+        "mean": 0.0746203877520249,
+        "n_excluded": 0,
+        "n_included": 202
+      },
+      "ndcg@10_full": {
+        "ci_high": 0.10422444095532098,
+        "ci_low": 0.07153074782496736,
+        "mean": 0.08748981917940593,
+        "n_excluded": 0,
+        "n_included": 202
+      },
+      "note": "Full retrain with every 'text_emb_*' numeric feature column dropped from the design matrix (models.baselines.numeric_feature_columns filtered before training) -- same IPS + behavioral-dropout recipe as system 8 otherwise.",
+      "status": "measured",
+      "wilcoxon_n_pairs": 202,
+      "wilcoxon_p_value": 0.09038246548138217
+    },
+    {
+      "ablation": "-implicit_taste",
+      "delta_ndcg@10": -0.0072684006974374216,
+      "ndcg@10_ablated": {
+        "ci_high": 0.0955454788277947,
+        "ci_low": 0.0654925860662968,
+        "mean": 0.08022141848196851,
+        "n_excluded": 0,
+        "n_included": 202
+      },
+      "ndcg@10_full": {
+        "ci_high": 0.10422444095532098,
+        "ci_low": 0.07153074782496736,
+        "mean": 0.08748981917940593,
+        "n_excluded": 0,
+        "n_included": 202
+      },
+      "note": "Full retrain with every 'implicit_*' numeric feature column dropped from the design matrix (models.baselines.numeric_feature_columns filtered before training) -- same IPS + behavioral-dropout recipe as system 8 otherwise.",
+      "status": "measured",
+      "wilcoxon_n_pairs": 202,
+      "wilcoxon_p_value": 0.3702372384366386
+    },
+    {
+      "ablation": "-explicit_interests",
+      "delta_ndcg@10": -0.009028178399095477,
+      "ndcg@10_ablated": {
+        "ci_high": 0.09372112366128081,
+        "ci_low": 0.0639513444273765,
+        "mean": 0.07846164078031045,
+        "n_excluded": 0,
+        "n_included": 202
+      },
+      "ndcg@10_full": {
+        "ci_high": 0.10422444095532098,
+        "ci_low": 0.07153074782496736,
+        "mean": 0.08748981917940593,
+        "n_excluded": 0,
+        "n_included": 202
+      },
+      "note": "Full retrain with every 'explicit_*' numeric feature column dropped from the design matrix (models.baselines.numeric_feature_columns filtered before training) -- same IPS + behavioral-dropout recipe as system 8 otherwise.",
+      "status": "measured",
+      "wilcoxon_n_pairs": 202,
+      "wilcoxon_p_value": 0.28453502902644323
+    },
+    {
+      "ablation": "-behavioral_block",
+      "delta_ndcg@10": -0.013123049281006577,
+      "ndcg@10_ablated": {
+        "ci_high": 0.08905852202234428,
+        "ci_low": 0.06009380782309915,
+        "mean": 0.07436676989839935,
+        "n_excluded": 0,
+        "n_included": 202
+      },
+      "ndcg@10_full": {
+        "ci_high": 0.10422444095532098,
+        "ci_low": 0.07153074782496736,
+        "mean": 0.08748981917940593,
+        "n_excluded": 0,
+        "n_included": 202
+      },
+      "note": "Full retrain with every 'behav_*' numeric feature column dropped from the design matrix (models.baselines.numeric_feature_columns filtered before training) -- same IPS + behavioral-dropout recipe as system 8 otherwise.",
+      "status": "measured",
+      "wilcoxon_n_pairs": 202,
+      "wilcoxon_p_value": 0.08431688667465219
+    }
+  ],
+  "beta_sensitivity": [
+    {
+      "beta": 0.3,
+      "n_trips_excluded": 0,
+      "n_trips_included": 202,
+      "ndcg@10_mean": 0.06860094092749335
+    },
+    {
+      "beta": 0.5,
+      "n_trips_excluded": 0,
+      "n_trips_included": 202,
+      "ndcg@10_mean": 0.06884897165896012
+    },
+    {
+      "beta": 0.7,
+      "n_trips_excluded": 0,
+      "n_trips_included": 202,
+      "ndcg@10_mean": 0.06882341374006705
+    },
+    {
+      "beta": 0.9,
+      "n_trips_excluded": 0,
+      "n_trips_included": 202,
+      "ndcg@10_mean": 0.06861862863412235
+    },
+    {
+      "beta": 1.1,
+      "n_trips_excluded": 0,
+      "n_trips_included": 202,
+      "ndcg@10_mean": 0.06928287586172883
+    }
+  ],
+  "bias_gap": {
+    "content_cosine": {
+      "biased_ci_high": 0.05736551238284423,
+      "biased_ci_low": 0.029673520311790616,
+      "gap": -0.038492308858457856,
+      "ndcg@10_biased": 0.04218950688034514,
+      "ndcg@10_unbiased": 0.080681815738803
+    },
+    "item_knn_cf": {
+      "biased_ci_high": 0.18410520374147776,
+      "biased_ci_low": 0.13258522537977513,
+      "gap": 0.10383988923546365,
+      "ndcg@10_biased": 0.15817125959497852,
+      "ndcg@10_unbiased": 0.054331370359514866
+    },
+    "lambdamart": {
+      "biased_ci_high": 0.25675357979056446,
+      "biased_ci_low": 0.19871489720362365,
+      "gap": 0.17211350450725366,
+      "ndcg@10_biased": 0.22665864037244207,
+      "ndcg@10_unbiased": 0.0545451358651884
+    },
+    "lambdamart_ips": {
+      "biased_ci_high": 0.1968568372539289,
+      "biased_ci_low": 0.14375216601821064,
+      "gap": 0.08278215530887181,
+      "ndcg@10_biased": 0.17027197448827774,
+      "ndcg@10_unbiased": 0.08748981917940593
+    },
+    "logistic_regression": {
+      "biased_ci_high": 0.2616574388978577,
+      "biased_ci_low": 0.19911035138247601,
+      "gap": 0.16913139793217552,
+      "ndcg@10_biased": 0.22938189345101007,
+      "ndcg@10_unbiased": 0.06025049551883456
+    },
+    "oracle": {
+      "biased_ci_high": 0.1252730480474087,
+      "biased_ci_low": 0.08575595165138188,
+      "gap": -0.02711094497841214,
+      "ndcg@10_biased": 0.10511606749856871,
+      "ndcg@10_unbiased": 0.13222701247698085
+    },
+    "popularity": {
+      "biased_ci_high": 0.19831725646215068,
+      "biased_ci_low": 0.1475835492980978,
+      "gap": 0.10986330642180774,
+      "ndcg@10_biased": 0.17208265239523352,
+      "ndcg@10_unbiased": 0.06221934597342578
+    },
+    "popularity_geo_filter": {
+      "biased_ci_high": 0.20360075753104112,
+      "biased_ci_low": 0.14712099728531908,
+      "gap": 0.12328560338679945,
+      "ndcg@10_biased": 0.17465509212883898,
+      "ndcg@10_unbiased": 0.051369488742039525
+    },
+    "random": {
+      "biased_ci_high": 0.04607554742606703,
+      "biased_ci_low": 0.021714217989848166,
+      "gap": 0.0025064897255952373,
+      "ndcg@10_biased": 0.032917636047250017,
+      "ndcg@10_unbiased": 0.03041114632165478
+    }
+  },
+  "calibration": {
+    "brier_after": 0.05206039043682308,
+    "brier_before": 0.2148890278610156,
+    "ece_after": 0.045697446732329096,
+    "ece_before": 0.36007970418329277,
+    "n_calibration_rows": 19307,
+    "n_calibration_trips": 102
+  },
+  "candidate_recall": {
+    "long_tail": {
+      "n_trips_evaluated": 201,
+      "n_trips_excluded_no_relevant": 1,
+      "recall_mean": 0.39364377215853785
+    },
+    "overall": {
+      "n_trips_evaluated": 202,
+      "n_trips_excluded_no_relevant": 0,
+      "recall_mean": 0.44134916730782753
+    }
+  },
+  "cold_start": {
+    "ndcg@10_by_interaction_count_bucket": {
+      "0": {
+        "ci_high": 0.11047147221411233,
+        "ci_low": 0.0701966270018702,
+        "mean": 0.0904161460120298,
+        "n_excluded": 0,
+        "n_included": 137,
+        "n_trips_in_bucket": 137
+      },
+      "1-3": {
+        "ci_high": 0.0,
+        "ci_low": 0.0,
+        "mean": 0.0,
+        "n_excluded": 0,
+        "n_included": 0,
+        "n_trips_in_bucket": 0
+      },
+      "4-10": {
+        "ci_high": 0.48167998461523853,
+        "ci_low": 0.48167998461523853,
+        "mean": 0.48167998461523853,
+        "n_excluded": 0,
+        "n_included": 1,
+        "n_trips_in_bucket": 1
+      },
+      ">10": {
+        "ci_high": 0.09979862785269454,
+        "ci_low": 0.05092302722146706,
+        "mean": 0.07506642946838556,
+        "n_excluded": 0,
+        "n_included": 64,
+        "n_trips_in_bucket": 64
+      }
+    },
+    "note": "New-POI cohort NDCG@10 is reported separately under the top-level 'new_poi_cohort' key (eval/new_poi_cohort.py, Phase 5) -- not duplicated here. Leave-one-destination-out (LODO) is reported under the top-level 'lodo' key ONLY after `poi_rank.cli lodo` has been run (a separate command, not part of `make reproduce`'s default chain -- see eval/cold_start.py's module docstring)."
+  },
+  "confidence_decile_validation": {
+    "deciles": [
+      {
+        "decile": 1,
+        "mean_confidence": 0.4681829593826427,
+        "n_trips": 21,
+        "ndcg@k_mean": 0.09109470011335856
+      },
+      {
+        "decile": 2,
+        "mean_confidence": 0.48630532483509975,
+        "n_trips": 20,
+        "ndcg@k_mean": 0.08872183007810204
+      },
+      {
+        "decile": 3,
+        "mean_confidence": 0.4956436250655386,
+        "n_trips": 20,
+        "ndcg@k_mean": 0.08004138294472286
+      },
+      {
+        "decile": 4,
+        "mean_confidence": 0.5040428648902766,
+        "n_trips": 20,
+        "ndcg@k_mean": 0.033805234450378245
+      },
+      {
+        "decile": 5,
+        "mean_confidence": 0.5126865501854124,
+        "n_trips": 20,
+        "ndcg@k_mean": 0.04861921492554104
+      },
+      {
+        "decile": 6,
+        "mean_confidence": 0.522509768322683,
+        "n_trips": 20,
+        "ndcg@k_mean": 0.10816503306524974
+      },
+      {
+        "decile": 7,
+        "mean_confidence": 0.5530846627431842,
+        "n_trips": 20,
+        "ndcg@k_mean": 0.07965286355187463
+      },
+      {
+        "decile": 8,
+        "mean_confidence": 0.6574040646800482,
+        "n_trips": 20,
+        "ndcg@k_mean": 0.05213361228753005
+      },
+      {
+        "decile": 9,
+        "mean_confidence": 0.68348089992042,
+        "n_trips": 20,
+        "ndcg@k_mean": 0.05300746723974424
+      },
+      {
+        "decile": 10,
+        "mean_confidence": 0.7117698142989874,
+        "n_trips": 21,
+        "ndcg@k_mean": 0.05268610010715042
+      }
+    ],
+    "n_trips_included": 202,
+    "spearman_p_value": 0.27625533338543595,
+    "spearman_rho": -0.38181818181818183,
+    "target_met": false
+  },
+  "constraint_compatibility": {
+    "compatibility_target": 0.7,
+    "n_above_target": 1784,
+    "n_hard_constraint_violations": 0,
+    "n_recommended": 2019,
+    "share_above_target": 0.883605745418524
+  },
+  "coverage": {
+    "popularity_baseline": {
+      "catalog_coverage_at_10": 0.04702627939142462,
+      "catalog_coverage_by_destination": {
+        "barcelona": 0.04365904365904366,
+        "kyoto": 0.045548654244306416,
+        "seoul": 0.05186721991701245
+      },
+      "entropy_bits": 5.571587731902214,
+      "gini": 0.9733809895512373,
+      "n_catalog_pois": 1446,
+      "n_pois_ever_recommended": 68
+    },
+    "primary_system": {
+      "catalog_coverage_at_10": 0.27385892116182575,
+      "catalog_coverage_by_destination": {
+        "barcelona": 0.2681912681912682,
+        "kyoto": 0.29606625258799174,
+        "seoul": 0.2572614107883817
+      },
+      "entropy_bits": 7.749554252608454,
+      "gini": 0.8840486334182116,
+      "n_catalog_pois": 1446,
+      "n_pois_ever_recommended": 396
+    }
+  },
+  "diversity": {
+    "category_entropy_at_10_bits": 3.37005133354533,
+    "intra_list_mean_distance": 0.8860880209901262,
+    "lambda_sweep": [
+      {
+        "lambda": 0.5,
+        "mean_intra_list_similarity": 0.082208622875875,
+        "n_trips_included_diversity": 202,
+        "n_trips_included_ndcg": 177,
+        "ndcg@10_mean": 0.1247459602984671
+      },
+      {
+        "lambda": 0.6,
+        "mean_intra_list_similarity": 0.08872769293851418,
+        "n_trips_included_diversity": 202,
+        "n_trips_included_ndcg": 177,
+        "ndcg@10_mean": 0.12714990596580575
+      },
+      {
+        "lambda": 0.7,
+        "mean_intra_list_similarity": 0.0983787606994529,
+        "n_trips_included_diversity": 202,
+        "n_trips_included_ndcg": 177,
+        "ndcg@10_mean": 0.13409799790235644
+      },
+      {
+        "lambda": 0.8,
+        "mean_intra_list_similarity": 0.11391197900987379,
+        "n_trips_included_diversity": 202,
+        "n_trips_included_ndcg": 177,
+        "ndcg@10_mean": 0.13952391458233354
+      },
+      {
+        "lambda": 0.9,
+        "mean_intra_list_similarity": 0.13438506945883716,
+        "n_trips_included_diversity": 202,
+        "n_trips_included_ndcg": 177,
+        "ndcg@10_mean": 0.13551578461394992
+      },
+      {
+        "lambda": 1.0,
+        "mean_intra_list_similarity": 0.16806053149222588,
+        "n_trips_included_diversity": 202,
+        "n_trips_included_ndcg": 177,
+        "ndcg@10_mean": 0.1438907403242336
+      }
+    ]
+  },
+  "longtail": {
+    "n_longtail_recommended": 472,
+    "n_longtail_relevant": 32,
+    "n_total_recommended": 2019,
+    "precision": 0.06779661016949153,
+    "precision_target_met": false,
+    "share": 0.23377909856364537,
+    "share_target_met": false
+  },
   "meta": {
     "bootstrap_n_resamples": 2000,
     "bootstrap_resample_unit": "trip",
@@ -6,7 +518,7 @@
     "model_seed": 42,
     "n_holdout_trips": 202,
     "note": "All metrics in this table are bounded by candidate_recall@250 (overall 0.4413, long-tail-stratum 0.3936 -- see candidates/recall_metrics.py output and docs/DATA_CARD.md): a candidate set missing a trip's true-relevant POIs caps every ranking metric computed over it (NDCG/Recall/MAP/MRR), regardless of ranking quality within the candidate set that IS present. This is a known, already-diagnosed property of Phase 4a's candidate generation, not a bug in this phase's baselines or metrics.",
-    "phase": "5",
+    "phase": "8",
     "wilcoxon_metric": "ndcg@10"
   },
   "new_poi_cohort": {
@@ -34,6 +546,21 @@
       "p_value": 0.9939808148460756,
       "statistic": 351.0
     }
+  },
+  "personalization": {
+    "archetype": {
+      "cross_archetype_jaccard_mean": 0.04041070009753222,
+      "cross_archetype_n_pairs": 17050,
+      "cross_archetype_target_met": true,
+      "ratio_target_met": false,
+      "within_archetype_jaccard_mean": 0.043517279895369805,
+      "within_archetype_n_pairs": 3251,
+      "within_cross_ratio": 1.076875178859554
+    },
+    "mean_pairwise_jaccard_at_10": 0.040908187458882396,
+    "mean_pairwise_rbo": 0.06164147099445207,
+    "n_pairs": 20301,
+    "n_pairs_rbo": 20301
   },
   "systems": {
     "content_cosine": {

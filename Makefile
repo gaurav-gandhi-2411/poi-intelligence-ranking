@@ -1,4 +1,4 @@
-.PHONY: reproduce generate prepare features candidates train evaluate recommend scenarios docs test lint
+.PHONY: reproduce generate prepare features candidates train evaluate lodo recommend scenarios docs test lint
 
 PY := uv run python
 export PYTHONHASHSEED := 0
@@ -22,6 +22,13 @@ train:
 
 evaluate:
 	$(PY) -m poi_rank.cli evaluate
+
+# Leave-one-destination-out (spec.md section 11.8): 3 full LightGBM retrains,
+# genuinely expensive -- deliberately NOT part of `reproduce`'s default chain
+# (eval/cold_start.py's module docstring). Run after `evaluate`; merges a `lodo`
+# key into the already-written results/metrics.json.
+lodo:
+	$(PY) -m poi_rank.cli lodo
 
 recommend:
 	$(PY) -m poi_rank.cli recommend

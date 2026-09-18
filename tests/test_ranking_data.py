@@ -16,6 +16,7 @@ from poi_rank.features.config import BudgetTargetPriceLevel
 from poi_rank.models.ranking_data import (
     build_ranking_frame,
     label_by_trip_poi,
+    load_holdout_biased_evaluation_frame,
     load_holdout_evaluation_frame,
     load_train_ranking_frame,
 )
@@ -212,3 +213,36 @@ def test_holdout_and_train_frames_are_disjoint_in_trips(
     holdout = load_holdout_evaluation_frame(evaluate_ready_data_dir, budget)
     train = load_train_ranking_frame(evaluate_ready_data_dir, budget)
     assert set(holdout["trip_id"]).isdisjoint(set(train["trip_id"]))
+
+
+def test_load_holdout_biased_evaluation_frame_real_data(
+    evaluate_ready_data_dir: Any, feature_build_cfg: Any
+) -> None:
+    budget = feature_build_cfg.traveler_features.budget_target_price_level
+    frame = load_holdout_biased_evaluation_frame(evaluate_ready_data_dir, budget)
+
+    assert len(frame) > 0
+    assert frame["label"].isna().sum() == 0
+    assert frame["label"].min() >= 0
+    assert frame["label"].max() <= 3
+
+    trips_df = pd.read_parquet(evaluate_ready_data_dir / "trips.parquet")
+    holdout_trip_ids = set(trips_df.loc[trips_df["is_holdout"], "trip_id"])
+    assert set(frame["trip_id"]) <= holdout_trip_ids
+
+
+def test_biased_and_unbiased_holdout_frames_are_row_order_aligned(
+    evaluate_ready_data_dir: Any, feature_build_cfg: Any
+) -> None:
+    """`eval/run.py`'s bias-gap table reuses an already-computed unbiased-frame
+    score `pd.Series` directly against the biased frame's `label` column without
+    rescoring -- only valid if the two frames are row-for-row `(trip_id, poi_id)`
+    aligned (module docstring's own stated invariant), asserted here directly
+    rather than only relied upon implicitly."""
+    budget = feature_build_cfg.traveler_features.budget_target_price_level
+    unbiased = load_holdout_evaluation_frame(evaluate_ready_data_dir, budget)
+    biased = load_holdout_biased_evaluation_frame(evaluate_ready_data_dir, budget)
+
+    assert len(unbiased) == len(biased)
+    assert list(unbiased["trip_id"]) == list(biased["trip_id"])
+    assert list(unbiased["poi_id"]) == list(biased["poi_id"])

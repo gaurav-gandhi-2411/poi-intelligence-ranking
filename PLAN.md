@@ -240,6 +240,115 @@ clean throughout. Determinism byte-identical, verified at every phase.**
    Scoring-layer numbers unchanged (confirmed byte/value-identical) — the fix only
    touches explanation text, never the ranking/scoring computation itself.
 
+## Done (Day 2 P0, Phase 8, spec.md §16 item 10 — the full eval suite)
+
+10. **Full eval suite** (`eval/personalization.py`, `eval/coverage.py`,
+    `eval/longtail.py`, `eval/constraints.py`, `eval/cold_start.py`,
+    `eval/ablations.py`, `eval/report.py`) — personalization (mean pairwise
+    Jaccard@10 + RBO p=0.9 + within/cross archetype-proxy Jaccard, archetype proxy
+    reused from Phase 3's `assign_traveler_segments`, never the oracle), coverage
+    (catalog coverage@10, Gini, entropy, vs the popularity baseline), long-tail
+    (share + precision reported together per spec's "coverage without precision is
+    noise" instruction), constraint compatibility (% ≥0.7 + the real hard-violation
+    count), diversity (category entropy + intra-list distance, reusing Phase 6's
+    lambda sweep), calibration/confidence-decile/beta-sensitivity (Phase 6 numbers,
+    now persisted to `results/metrics.json` for the first time, not just CLI
+    stdout), cold-start (interaction-count buckets + new-POI cohort cross-
+    reference + leave-one-destination-out), and all 9 ablations (`-IPS_weighting`,
+    `-calibration`, `-MMR`, `-CF_channel`, `-long_tail_quota` cheap/no-retrain;
+    `-text_embeddings`, `-implicit_taste`, `-explicit_interests`,
+    `-behavioral_block` one full LightGBM retrain each — **none skipped**, all 9
+    measured on the real dataset). `eval/run.py` now also computes a bias-gap
+    table (spec §1.3's "single highest-value element," reusing every system's
+    already-computed score against a new `models.ranking_data
+    .load_holdout_biased_evaluation_frame`, row-order-aligned to the primary frame
+    by construction — no rescoring) and persists `candidate_recall@250` (Phase
+    4a's number, previously CLI-only) to `results/metrics.json` for the first
+    time. **`poi_rank.cli lodo`** (`eval/cold_start.py::run_lodo`) is a genuinely
+    separate command — 3 full destination-held-out LightGBM retrains — that
+    merges a `"lodo"` key into the already-written `results/metrics.json`, kept
+    OUT of `make reproduce`'s default chain per spec §16's own cut-order but run
+    and included in this submission anyway (36.4s wall-clock, cheap enough).
+    **`eval/report.py`** generates `docs/RESULTS.md` from `results/metrics.json`
+    via pure f-string interpolation — zero hand-typed numbers — enforced by
+    `tests/test_report.py::test_every_number_in_results_md_traces_to_metrics_json`,
+    a real grep-and-cross-check against the source JSON (not a manual promise).
+
+    **Results** (real committed dataset, 202 holdout trips, `uv run python -m
+    poi_rank.cli evaluate` = **2m39.8s**, `uv run python -m poi_rank.cli lodo` =
+    **36.4s**, both well within the <5 min per-command budget; full determinism
+    verified directly — two independent `run_evaluate` calls on the real dataset
+    produce byte-identical `results/metrics.json`, 39,636 bytes each). Systems
+    table reproduces Phase 5 exactly (lambdamart_ips NDCG@10 = 0.0875, 66.2% of
+    ceiling, +40.6% vs popularity p=0.0042). **New Phase 8 honest misses**:
+    within/cross archetype Jaccard ratio = 1.08 (target ≥2.0, **MISSED** —
+    root-caused to the K-Means archetype PROXY being too coarse relative to what
+    actually drives personalization, per-trip stay location + implicit taste +
+    semantic candidates; cross-archetype Jaccard itself, 0.0404, **MET** the ≤0.25
+    target in isolation); long-tail share = 0.2338 (target ≥0.25, **MISSED**, a
+    near-miss) with precision = 0.0678 (target ≥0.5, **MISSED** — but honestly
+    NOT a long-tail-specific collapse: it sits close to the primary system's
+    OVERALL precision@10 of 8.4%, tracing to the same already-documented
+    candidate-recall ceiling, not a defect unique to long-tail POIs). **New Phase
+    8 successes** (not named §11.10 targets but measured anyway): coverage@10 =
+    27.4% vs the popularity baseline's 4.7% (5.8x more of the catalog, lower
+    Gini, higher entropy — a clear, measured "no popularity monoculture" result);
+    bias-gap for lambdamart_ips (+0.0828) is smaller than both popularity's
+    (+0.1099) and plain lambdamart-without-IPS's (+0.1721), confirming IPS
+    correction measurably reduces exposure-bias inflation. **LODO**: every
+    destination shows lower NDCG@10 held out vs full training (barcelona 0.0700
+    vs 0.1040, p=0.048 — the only one reaching significance at this
+    per-destination trip count; kyoto 0.0575 vs 0.0776 p=0.12; seoul 0.0634 vs
+    0.0836 p=0.12) — directionally consistent, honestly reported as
+    only-partially-significant. **Ablations**: `-IPS_weighting` is the largest,
+    most significant contributor (Δ=-0.0329, p=1.8e-05); `-CF_channel`
+    (Δ=+0.0017, p=0.013) and `-long_tail_quota` (Δ=+0.0077, p=3.3e-07) both
+    slightly IMPROVE raw NDCG@10 when removed — reported as a genuine, honest
+    trade-off (both channels exist for coverage/long-tail objectives, not NDCG,
+    and Phase 4a already showed both contribute real positive marginal candidate
+    recall), never spun as "the channel is useless"; the 4 feature-block
+    ablations all point the expected direction (removing hurts) but none reaches
+    p<0.05 individually at this holdout size. Full numbers, every diagnosis, and
+    the complete generated table: `docs/RESULTS.md`, `docs/DATA_CARD.md` #70-77.
+
+    Test suite at this checkpoint: **381 tests collected (379 passed), 2 xfailed**
+    (pre-existing, unchanged — localness-rho, confidence-decile-monotonicity),
+    **0 failed**, confirmed via multiple independent full `uv run pytest` runs
+    (all exit code 0). New test files: `tests/test_personalization.py` (12),
+    `tests/test_coverage.py` (14, incl. the determinism regression test below),
+    `tests/test_longtail.py` (4), `tests/test_constraints.py` (2),
+    `tests/test_cold_start.py` (5), `tests/test_ablations.py` (9),
+    `tests/test_report.py` (4, incl. the grep-based no-hand-typed-numbers
+    enforcement test), `tests/test_firewall_eval.py` (3, the "nothing imports
+    eval/" mirror-image firewall). Extended `tests/test_ranking_data.py` (the
+    biased/unbiased frame row-order-alignment invariant) and
+    `tests/test_evaluate.py` (the full Phase 8 payload shape). ruff/mypy clean
+    throughout.
+
+    **Orchestrator-caught genuine byte-determinism failure, fixed before commit**
+    (`docs/DATA_CARD.md` #78): the verifier ran `uv run python -m poi_rank.cli
+    evaluate` twice directly (no `make`, no externally-set `PYTHONHASHSEED`) and
+    got two DIFFERENT `results/metrics.json` SHA256 hashes — this project's hard
+    determinism requirement genuinely violated, not accepted as "fine for
+    numerical computing." Root cause: `eval/coverage.py::recommendation_frequency`
+    iterated the raw `catalog_poi_ids` `set[str]` directly to build a dict whose
+    `.values()` fed `shannon_entropy`'s floating-point summation — `set` iteration
+    order for `str` depends on per-process hash randomization, so the summation
+    order (and therefore the exact float, ~2e-15 off between runs) varied on every
+    invocation that didn't share a `PYTHONHASHSEED`. Same failure CLASS already
+    documented elsewhere in this project for `candidates/channels.py`'s
+    epsilon-greedy sampling (fixed there via a SHA256-derived seed, never Python's
+    `hash()`) — hash-order-dependent iteration reaching a numeric reduction.
+    Fixed: `recommendation_frequency` now iterates `sorted(catalog_poi_ids)`,
+    deterministic independent of `PYTHONHASHSEED` entirely (more robust than
+    relying on the Makefile's `export PYTHONHASHSEED := 0`, which only covers
+    invocations that go through `make`). Re-verified: ran `evaluate` twice with
+    `PYTHONHASHSEED` explicitly unset (the exact failing scenario) — byte-identical
+    SHA256 both times. Regression test added. No other `set[str]`-into-numeric-
+    reduction pattern found elsewhere in the new Phase 8 modules (checked
+    `personalization.py`'s Jaccard/RBO specifically — both are exact-cardinality
+    operations, order-independent by construction).
+
 ## Next (Day 2 P0, spec.md §16)
 
 7. ~~**LambdaMART + IPS** (`models/lambdamart.py`) — `lightgbm` `lambdarank`,
@@ -258,18 +367,24 @@ clean throughout. Determinism byte-identical, verified at every phase.**
    **DONE — see "Done (Day 2 P0, Phase 6)" below.**
 9. ~~**Explainability** (`explain/`) — grouped TreeSHAP, template layer, no LLM.~~
    **DONE — see "Done (Day 2 P0, Phase 7)" above.**
-10. **Full eval suite** (`eval/`) — personalization (Jaccard within/cross
+10. ~~**Full eval suite** (`eval/`) — personalization (Jaccard within/cross
     archetype), coverage (Gini/entropy), long-tail precision, constraint
     compatibility (hard-violation-rate=0 test, build-blocking per spec §11.5),
     diversity, calibration, cold-start cohorts, leave-one-destination-out,
     ablations (9 rows), then **generate `docs/RESULTS.md` from
-    `results/metrics.json`** — no hand-typed numbers anywhere in `docs/`.
+    `results/metrics.json`** — no hand-typed numbers anywhere in `docs/`.~~
+    **DONE — see "Done (Day 2 P0, Phase 8)" below. All 9 ablations AND LODO
+    completed (not deferred to P1) — real wall-clock made both affordable
+    within budget.**
 11. 3+1 required scenarios (`make scenarios`).
 12. `docs/TECHNICAL.md` (11 sections, incl. explicit LambdaMART-vs-two-tower and
     multiplicative-vs-additive justifications), README, finalize DATA_CARD.
-13. P1: full ablation table, LODO, confidence-decile validation (if time).
+13. ~~P1: full ablation table, LODO, confidence-decile validation (if time).~~
+    **DONE early — see item 10 above (all 9 ablations + LODO landed in Phase 8
+    itself); confidence-decile validation was already measured in Phase 6 and
+    is now also persisted to `results/metrics.json`.**
 14. P2 (cut first if short on time): notebook, λ sweep figure, feature-importance
-    figure.
+    figure. (λ sweep figure already done, Phase 6.)
 
 ## Process notes for future sessions
 

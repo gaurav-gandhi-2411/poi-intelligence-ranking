@@ -350,6 +350,12 @@ def run_scoring_pipeline(
     boosters = lm.load_boosters(artifacts_dir)
     booster_ips = boosters["lambdamart_ips"]
     raw_score = lm.score_booster(booster_ips, holdout_frame, numeric_columns, categorical_columns)
+    raw_score_by_key: dict[tuple[str, str], float] = {
+        (str(t), str(p)): float(s)
+        for t, p, s in zip(
+            holdout_frame["trip_id"], holdout_frame["poi_id"], raw_score, strict=True
+        )
+    }
 
     calib_result = fit_and_apply_calibration(
         train_frame,
@@ -468,6 +474,23 @@ def run_scoring_pipeline(
         "lambda_sweep_rows": lambda_rows,
         "full_frame": full,
         "n_holdout_trips": int(holdout_frame["trip_id"].nunique()),
+        # Raw (pre-calibration) LambdaMART+IPS score, re-aligned to `full`'s row
+        # order via an explicit `(trip_id, poi_id)` dict lookup (never a positional/
+        # `.loc[full.index]` alignment -- `full`'s index is a fresh RangeIndex from
+        # the `holdout_frame.merge(compat_frame, ...)` above and must not be assumed
+        # to share label semantics with `raw_score`'s own pre-merge index, same
+        # "never rely on merge-induced row order" discipline this module's own
+        # docstring already states for every other per-row array here) -- exposed
+        # for `eval/ablations.py`'s `-calibration` ablation (raw vs
+        # `relevance`/calibrated NDCG@10 over the identical row population).
+        "raw_score": pd.Series(
+            [
+                raw_score_by_key[(str(t), str(p))]
+                for t, p in zip(full["trip_id"], full["poi_id"], strict=True)
+            ],
+            index=full.index,
+            name="score_lambdamart_ips_raw",
+        ),
     }
 
 

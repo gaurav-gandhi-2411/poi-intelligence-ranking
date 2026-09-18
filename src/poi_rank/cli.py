@@ -6,6 +6,7 @@ features, candidates, train, evaluate, scenarios) are wired in as they're built.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -21,8 +22,9 @@ from poi_rank.data.config import FeaturesConfig
 from poi_rank.data.prepare import run_prepare
 from poi_rank.datagen.config import DatagenConfig
 from poi_rank.datagen.pipeline import run_generate
+from poi_rank.eval.cold_start import run_lodo
 from poi_rank.eval.config import EvalConfig
-from poi_rank.eval.run import ALL_SYSTEM_NAMES, WILCOXON_METRIC, run_evaluate
+from poi_rank.eval.run import ALL_SYSTEM_NAMES, METRICS_FILENAME, WILCOXON_METRIC, run_evaluate
 from poi_rank.explain.output_enrichment import build_payload_enricher
 from poi_rank.features.build import run_features
 from poi_rank.features.config import FeatureBuildConfig
@@ -241,6 +243,9 @@ def evaluate(
     datagen_config_path: Path = typer.Option(  # noqa: B008
         DEFAULT_CONFIG_PATH, help="Path to datagen.yaml"
     ),
+    scoring_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_SCORING_CONFIG_PATH, help="Path to scoring.yaml"
+    ),
     data_dir: Path = typer.Option(  # noqa: B008
         DEFAULT_OUTPUT_DIR, help="Directory containing data/synthetic/*.parquet"
     ),
@@ -254,13 +259,16 @@ def evaluate(
     """Run the full evaluation harness (baselines 1-6 + LambdaMART systems 7/8,
     loaded from `artifacts/` -- run `poi_rank.cli train` first -- + oracle ceiling,
     full metric table with bootstrap 95% CIs, paired Wilcoxon comparisons, new-POI
-    cohort robustness) on the PRIMARY unbiased holdout, and write
-    `results/metrics.json`."""
+    cohort robustness, bias-gap table, personalization, coverage, long-tail,
+    constraint compatibility, diversity, calibration, confidence-decile validation,
+    cold-start cohorts, and the 9-row ablation table) on the PRIMARY unbiased
+    holdout, and write `results/metrics.json`."""
     feature_cfg = FeatureBuildConfig.from_yaml(features_config_path)
     model_cfg = ModelConfig.from_yaml(model_config_path)
     eval_cfg = EvalConfig.from_yaml(eval_config_path)
     candidates_cfg = CandidatesConfig.from_yaml(features_config_path)
     datagen_cfg = DatagenConfig.from_yaml(datagen_config_path)
+    scoring_cfg = ScoringConfig.from_yaml(scoring_config_path)
 
     summary = run_evaluate(
         data_dir,
@@ -269,8 +277,9 @@ def evaluate(
         model_cfg,
         eval_cfg,
         feature_cfg,
-        candidates_cfg.geo,
+        candidates_cfg,
         datagen_cfg,
+        scoring_cfg,
     )
     payload = summary["payload"]
 
@@ -315,7 +324,118 @@ def evaluate(
     dropout_w = cohort["wilcoxon_with_vs_without_dropout"]
     typer.echo(f"  wilcoxon with vs without dropout: p={dropout_w['p_value']:.4g}")
 
+    pers = payload["personalization"]
+    arch = pers["archetype"]
+    typer.echo("\n=== personalization (spec.md section 11.2) ===")
+    typer.echo(
+        f"  mean_pairwise_jaccard@10={pers['mean_pairwise_jaccard_at_10']:.4f} "
+        f"mean_pairwise_rbo={pers['mean_pairwise_rbo']:.4f}"
+    )
+    typer.echo(
+        f"  within_archetype_jaccard={arch['within_archetype_jaccard_mean']:.4f} "
+        f"cross_archetype_jaccard={arch['cross_archetype_jaccard_mean']:.4f} "
+        f"ratio={arch['within_cross_ratio']}"
+    )
+
+    cov = payload["coverage"]
+    cov_primary = cov["primary_system"]
+    cov_pop = cov["popularity_baseline"]
+    typer.echo("\n=== coverage (spec.md section 11.3) ===")
+    typer.echo(
+        f"  primary: coverage@10={cov_primary['catalog_coverage_at_10']:.4f} "
+        f"gini={cov_primary['gini']:.4f} entropy_bits={cov_primary['entropy_bits']:.4f}"
+    )
+    typer.echo(
+        f"  popularity_baseline: coverage@10={cov_pop['catalog_coverage_at_10']:.4f} "
+        f"gini={cov_pop['gini']:.4f}"
+    )
+
+    lg = payload["longtail"]
+    typer.echo("\n=== long-tail (spec.md section 11.4) ===")
+    typer.echo(f"  share={lg['share']:.4f} precision={lg['precision']}")
+
+    cc = payload["constraint_compatibility"]
+    typer.echo("\n=== constraint compatibility (spec.md section 11.5) ===")
+    typer.echo(f"  share_above_target={cc['share_above_target']:.4f}")
+
+    dv2 = payload["diversity"]
+    typer.echo("\n=== diversity (spec.md section 11.6) ===")
+    typer.echo(
+        f"  category_entropy_at_10_bits={dv2['category_entropy_at_10_bits']:.4f} "
+        f"intra_list_mean_distance={dv2['intra_list_mean_distance']:.4f}"
+    )
+
+    typer.echo("\n=== ablations (spec.md section 11.9) ===")
+    for row in payload["ablations"]:
+        typer.echo(f"  {row['ablation']}: delta_ndcg@10={row['delta_ndcg@10']}")
+
     typer.echo(f"\n  {payload['meta']['note']}")
+
+
+@app.command()
+def lodo(
+    features_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_FEATURES_CONFIG_PATH, help="Path to features.yaml"
+    ),
+    model_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_MODEL_CONFIG_PATH, help="Path to model.yaml"
+    ),
+    eval_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_EVAL_CONFIG_PATH, help="Path to eval.yaml"
+    ),
+    data_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_OUTPUT_DIR, help="Directory containing data/synthetic/*.parquet"
+    ),
+    artifacts_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_ARTIFACTS_DIR, help="Directory containing artifacts/model.txt (run `train` first)"
+    ),
+    results_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_RESULTS_DIR, help="Directory containing results/metrics.json (run `evaluate` first)"
+    ),
+) -> None:
+    """Leave-one-destination-out (spec.md section 11.8): train on 2 destinations,
+    evaluate on the 3rd, for all 3 destinations -- 3 full LightGBM retrains,
+    genuinely expensive, NOT part of `make reproduce`'s default chain
+    (`eval/cold_start.py`'s module docstring). Requires `poi_rank.cli evaluate` to
+    have already run: merges a `lodo` key into the existing `results/metrics.json`
+    rather than writing a separate file."""
+    feature_cfg = FeatureBuildConfig.from_yaml(features_config_path)
+    model_cfg = ModelConfig.from_yaml(model_config_path)
+    eval_cfg = EvalConfig.from_yaml(eval_config_path)
+
+    metrics_path = results_dir / METRICS_FILENAME
+    if not metrics_path.exists():
+        typer.echo(f"ERROR: {metrics_path} does not exist -- run `poi_rank.cli evaluate` first.")
+        raise typer.Exit(code=1)
+
+    trips_df = pd.read_parquet(data_dir / "trips.parquet")
+    destinations = tuple(sorted(trips_df["destination"].unique().tolist()))
+
+    result = run_lodo(
+        data_dir,
+        artifacts_dir,
+        model_cfg,
+        feature_cfg,
+        eval_cfg.seed,
+        eval_cfg.bootstrap.n_resamples,
+        eval_cfg.bootstrap.ci_low_pct,
+        eval_cfg.bootstrap.ci_high_pct,
+        destinations,
+    )
+
+    payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+    payload["lodo"] = result
+    metrics_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    typer.echo("=== poi-rank lodo: summary ===")
+    typer.echo(f"  wall_clock_seconds={result['wall_clock_seconds']:.1f}")
+    for row in result["per_destination"]:
+        typer.echo(
+            f"  {row['destination']}: lodo_ndcg@10={row['ndcg@10_lodo']['mean']:.4f} "
+            f"full_training_ndcg@10={row['ndcg@10_full_training']['mean']:.4f} "
+            f"p={row['wilcoxon_lodo_vs_full_training']['p_value']:.4g}"
+        )
+    typer.echo(f"  merged into: {metrics_path}")
 
 
 @app.command()

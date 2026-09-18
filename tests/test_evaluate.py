@@ -29,10 +29,12 @@ from poi_rank.models.config import (
     ModelConfig,
 )
 from poi_rank.models.lambdamart import run_train_lambdamart
+from poi_rank.scoring.config import ScoringConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FEATURES_CONFIG_PATH = REPO_ROOT / "configs" / "features.yaml"
 DATAGEN_CONFIG_PATH = REPO_ROOT / "configs" / "datagen.yaml"
+SCORING_CONFIG_PATH = REPO_ROOT / "configs" / "scoring.yaml"
 
 
 @pytest.fixture(scope="module")
@@ -111,7 +113,8 @@ def test_run_evaluate_payload_structure(
     datagen_cfg_module: DatagenConfig,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
-    geo_cfg = CandidatesConfig.from_yaml(FEATURES_CONFIG_PATH).geo
+    candidates_cfg = CandidatesConfig.from_yaml(FEATURES_CONFIG_PATH)
+    scoring_cfg = ScoringConfig.from_yaml(SCORING_CONFIG_PATH)
     results_dir = tmp_path_factory.mktemp("results")
 
     summary = run_evaluate(
@@ -121,8 +124,9 @@ def test_run_evaluate_payload_structure(
         fast_model_cfg,
         fast_eval_cfg,
         feature_build_cfg,
-        geo_cfg,
+        candidates_cfg,
         datagen_cfg_module,
+        scoring_cfg,
     )
     payload = summary["payload"]
 
@@ -165,6 +169,45 @@ def test_run_evaluate_payload_structure(
     assert "wilcoxon_with_vs_without_dropout" in cohort
     assert 0.0 <= cohort["wilcoxon_with_vs_without_dropout"]["p_value"] <= 1.0
 
+    # Phase 8 additions.
+    assert set(payload["bias_gap"]) == set(ALL_SYSTEM_NAMES)
+    for row in payload["bias_gap"].values():
+        assert "ndcg@10_unbiased" in row
+        assert "ndcg@10_biased" in row
+
+    pers = payload["personalization"]
+    assert 0.0 <= pers["mean_pairwise_jaccard_at_10"] <= 1.0
+    assert 0.0 <= pers["mean_pairwise_rbo"] <= 1.0
+    assert "archetype" in pers
+
+    cov = payload["coverage"]
+    assert "primary_system" in cov and "popularity_baseline" in cov
+    assert 0.0 <= cov["primary_system"]["catalog_coverage_at_10"] <= 1.0
+
+    lg = payload["longtail"]
+    assert 0.0 <= lg["share"] <= 1.0
+
+    cc = payload["constraint_compatibility"]
+    assert cc["n_hard_constraint_violations"] == 0
+
+    dv = payload["diversity"]
+    assert dv["category_entropy_at_10_bits"] >= 0.0
+    assert len(dv["lambda_sweep"]) > 0
+
+    assert "ece_after" in payload["calibration"]
+    assert "spearman_rho" in payload["confidence_decile_validation"]
+    assert isinstance(payload["beta_sensitivity"], list) and len(payload["beta_sensitivity"]) > 0
+
+    cs_payload = payload["cold_start"]
+    assert set(cs_payload["ndcg@10_by_interaction_count_bucket"]) == {"0", "1-3", "4-10", ">10"}
+
+    ablations = payload["ablations"]
+    assert len(ablations) == 9
+    assert all(row["status"] == "measured" for row in ablations)
+
+    assert "candidate_recall" in payload
+    assert "overall" in payload["candidate_recall"] and "long_tail" in payload["candidate_recall"]
+
     assert summary["output_path"].exists()
     written = json.loads(summary["output_path"].read_text(encoding="utf-8"))
     assert written == payload
@@ -179,7 +222,8 @@ def test_run_evaluate_is_deterministic(
     datagen_cfg_module: DatagenConfig,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
-    geo_cfg = CandidatesConfig.from_yaml(FEATURES_CONFIG_PATH).geo
+    candidates_cfg = CandidatesConfig.from_yaml(FEATURES_CONFIG_PATH)
+    scoring_cfg = ScoringConfig.from_yaml(SCORING_CONFIG_PATH)
     results_dir1 = tmp_path_factory.mktemp("results1")
     results_dir2 = tmp_path_factory.mktemp("results2")
 
@@ -190,8 +234,9 @@ def test_run_evaluate_is_deterministic(
         fast_model_cfg,
         fast_eval_cfg,
         feature_build_cfg,
-        geo_cfg,
+        candidates_cfg,
         datagen_cfg_module,
+        scoring_cfg,
     )
     summary2 = run_evaluate(
         evaluate_ready_data_dir,
@@ -200,8 +245,9 @@ def test_run_evaluate_is_deterministic(
         fast_model_cfg,
         fast_eval_cfg,
         feature_build_cfg,
-        geo_cfg,
+        candidates_cfg,
         datagen_cfg_module,
+        scoring_cfg,
     )
 
     bytes1 = summary1["output_path"].read_bytes()

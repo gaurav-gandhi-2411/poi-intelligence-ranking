@@ -1597,3 +1597,359 @@ item. The fix here is process, not just code: an orchestrator cannot treat "the
 verifier said PASS" as equivalent to "the verifier actually ran the check it was
 asked to run" -- the two are different claims, and only the transcript (or, as
 here, redoing the specific highest-risk check directly) distinguishes them.
+
+## Phase 8 (`src/poi_rank/eval/`, spec.md section 11): the full evaluation suite
+
+#### 70. Recommendation-set source for personalization/coverage/longtail/constraint metrics: `run_scoring_pipeline`'s own payload, not `results/recommendations.json`
+
+spec.md section 11.2 offers two options: read `results/recommendations.json` or
+recompute top-10-by-utility. Neither literally: this phase calls
+`scoring.output.run_scoring_pipeline` directly from `eval/run.py` (over EVERY
+primary-holdout trip, `trip_id_filter=None`) and consumes its returned `payload`
+dict in-process -- the exact same object `poi_rank.cli recommend` would persist as
+`results/recommendations.json`, just computed fresh here so `poi_rank.cli evaluate`
+never depends on `recommend` having been run first (`recommend` was never added to
+`make reproduce`'s default chain, Phase 6's own decision). This is the FINAL,
+post-MMR, post-hard-gate top-K list -- not a raw-score top-10 shortcut -- so
+personalization/coverage/longtail/constraint-compatibility all measure what the
+system actually outputs, not an intermediate ranking stage.
+
+**"All traveler pairs" read as "all pairs of holdout trips"**: in this dataset each
+holdout trip has exactly one traveler, so the two populations coincide; documented
+rather than silently assumed.
+
+#### 71. Rank-biased overlap: the equal-depth extrapolated formula, not the general unequal-length one
+
+`eval/personalization.py::rank_biased_overlap` implements Webber, Moffat & Zobel
+(2010)'s RBO for two rankings of the SAME depth `k`:
+`RBO = (X_k/k)*p^k + ((1-p)/p) * sum_{d=1}^{k} (X_d/d)*p^d`. Every recommendation
+list in this project is a top-`k` list at the same configured `scoring.yaml`
+`output.top_k` (10), so the equal-depth case always applies in practice; when a
+trip's hard-gate-survivor pool is smaller than 10 (rare), both lists are truncated
+to their shared minimum depth before computing overlap counts -- a documented
+simplification of the paper's more general "extrapolated" unequal-length formula,
+not the exact same thing. Hand-verified in `tests/test_personalization.py` against
+an exact fraction computation (`RBO([A,B,C],[B,A,C], p=0.9) == 0.9` exactly, by
+construction of the example).
+
+#### 72. Bias-gap table: reuses every system's already-computed score, never rescores
+
+`models.ranking_data.load_holdout_biased_evaluation_frame` builds the SECONDARY
+biased-holdout evaluation frame (labels from `interactions_holdout_logged.parquet`)
+via the exact same `build_ranking_frame` assembly as the PRIMARY frame, differing
+only in which interactions log supplies `label` -- `trip_id`/`poi_id` row order is
+therefore identical between the two frames by construction (neither the candidate
+universe, nor the merge order, nor the final `sort_values(["trip_id","poi_id"])`
+depend on the interactions argument at all). `tests/test_ranking_data.py
+::test_biased_and_unbiased_holdout_frames_are_row_order_aligned` asserts this
+directly rather than only relying on it implicitly. `eval/run.py`'s
+`_bias_gap_payload` exploits this: every system's ALREADY-COMPUTED unbiased-holdout
+score `pd.Series` is reused, unmodified, to compute NDCG@10 against the biased
+frame's `label` column -- no baseline is rerun, no booster is rescored a second
+time.
+
+#### 73. `candidate_recall@250` persisted to `results/metrics.json` for the first time
+
+Phase 4a's `candidate_recall@250` (overall 0.4413, long-tail-stratum 0.3936) was
+previously only ever printed by `poi_rank.cli candidates` -- never written to any
+JSON artifact. spec.md section 11.10's own success-criteria table names it as a
+target (long-tail >= 0.80), and this phase's hard "no hand-typed numbers in docs/"
+rule means `docs/RESULTS.md`'s success-criteria table needs a real JSON source for
+this number. `eval/run.py::_candidate_recall_payload` re-runs
+`candidates.recall_metrics.overall_and_longtail_recall` (a cheap, pure recall
+computation over the already-generated `candidates.parquet` -- no candidate
+regeneration) and adds a `"candidate_recall"` top-level key. The recomputed number
+is identical to Phase 4a's original measurement (0.4413 / 0.3936), confirming this
+is genuinely the same computation, not a second, independently-drifting one.
+
+#### 74. Ablation cost-tiering, and why `-calibration`'s delta is expected to be near zero
+
+Per this phase's task brief, the 9-row ablation table (`eval/ablations.py`) is
+built at 3 cost tiers, all 9 completed (none skipped, see "Measured results" below
+for the actual numbers and honest interpretation):
+
+- **Free** (`-IPS_weighting`): system 7 (lambdamart, uniform weight) IS the
+  IPS-ablated variant of system 8 -- both already computed by `eval/run.py`'s main
+  systems table; `eval/ablations.py::ips_weighting_row` only assembles the row.
+- **Cheap, no retrain** (`-calibration`, `-MMR`, `-CF_channel`,
+  `-long_tail_quota`): `-calibration` compares the already-computed raw LambdaMART
+  score (newly exposed via `scoring.output.run_scoring_pipeline`'s returned
+  `"raw_score"` key, re-aligned to `full_frame`'s row order via an explicit
+  `(trip_id, poi_id)` dict lookup -- never a `.loc[full.index]` positional
+  assumption across the `holdout_frame.merge(compat_frame, ...)` call, module
+  comment in `scoring/output.py`) against the calibrated `relevance` score.
+  **Isotonic regression is a monotonic non-decreasing transform of the raw
+  score, so it CANNOT change within-trip ranking (and therefore NDCG@10) except
+  through tie-break reordering at flat isotonic segments** -- a near-zero delta
+  here is the mathematically expected result, not a modeling failure; reported
+  and explained as such, not treated as a surprising finding. `-MMR` reuses
+  `scoring.diversity.mmr_rerank_all_trips` directly at `lambda=1.0` (pure-utility
+  ranking, "MMR off" with no separate code path) vs the configured default
+  lambda. `-CF_channel`/`-long_tail_quota` reimplement the leave-one-channel-out
+  candidate-set construction locally in `eval/ablations.py`
+  (`_candidate_keys_excluding_channel`, deliberately NOT promoted from
+  `candidates.recall_metrics.py`'s private `_candidate_set_by_trip` to a shared
+  public API for a single extra caller) and re-evaluate the ALREADY-TRAINED
+  lambdamart_ips score over the smaller candidate set -- no retraining, no new
+  candidate generation.
+- **One full LightGBM retrain each** (`-text_embeddings`, `-implicit_taste`,
+  `-explicit_interests`, `-behavioral_block`): `eval/ablations
+  .py::train_block_dropped_booster` reuses every low-level primitive
+  `models.lambdamart.train_lambdamart_systems` itself uses (`train_val_split_by_trip`,
+  `train_frame_p_expose`, `compute_ips_weights`, `apply_behavioral_dropout`,
+  `fit_lambdamart_booster`) -- the only new logic is filtering
+  `models.baselines.numeric_feature_columns`'s output to drop every column
+  starting with the block's prefix (`text_emb_`, `implicit_`, `explicit_`,
+  `behav_`, the SAME 4 prefixes `models/baselines.py`'s own
+  `_NUMERIC_FEATURE_PREFIXES` already establishes) before training. All 4 measured
+  on the real committed dataset in ~80s combined (see below) -- none skipped for
+  time, despite spec.md section 16's own cut-order explicitly permitting "some
+  ablations" to be cut before LODO.
+
+#### 75. Leave-one-destination-out: a separate command that merges into the existing `results/metrics.json`
+
+`poi_rank.cli lodo` (`eval/cold_start.py::run_lodo`) trains 3 destination-held-out
+LambdaMART+IPS boosters (system 8's exact recipe, `train_lodo_booster`) -- one full
+training pass per destination, with every row belonging to the held-out
+destination excluded from FIT (`train_frame.loc[train_frame["destination"] !=
+held_out_destination]`), then evaluates each against ONLY that destination's own
+primary-holdout trips, compared against the already-trained, full-training system 8
+restricted to the same rows. **Deliberately NOT part of `make reproduce`'s default
+chain** (spec.md section 16's own cut-order list: "cut first ... LODO" under time
+pressure) -- 3 extra full retrains measured at 36.4s combined wall-clock on the real
+committed dataset (well within budget, so kept in this submission rather than
+actually cut). Must be run AFTER `poi_rank.cli evaluate`: it reads the existing
+`results/metrics.json`, adds a `"lodo"` key, and rewrites the same file -- chosen
+over writing a separate `results/lodo.json` so `eval/report.py`'s "every number
+comes from `results/metrics.json`" rule holds for LODO numbers too without forcing
+the retrain cost into the default chain. `docs/RESULTS.md`'s LODO section renders
+"**Not yet run**" (a real, honest state, not a fabricated placeholder number) if
+`poi_rank.cli evaluate` was run without a following `poi_rank.cli lodo` call.
+
+#### 76. Cold-start interaction-count bucket "1-3" is genuinely empty on the committed dataset
+
+`eval/cold_start.py::ndcg10_by_interaction_bucket` bins the 202 primary-holdout
+trips into `implicit_interaction_count` buckets 0 / 1-3 / 4-10 / >10 (spec.md
+section 11.8, verbatim). Measured: 137 trips in bucket "0", **0 trips in bucket
+"1-3"**, 1 trip in bucket "4-10", 64 trips in bucket ">10" -- a genuinely bimodal
+distribution (most holdout travelers are either fully cold-start or have
+accumulated a large as-of-safe interaction history by the temporal train/holdout
+split, with almost nothing in between), not a bug in the bucketing logic itself
+(hand-verified against a small constructed frame in `tests/test_cold_start.py
+::test_ndcg10_by_interaction_bucket_hand_computed`). Reported honestly as an
+`n_trips_in_bucket=0` row with `mean=0.0` (the aggregate-metric harness's own
+all-empty-input convention, never fabricated) rather than hidden or interpolated.
+This is a real limitation of report granularity at this holdout size (202 trips),
+not evidence the underlying `implicit_interaction_count` feature itself is broken
+-- Phase 3 already validated its construction directly.
+
+#### 77. `docs/RESULTS.md` generation and its enforcement test
+
+`eval/report.py::run_report` (`python -m poi_rank.eval.report` / `make docs`) reads
+`results/metrics.json` and renders `docs/RESULTS.md` via plain f-string
+interpolation over the parsed dict -- every function in that module takes the
+already-loaded metrics dict and returns markdown strings built from dict lookups,
+never a literal metric value typed by the executor. The actual enforcement
+mechanism (not just a promise) is `tests/test_report.py
+::test_every_number_in_results_md_traces_to_metrics_json`: it regex-extracts every
+numeric token from the rendered markdown and cross-checks each one against a
+flattened set of every numeric leaf in the source JSON (directly, as a percentage,
+as a signed delta, or as a `(a/b - 1) * 100` relative-lift percentage -- the one
+genuinely DERIVED quantity `render_success_criteria` computes, for the "NDCG@10 vs
+popularity" row), with tolerances matched to this module's own `_fmt`/`_fmt_pct`
+rounding (4 and 1 decimal places respectively -- an earlier, tighter tolerance
+false-flagged the module's OWN correct percentage rounding as "untraceable" during
+development, caught and fixed before this phase's report). A small, explicitly
+documented allowlist covers genuinely structural numbers (spec-section
+cross-references, spec-stated target thresholds like "0.70"/"0.25", decile/rank
+indices) that are not pipeline output at all. `eval/report.py::_agg_str` also
+degrades gracefully (renders `N/A`) for any metric `@k` a given `eval.yaml` didn't
+request, rather than crashing -- caught by this same test suite running against a
+REDUCED test `EvalConfig` (`ndcg_ks=(5,10)`, no `@20`) during development, exactly
+the kind of config-shape mismatch a hardcoded metric list would silently assume
+away.
+
+### Measured results, Phase 8 (real committed dataset, 202 holdout trips, `uv run
+python -m poi_rank.cli evaluate` then `uv run python -m poi_rank.cli lodo`)
+
+**Wall-clock**: `evaluate` = **2m39.8s** (baselines/lambdamart/oracle table + bias-gap
++ one full `run_scoring_pipeline` pass + all 9 ablations, 4 of which are full
+LightGBM retrains), well within the <5 min budget for this command alone. `lodo` =
+**36.4s** for 3 destination-held-out retrains (separate command, module docstring
+above). Every headline number below is read directly from the real, committed
+`results/metrics.json` this run produced (`docs/RESULTS.md` was generated from the
+exact same file, never hand-typed -- #77 above).
+
+**Systems table**: reproduces Phase 5's already-documented numbers EXACTLY
+(lambdamart_ips NDCG@10 = 0.0875 [0.0715, 0.1042], 66.2% of oracle ceiling, +40.6%
+relative vs popularity, Wilcoxon p=0.004197) -- confirms Phase 8's additions
+(bias-gap, scoring pipeline, ablations) never touch the core ranking computation.
+
+**Bias-gap table** (spec.md section 1.3's "single highest-value element"):
+popularity's gap is **+0.1099** (0.0622 unbiased -> 0.1721 biased) and plain
+lambdamart (no IPS)'s gap is even larger, **+0.1721** (0.0545 -> 0.2267) --
+lambdamart_ips's gap is **+0.0828** (0.0875 -> 0.1703), smaller than BOTH,
+confirming IPS correction measurably reduces (not eliminates) the exposure-bias
+inflation the biased log would otherwise reward. Oracle (-0.0271) and content-cosine
+(-0.0385) show small NEGATIVE gaps -- expected, since neither uses any
+popularity-biased training signal to begin with.
+
+**Personalization**: mean pairwise Jaccard@10 = **0.0409**, mean pairwise RBO(p=0.9)
+= **0.0616** (both very low -- lists are highly individualized). Within-archetype-proxy
+Jaccard = **0.0435**, cross-archetype-proxy Jaccard = **0.0404** (target <= 0.25,
+**MET**), within/cross ratio = **1.08** (target >= 2.0, **MISSED**). **Diagnosis**:
+the miss is not that personalization is weak -- absolute overlap is low everywhere,
+which is the OPPOSITE failure mode from a popularity monoculture -- it's that the
+observable 8-cluster K-Means archetype PROXY (built only from stated interests/
+budget/party_type/touristiness_pref, the same explicit signal spec.md section 1.1
+already establishes is a deliberately lossy projection of latent taste) is too
+coarse a grouping to explain much of the top-10 variance relative to what actually
+drives it: each trip's own stay location, individual implicit taste vector, and
+semantic-similarity candidates. Two travelers in the same K-Means cluster still get
+substantially different lists because the cluster only captures a small slice of
+what makes their recommendations personalized. Root-caused to the same
+already-documented "lossy explicit projection" property this dataset was designed
+around, not a new, unexplained failure.
+
+**Coverage** (not a named section 11.10 target, but the direct measurable answer to
+"does the ranker collapse to a popularity monoculture"): primary system catalog
+coverage@10 = **27.4%** (396/1446 POIs ever recommended), Gini = **0.8840**, entropy
+= **7.75 bits**, vs the popularity BASELINE's coverage@10 = **4.7%** (68/1446),
+Gini = **0.9734**, entropy = **5.57 bits**. The primary system recommends ~5.8x more
+of the catalog, with a lower Gini (less concentrated) and higher entropy (more
+even) than the popularity baseline -- a clear, measured "no popularity monoculture"
+result, consistent across all 3 destinations (25.7%-29.6% coverage per destination).
+
+**Long-tail**: share of top-10 in the bottom-50%-popularity stratum = **0.2338**
+(target >= 0.25, **MISSED**, but close -- 93.5% of the way to target). Long-tail
+precision = **0.0678** (32/472 relevant, target >= 0.5, **MISSED**). **Diagnosis,
+the honest and more precise version**: long-tail precision (6.8%) is NOT a
+long-tail-specific collapse -- it sits close to (slightly below) the primary
+system's OVERALL precision@10 of **8.4%** (`docs/RESULTS.md`'s primary table, row
+8) across ALL top-10 recommendations, long-tail or not. The real story is that
+overall precision@10 is low system-wide, tracing to the same already-documented
+candidate-recall ceiling (0.4413 overall / 0.3936 long-tail) and the DGP's
+irreducible noise term + Bayes-limited `latent_quality` observability -- long-tail
+POIs are not disproportionately worse, they share (nearly) the same low base rate
+as everything else. The share miss is a near-miss (0.2338 vs 0.25) driven by the
+hard 50-slot long-tail candidate quota getting diluted through ranking/MMR, not a
+quota-design failure (candidates/recall_metrics.py's own per-channel marginal
+recall, Phase 4a, already showed the long-tail channel contributes real, positive
+marginal recall).
+
+**Constraint compatibility**: 88.4% of top-10 recommendations have compatibility >=
+0.7. Hard-constraint violations in top-10 = **0** (target = 0, **MET** --
+independently, redundantly confirmed by the build-blocking `tests
+/test_hard_constraints.py`, never relaxed).
+
+**Diversity**: category entropy@10 = **3.37 bits**, intra-list mean cosine distance
+(at the default lambda=0.8) = **0.886**. Lambda sweep reproduces Phase 6's numbers
+exactly (NDCG@10 rises 0.1247 -> 0.1439 and mean intra-list similarity rises
+0.0822 -> 0.1681 as lambda rises 0.5 -> 1.0).
+
+**Calibration / confidence-decile**: reproduce Phase 6's numbers exactly (ECE after
+= 0.0457, **MET**; confidence-decile Spearman rho = -0.382, **MISSED**, already
+root-caused in `docs/DATA_CARD.md` #58).
+
+**Cold-start by interaction-count bucket**: NDCG@10 = 0.0904 (n=137, bucket "0"),
+undefined/n=0 (bucket "1-3", #76 above), 0.4817 (n=1, bucket "4-10" -- a single
+trip, not a reliable estimate), 0.0751 (n=64, bucket ">10"). New-POI cohort
+reproduces Phase 5's numbers exactly (0.5208 with dropout vs 0.5075 without,
+p=0.994, not significant at this cohort size).
+
+**LODO** (spec.md section 11.8/12's "new destination" measurement): every
+destination shows LOWER NDCG@10 when held out of training than under full training
+-- barcelona **0.0700 vs 0.1040** (Wilcoxon p=0.0481, the only one reaching
+significance at this per-destination trip count), kyoto **0.0575 vs 0.0776**
+(p=0.1197), seoul **0.0634 vs 0.0836** (p=0.1166). Directionally consistent across
+all 3 destinations (holding out a destination's own behavioral/CTR signal costs
+real ranking quality, as expected), but only barcelona reaches p<0.05 -- honestly
+reported as a directionally-consistent, only-partially-significant result rather
+than rounded up to "new destinations transfer perfectly." This is real evidence
+FOR the "within-destination percentile features transfer" design (spec.md section
+12): the degradation is real but modest (NDCG@10 drops ~30-33% relative, not to
+near-zero), consistent with most features (category/semantic/geo priors) still
+working on an unseen destination while only destination-specific behavioral
+aggregates are lost.
+
+**Ablations** (all 9 measured, none skipped): `-IPS_weighting` delta = **-0.0329**
+(p=1.8e-05, highly significant -- IPS is the single largest-magnitude contributor
+measured). `-calibration` delta = **-0.0016** (p=0.73, not significant --
+mathematically expected near-zero per #74 above, confirms the monotonic-transform
+reasoning rather than surprising anyone). `-MMR` delta = **+0.0044** (p=0.19, not
+significant -- pure-utility ranking scores marginally higher NDCG than the
+diversity-penalized default, the expected direction per the lambda-sweep curve;
+MMR's purpose is diversity, not NDCG maximization, so a small positive ablation
+delta here is not a MMR failure). `-CF_channel` delta = **+0.0017** (p=0.013,
+significant) and `-long_tail_quota` delta = **+0.0077** (p=3.3e-07, highly
+significant) -- BOTH channels slightly REDUCE raw NDCG@10 when removed... i.e.
+removing them slightly HELPS NDCG. **Honest interpretation, not spun**: these two
+channels were never justified on NDCG grounds -- they exist for coverage/long-tail-
+exposure objectives spec.md section 7 states explicitly, and Phase 4a's own
+per-channel marginal-recall analysis already showed both contribute real,
+positive marginal candidate recall. A channel that expands the candidate pool with
+lower-confidence-but-differently-valuable POIs can measurably cost a little raw
+top-10 NDCG while still being the correct design choice for the coverage/long-tail
+objective this project explicitly optimizes for too -- reported as a genuine
+trade-off, not hidden or reframed as a NDCG win. `-text_embeddings` delta =
+**-0.0129** (p=0.090), `-implicit_taste` delta = **-0.0073** (p=0.370),
+`-explicit_interests` delta = **-0.0090** (p=0.285), `-behavioral_block` delta =
+**-0.0131** (p=0.084) -- all 4 feature-block removals point in the expected
+direction (removing a block hurts NDCG@10), but NONE individually reaches p<0.05
+significance at this holdout size (202 trips) -- reported honestly as
+directionally-consistent-but-not-individually-significant, not rounded up to "each
+block is proven necessary." The largest-magnitude individual blocks are
+`behav_*` (-0.0131) and `text_emb_*` (-0.0129); the smallest is `implicit_*`
+(-0.0073) -- consistent with `implicit_*`'s own information already being
+partially redundant with the `interact_cos_taste_poi` engineered feature (which
+is NOT itself dropped by this ablation, a documented simplification, #74 above),
+so removing the raw `implicit_*` block alone understates its true marginal
+contribution.
+
+Test suite at this checkpoint: **379 passed, 2 xfailed, 0 failed** -- 2
+pre-existing `xfail(strict=True)` unchanged (localness-rho,
+confidence-decile-monotonicity). New test files this phase:
+`tests/test_personalization.py`, `tests/test_coverage.py`,
+`tests/test_longtail.py`, `tests/test_constraints.py`, `tests/test_cold_start.py`,
+`tests/test_ablations.py`, `tests/test_report.py`, `tests/test_firewall_eval.py`,
+plus extensions to `tests/test_ranking_data.py` (the biased-frame row-alignment
+invariant) and `tests/test_evaluate.py` (the full Phase 8 payload shape). ruff/mypy
+clean throughout.
+
+**#78 -- orchestrator-caught genuine byte-determinism failure, fixed before
+commit.** The dispatched verifier ran `uv run python -m poi_rank.cli evaluate`
+twice directly (no `make`, no externally-set `PYTHONHASHSEED`) and got two
+DIFFERENT `results/metrics.json` SHA256 hashes -- a real violation of this
+project's hard determinism requirement, not a "technically fine" numerical-noise
+footnote to accept. Root cause, isolated and confirmed: `eval/coverage.py`'s
+`recommendation_frequency` built its `{poi_id: count}` dict by iterating the raw
+`catalog_poi_ids: set[str]` directly. Python's `set` iteration order for `str`
+depends on per-process hash randomization (`PYTHONHASHSEED`), so
+`coverage_report`'s `freq_arr = np.array(list(freq_map.values()))` got a
+different element order on every invocation that didn't happen to share a hash
+seed -- and `shannon_entropy`'s `-np.sum(probs * log(probs))` is a floating-point
+reduction, which is not associative, so a different summation order produced a
+genuinely different float (`entropy_bits`, off by ~2e-15 between the two
+verifier runs -- small in magnitude but a real, reproducible non-determinism, not
+noise). This is the exact same failure CLASS already flagged in this document for
+`candidates/channels.py`'s epsilon-greedy sampling (fixed there via a
+SHA256-derived per-trip seed, never Python's own `hash()`) -- hash-randomization-
+dependent ordering reaching a floating-point computation, just in a different
+module. Fixed the same way the general principle demands: never let
+hash-order-dependent iteration reach a numeric reduction. `recommendation_frequency`
+now iterates `sorted(catalog_poi_ids)` -- a total, deterministic order independent
+of `PYTHONHASHSEED` entirely, which is more robust than relying on the Makefile's
+`export PYTHONHASHSEED := 0` (that only covers invocations that go through `make`;
+the project's own reproducibility contract must hold for `uv run python -m
+poi_rank.cli evaluate` run directly too, exactly the scenario that surfaced this).
+Re-verified: ran `evaluate` twice with `PYTHONHASHSEED` explicitly unset (the
+precise scenario that previously failed) -- byte-identical SHA256 both times.
+Added `tests/test_coverage.py::test_recommendation_frequency_key_order_is_sorted_
+not_set_iteration_order` (two sets built via different insertion orders but equal
+by value must produce identical dict key order) so this class of bug cannot
+silently regress. No other `set[str]`-into-numeric-reduction pattern was found
+elsewhere in the Phase 8 modules (checked `personalization.py`'s RBO/Jaccard
+implementations specifically, since they also use `set[str]` -- both are
+order-independent by construction: Jaccard is a set-cardinality ratio, RBO's
+`seen_a`/`seen_b` sets only ever feed `len(seen_a & seen_b)`, an exact integer,
+never a float reduction over set-iteration order).
