@@ -1,0 +1,36 @@
+# Evaluation-harness hyperparameters for poi-intelligence-ranking (spec.md section 11).
+# Mirrors the codebase's established one-typed-config-per-phase convention. spec.md
+# section 14 lists `eval.yaml` as its own top-level file.
+
+seed: 42
+
+metrics:
+  ndcg_ks: [5, 10, 20]
+  precision_ks: [5, 10]
+  recall_ks: [10, 20]
+
+bootstrap:
+  # spec.md section 8 literally specifies "2,000-sample bootstrap" for NDCG@10.
+  # Reused for every metric x system pair in this phase's table -- at this data
+  # scale (202 holdout trips) the full 2000-resample computation for the entire
+  # table runs in low single-digit seconds, well inside the project's < 5 min
+  # full-pipeline budget, so spec.md's explicitly-permitted "smaller for runtime"
+  # fallback is never needed. See docs/DATA_CARD.md.
+  n_resamples: 2000
+  ci_low_pct: 2.5
+  ci_high_pct: 97.5
+  # Resampling unit: TRIP-level, not traveler-level. spec.md section 8 writes "NDCG@10
+  # per traveler -> 2,000-sample bootstrap 95% CI"; read in context (each ranking
+  # instance IS a per-trip evaluation, and a traveler with 2 trips already
+  # contributes 2 independent ranking instances to every metric's point estimate) as
+  # "per ranking instance", i.e. per trip -- the simpler, unambiguous unit, and the
+  # one every other metric in this harness (candidate_recall@250, per-trip NDCG
+  # itself) is already computed over. See docs/DATA_CARD.md for the full
+  # resolved-ambiguity writeup.
+  resample_unit: trip
+
+# Bottom-50%-within-destination-popularity stratum cutoff, reused from
+# candidates/recall_metrics.py's own literal spec.md requirement for consistency
+# across the candidate-recall and (future, spec.md section 11.4) long-tail-precision
+# metrics.
+long_tail_pop_pct_cutoff: 0.5

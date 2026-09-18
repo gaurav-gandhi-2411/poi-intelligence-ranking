@@ -126,3 +126,18 @@ def generated_candidates(
         "output_dir": output_dir,
         "cfg": candidates_cfg,
     }
+
+
+@pytest.fixture(scope="session")
+def evaluate_ready_data_dir(generated_candidates: dict[str, Any]) -> Path:
+    """`generated_candidates`'s `output_dir`, with `candidates.parquet` additionally
+    written to disk (that fixture keeps the candidate frame in-memory only) -- the
+    full, on-disk `data/synthetic/`-shaped directory `models.ranking_data`'s
+    file-based loaders and `poi_rank.cli evaluate` (`eval.run.run_evaluate`) expect.
+    Session-scoped: shared read-only by every Phase 4b test that needs real-scale
+    data, mirroring `built_features`/`generated_candidates`'s own convention."""
+    output_dir: Path = generated_candidates["output_dir"]
+    candidates_path = output_dir / "candidates.parquet"
+    if not candidates_path.exists():
+        generated_candidates["candidates"].to_parquet(candidates_path, index=False)
+    return output_dir

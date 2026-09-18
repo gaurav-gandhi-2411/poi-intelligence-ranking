@@ -1,0 +1,34 @@
+# Ranking-model hyperparameters for poi-intelligence-ranking Phase 4b (baselines 1-6)
+# and later phases (LambdaMART/IPS/calibration, spec.md section 8). Mirrors the
+# codebase's established one-typed-config-per-phase convention (configs/features.yaml's
+# `candidates` section is the direct precedent) rather than inventing ad hoc constants
+# in code. Unlike `candidates/`, spec.md section 14 lists `model.yaml` as its OWN
+# top-level file -- honored literally since this is the first phase that needs it.
+
+seed: 42
+
+baselines:
+  content_cosine:
+    # Baseline 4 (spec.md section 8): "content cosine (explicit interests only)" --
+    # a weighted blend of interest-overlap coverage
+    # (features.traveler_features.interest_match_score, reused directly) and
+    # budget/price fit (features.traveler_features.price_gap, reused directly, gap
+    # normalized to [0, 1] by dividing by the max possible 1-4 price-level gap of 3).
+    # Arbitrary-but-stated weights, not tuned against any eval metric -- see
+    # docs/DATA_CARD.md.
+    interest_weight: 0.7
+    price_fit_weight: 0.3
+  item_knn_cf:
+    # Baseline 5 (spec.md section 8): for a cold-start traveler with no as-of-safe
+    # positively-engaged history, the item-item kNN score is undefined for every
+    # candidate -- falls back to the destination popularity percentile
+    # (`num_pop_pct`) rather than crashing or returning an all-zero (meaningless)
+    # ranking. Documented, not a silent default.
+    cf_score_missing_fallback: popularity
+  logistic_regression:
+    # Baseline 6 (spec.md section 8): plain pointwise sklearn LogisticRegression on
+    # the full feature set, predicting P(label >= 1). scikit-learn defaults except
+    # a raised max_iter (the ~280-column one-hot-expanded design matrix needs more
+    # than sklearn's default 100 lbfgs iterations to converge cleanly).
+    max_iter: 2000
+    C: 1.0

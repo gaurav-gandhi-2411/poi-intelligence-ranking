@@ -21,16 +21,22 @@ from poi_rank.data.config import FeaturesConfig
 from poi_rank.data.prepare import run_prepare
 from poi_rank.datagen.config import DatagenConfig
 from poi_rank.datagen.pipeline import run_generate
+from poi_rank.eval.config import EvalConfig
+from poi_rank.eval.run import ALL_SYSTEM_NAMES, WILCOXON_METRIC, run_evaluate
 from poi_rank.features.build import run_features
 from poi_rank.features.config import FeatureBuildConfig
+from poi_rank.models.config import ModelConfig
 
 app = typer.Typer(add_completion=False)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = REPO_ROOT / "configs" / "datagen.yaml"
 DEFAULT_FEATURES_CONFIG_PATH = REPO_ROOT / "configs" / "features.yaml"
+DEFAULT_MODEL_CONFIG_PATH = REPO_ROOT / "configs" / "model.yaml"
+DEFAULT_EVAL_CONFIG_PATH = REPO_ROOT / "configs" / "eval.yaml"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "data" / "synthetic"
 DEFAULT_ARTIFACTS_DIR = REPO_ROOT / "artifacts"
+DEFAULT_RESULTS_DIR = REPO_ROOT / "results"
 
 
 @app.callback()
@@ -162,6 +168,58 @@ def candidates(
             f"  {channel}: recall_without={stats['recall_without_channel']:.4f} "
             f"marginal={stats['marginal_recall']:.4f}"
         )
+
+
+@app.command()
+def evaluate(
+    features_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_FEATURES_CONFIG_PATH, help="Path to features.yaml"
+    ),
+    model_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_MODEL_CONFIG_PATH, help="Path to model.yaml"
+    ),
+    eval_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_EVAL_CONFIG_PATH, help="Path to eval.yaml"
+    ),
+    data_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_OUTPUT_DIR, help="Directory containing data/synthetic/*.parquet"
+    ),
+    results_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_RESULTS_DIR, help="Directory to write results/metrics.json"
+    ),
+) -> None:
+    """Run the Phase 4b evaluation harness (baselines 1-6 + oracle ceiling, full
+    metric table with bootstrap 95% CIs, paired Wilcoxon vs popularity) on the
+    PRIMARY unbiased holdout, and write `results/metrics.json`."""
+    feature_cfg = FeatureBuildConfig.from_yaml(features_config_path)
+    model_cfg = ModelConfig.from_yaml(model_config_path)
+    eval_cfg = EvalConfig.from_yaml(eval_config_path)
+    candidates_cfg = CandidatesConfig.from_yaml(features_config_path)
+
+    summary = run_evaluate(
+        data_dir, results_dir, model_cfg, eval_cfg, feature_cfg, candidates_cfg.geo
+    )
+    payload = summary["payload"]
+
+    typer.echo("=== poi-rank evaluate: summary ===")
+    typer.echo(f"  output: {summary['output_path']}")
+    typer.echo(f"  n_holdout_trips: {payload['meta']['n_holdout_trips']}")
+    typer.echo(f"  bootstrap_n_resamples: {payload['meta']['bootstrap_n_resamples']}")
+
+    typer.echo(f"\n=== {WILCOXON_METRIC} (mean, 95% CI, % of oracle ceiling) ===")
+    for name in ALL_SYSTEM_NAMES:
+        m = payload["systems"][name]["metrics"][WILCOXON_METRIC]
+        pct = payload["systems"][name]["pct_of_ceiling_ndcg10"]
+        typer.echo(
+            f"  {name}: {m['mean']:.4f} [{m['ci_low']:.4f}, {m['ci_high']:.4f}] "
+            f"({pct * 100:.1f}% of ceiling, n_excluded={m['n_excluded']})"
+        )
+
+    typer.echo(f"\n=== paired Wilcoxon vs popularity ({WILCOXON_METRIC}) ===")
+    for key, w in payload["wilcoxon"].items():
+        typer.echo(f"  {key}: p={w['p_value']:.4g} (n_pairs={w['n_pairs']})")
+
+    typer.echo(f"\n  {payload['meta']['note']}")
 
 
 if __name__ == "__main__":
