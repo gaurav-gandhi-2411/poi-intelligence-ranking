@@ -10,6 +10,8 @@ from pathlib import Path
 
 import typer
 
+from poi_rank.data.config import FeaturesConfig
+from poi_rank.data.prepare import run_prepare
 from poi_rank.datagen.config import DatagenConfig
 from poi_rank.datagen.pipeline import run_generate
 
@@ -17,6 +19,7 @@ app = typer.Typer(add_completion=False)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = REPO_ROOT / "configs" / "datagen.yaml"
+DEFAULT_FEATURES_CONFIG_PATH = REPO_ROOT / "configs" / "features.yaml"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "data" / "synthetic"
 
 
@@ -46,6 +49,34 @@ def generate(
     typer.echo("\n=== SHA256 of generated files ===")
     for name, digest in sorted(summary["sha256"].items()):
         typer.echo(f"  {name}: {digest}")
+
+
+@app.command()
+def prepare(
+    config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_FEATURES_CONFIG_PATH, help="Path to features.yaml"
+    ),
+    data_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_OUTPUT_DIR, help="Directory containing data/synthetic/*.parquet"
+    ),
+) -> None:
+    """Run the data-prep pipeline (dedup, categories, shrinkage, popularity,
+    localness, hours, imputation, geo) and write `pois_prepared.parquet`."""
+    cfg = FeaturesConfig.from_yaml(config_path)
+    summary = run_prepare(cfg, data_dir)
+
+    typer.echo("=== poi-rank data prep: summary ===")
+    typer.echo(f"  output: {summary['output_path']}")
+    typer.echo(f"  n_input_pois: {summary['n_input_pois']}")
+    typer.echo(f"  n_output_pois: {summary['n_output_pois']}")
+    typer.echo(
+        f"  n_merged_away: {summary['n_merged_away']} "
+        f"(dedup_merge_rate={summary['dedup_merge_rate']:.4f})"
+    )
+    typer.echo(
+        f"  n_other_category: {summary['n_other_category']} "
+        f"(other_category_rate={summary['other_category_rate']:.4f})"
+    )
 
 
 if __name__ == "__main__":

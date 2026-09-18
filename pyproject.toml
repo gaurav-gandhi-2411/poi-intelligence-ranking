@@ -46,12 +46,13 @@ ignore = ["N802", "N803", "N806"]
 strict = true
 files = ["src/poi_rank"]
 
-# pandas/yaml ship no inline type stubs and we're not adding types-PyYAML /
-# pandas-stubs as new dependencies for a stub-only gain (rule: don't install new
-# deps without asking); ignore_missing_imports scopes the exemption to exactly
-# these two untyped third-party libs, not to poi_rank's own code.
+# pandas/yaml/h3/scipy ship no inline type stubs (or none we already depend on) and
+# we're not adding types-PyYAML / pandas-stubs / scipy-stubs as new dependencies for
+# a stub-only gain (rule: don't install new deps without asking); ignore_missing_imports
+# scopes the exemption to exactly these untyped third-party libs, not to poi_rank's
+# own code.
 [[tool.mypy.overrides]]
-module = ["yaml", "pandas", "pandas.*"]
+module = ["yaml", "pandas", "pandas.*", "h3", "scipy", "scipy.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

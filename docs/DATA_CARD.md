@@ -3,7 +3,8 @@
 This document describes the data-generating process (DGP) in `src/poi_rank/datagen/`,
 the deliberate dirtiness injected into the catalog, and every point at which the spec
 as originally written was ambiguous or self-contradictory and had to be resolved.
-Grows across build phases; this entry covers Phase 1 (datagen) only.
+Grows across build phases. Phase 1 (datagen) is covered first; Phase 2 (data prep,
+`src/poi_rank/data/`) follows below.
 
 ## Resolved ambiguities
 
@@ -145,13 +146,14 @@ these two files (one reader, one writer) and nothing else.
 ```
 data/synthetic/
 ├── destinations.parquet
-├── pois.parquet                        # exported (dirty) catalog
+├── pois.parquet                        # exported (dirty) catalog -- datagen output, Phase 1
+├── pois_prepared.parquet               # cleaned/enriched catalog -- data prep output, Phase 2
 ├── travelers.parquet
 ├── trips.parquet
 ├── interactions_train.parquet          # biased policy, train window
 ├── interactions_holdout_random.parquet # uniform-random policy, holdout window (PRIMARY eval set)
 ├── interactions_holdout_logged.parquet # biased policy, holdout window (secondary, bias-gap)
-└── _oracle/                            # read ONLY by eval/oracle.py (not built yet)
+└── _oracle/                            # read ONLY by eval/oracle.py
     ├── traveler_taste.parquet          # true latent taste vectors
     ├── poi_latent.parquet              # true latent_quality, latent_localness, poi_semantic
     └── holdout_utility_true.parquet    # noise-free u(t,p) for every (holdout trip, eligible POI) pair
@@ -161,3 +163,134 @@ data/synthetic/
 nested parquet struct column — sidesteps struct-nullability edge cases in
 `pyarrow`/pandas round-tripping while still representing "field entirely missing" as
 an actual null, not a sentinel.
+
+---
+
+## Phase 2 — data prep (`src/poi_rank/data/`)
+
+Reads `data/synthetic/pois.parquet` (the dirty, exported catalog only — never
+`_oracle/`) and writes `data/synthetic/pois_prepared.parquet`: dedup → category
+canonicalization → rating shrinkage → popularity percentile → localness index →
+opening-hours mask → numeric imputation → geo (H3 cell + synthetic transit graph).
+Config in `configs/features.yaml`. CLI: `python -m poi_rank.cli prepare` /
+`make prepare`.
+
+### Resolved ambiguities / design choices
+
+#### 8. `distance-to-stay`'s source field lives on `trips.parquet`, not `travelers.parquet`
+
+The task description for this phase says "distance-to-stay (per trip, from
+travelers.parquet's stay_lat/stay_lon)". Checked directly against
+`datagen/travelers.py::generate_trips`: `stay_lat`/`stay_lon` are trip-level fields
+(a traveler's stay location differs per trip, e.g. their two trips can be to two
+different destinations), written into `trips.parquet`, not `travelers.parquet`.
+`data/geo_prep.py::distance_to_point_km` is documented to read from `trips.parquet`.
+Also: distance-to-stay is inherently trip-conditional (it depends on *which* trip's
+stay point a candidate POI is being compared against), so it is **not** materialized
+as a static column on `pois_prepared.parquet` — it stays a plain callable helper,
+applied per (trip, candidate POI) pair at the later candidate-generation/feature
+stage, which is the earliest point a "trip" is actually in scope.
+
+#### 9. Haversine math duplicated in `data/geo_prep.py`, not imported from `datagen/geo.py`
+
+`datagen/geo.py::haversine_km` is pure trig with no downstream dependencies, so
+importing it from `data/` would not technically violate the DGP firewall (firewall is
+one-directional: `datagen/**` must never import downstream, but nothing stops
+downstream importing `datagen/`). Chose to duplicate the ~10 lines instead, to keep
+`data/`'s module boundary unambiguous rather than relying on a reader correctly
+reasoning through the firewall's directionality every time this file is touched.
+
+#### 10. Synthetic transit-node graph: origin and placement
+
+`datagen/` does not generate a transit network, and spec.md section 4 requires
+"distance-to-nearest-transit-node (synthetic transit graph per destination)" as a
+prep-stage artifact without specifying how the nodes should be placed. Implemented in
+`data/geo_prep.py::synthesize_transit_nodes`: `n` nodes per destination (config:
+`geo.transit_nodes_per_destination`, default 15) scattered with Gaussian noise
+(config: `geo.transit_node_spread_deg`) around that destination's *actual* POI
+centroid (computed from the data at hand, not a hardcoded city-center constant) — an
+observable-infrastructure-metadata choice, not a latent variable, so synthesizing it
+at the prep stage (rather than in `datagen/`) is legitimate. Seeded from
+`configs/features.yaml`'s `seed` via an independent `np.random.Generator` stream —
+never reuses or re-derives datagen's own seeded stream.
+
+#### 11. Category canonicalization mapping table is hand-authored, not imported from `datagen/`
+
+`data/categories.py`'s ~36-entry dirty-string → canonical-category lookup table was
+built by directly inspecting `datagen/taxonomy.py::CATEGORY_STRING_VARIANTS`, but is
+re-typed as its own standalone table rather than importing that dict. A real
+production category-cleaning pipeline would not have access to its training-data
+generator's internals; duplicating this small table keeps `data/` self-contained and
+realistic. Consequence, measured: the mapping is currently *exhaustive* for every
+string Phase 1 actually generates, so the "other" bucket is 0 rows / 0.0% on the
+committed dataset (`n_other_category=0` in the `make prepare` summary) — reported
+honestly rather than assumed nonzero, per spec.md's requirement to log (not assume) the
+other-rate.
+
+#### 12. Median-by-(destination, category) imputation, spec.md's two-part sentence
+
+spec.md section 4 pairs "median-by-(destination,category) [imputation]" with
+"explicit `_was_missing` indicator columns... LightGBM handles NaN natively, but
+indicators are kept for explainability" — a sentence that, read literally, asks for
+both an actual imputed value *and* for the raw NaN to still reach a later model
+untouched. Resolved in `data/impute.py`: the original column (real NaNs intact) is
+never modified; for each imputed field, two *new* columns are added —
+`<field>_imputed` (median-by-(destination, category) filled value, falling back to
+destination-median then global-median for any empty group) and
+`<field>_was_missing` (boolean indicator). Three columns per field, so neither half
+of spec.md's sentence is silently dropped: a later model phase can consume the raw
+column directly (NaN and all) for LightGBM's native handling, or the `_imputed`
+column where an always-present number is needed (e.g. non-tree-based baselines,
+explainability displays).
+
+#### 13. Localness index weight reweighting — an honest miss against the ρ > 0.6 target
+
+spec.md section 4 states the localness composite's weights literally:
+`0.35·z(-pop_pct) + 0.30·z(-foreign_review_ratio) + 0.20·z(dist_to_tourist_centroid)
++ 0.15·z(local_tag_hits)`, validated by Spearman ρ against the DGP's true
+`latent_localness` (target: ρ > 0.6, measured only in `eval/oracle.py`, never inside
+`data/localness.py`).
+
+**Measured, with the literal spec.md weights:** ρ ≈ 0.372 (`n=1446`). Below target.
+
+Per-component diagnostic (each z-scored signal alone vs. `latent_localness`,
+Spearman ρ, computed via a throwaway analysis script against `eval/oracle.py` — never
+baked into `data/localness.py`'s runtime code path):
+
+| Component | ρ alone |
+|---|---|
+| `z(-foreign_review_ratio)` | 0.50 |
+| `z(-pop_pct)` | 0.19 |
+| `z(local_tag_hits)` | 0.05 |
+| `z(dist_to_tourist_centroid)` | 0.01 |
+
+Root cause: `dist_to_tourist_centroid_km` carries almost no signal for this DGP
+realization because POI `lat`/`lon` are generated as Gaussian jitter around each
+destination's center **independent of `latent_localness`** (`datagen/catalog.py`
+never uses `latent_localness` when sampling `lat`/`lon`) — geographic clustering
+relative to the tourist centroid is a plausible real-world signal in general, but
+this particular synthetic catalog doesn't encode it. `local_tag_hits` is weak because
+tag sampling weights (`CATEGORY_TAG_AFFINITY`) are category-conditioned, not directly
+tied to the localness dimension. `foreign_review_ratio` is the dominant carrier since
+Phase 1's DGP formula gives it the most direct dependence on `latent_localness`.
+
+This is exactly the "is `local_tag_hits` actually informative" diagnostic + "weight
+tuning" iteration spec.md section 4 invites. **What was changed:** default weights in
+`configs/features.yaml` moved to `(pop=0.20, foreign=0.60, geo=0.10, tag=0.10)` —
+up-weighting the empirically strongest term, down-weighting (not zeroing — a
+composite index should stay a composite) the two demonstrably weak ones. **What was
+deliberately not done:** no coefficient was derived by regressing directly against
+`latent_localness` (an in-sample OLS fit of `[z(-foreign_review_ratio),
+z(-log1p(popularity_raw))]` against `latent_localness` reaches ρ ≈ 0.61 in this
+throwaway analysis, clearing 0.6 — but adopting those exact fitted coefficients would
+be calibrating the observable index directly against the oracle, the precise
+circularity spec.md section 1 exists to prevent, even though `data/localness.py`
+itself would still never *import* `_oracle/`). `compute_localness`'s own function
+defaults remain the literal spec.md weights (0.35/0.30/0.20/0.15) for direct
+spec-reference use in isolation; only the production `configs/features.yaml` pipeline
+config carries the tuned weights.
+
+**Result after honest reweighting:** ρ ≈ 0.4757 (`n=1446`, p≈1.6e-82) — still below
+the 0.6 target. `tests/test_localness_oracle.py::test_localness_spearman_rho_against_oracle`
+asserts the literal target and is **expected to fail** — the miss is surfaced, not
+hidden, per spec.md's explicit instruction not to silently lower a missed bar.
