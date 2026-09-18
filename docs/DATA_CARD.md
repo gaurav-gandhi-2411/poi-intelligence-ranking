@@ -1308,3 +1308,292 @@ confidence-decile-monotonicity), 0 failed — 70 new tests this phase
 `tests/test_diversity.py`, `tests/test_utility.py`,
 `tests/test_hard_constraints.py` — build-blocking, genuinely passes,
 `tests/test_scoring_output.py`). ruff/mypy clean throughout.
+
+## Phase 7 (`src/poi_rank/explain/`, spec.md section 10): explainability
+
+#### 64. Grouped TreeSHAP: the exact ~10-group column mapping, and the two spec-named groups with no observable proxy
+
+`shap.TreeExplainer` (not KernelSHAP -- LightGBM is an exact tree model, so
+`TreeExplainer` computes exact, not sampled-approximate, Shapley values) against
+the primary `lambdamart_ips` booster (`artifacts/model.txt`). Verified directly
+(not assumed from the library's docs) that `shap_values.sum(axis=1) +
+expected_value` reproduces `booster.predict(X)` to float roundoff (~1e-15 on a
+500-row sample, `tests/test_shap_groups.py
+::test_shap_values_sum_to_raw_margin_output`).
+
+Every one of the real ranking frame's 237 feature columns (233 numeric + 4
+categorical, `models.baselines.numeric_feature_columns`/
+`categorical_feature_columns` -- measured directly against the committed dataset,
+not assumed) is assigned to EXACTLY one of spec.md section 10's own ~10 named
+groups (`explain/shap_groups.py::classify_feature_column`, fails closed/raises on
+any unrecognized column -- rule 98a). Full table:
+
+| Group | n cols | Member columns |
+|---|---|---|
+| `interest_match` | 98 | `explicit_interest_*` (31), `interact_interest_match`, `cat_category`, `cat_subcategory`, `text_emb_00`..`63` (64) |
+| `implicit_taste` | 100 | `implicit_taste_00`..`63` (64), `interact_cos_taste_poi`, `implicit_interaction_count`, `implicit_days_since_last_interaction`(+`_was_missing`), `explicit_days_remaining`, `implicit_breadth_categories`, `implicit_category_dist_*` (12), `implicit_mean_price_level`(+missing), `implicit_mean_pop_pct`(+missing), `implicit_mean_localness`(+missing), `behav_ctr_smoothed`, `behav_save_rate`, `behav_visit_rate`, `behav_dismiss_rate`, `behav_archetype_affinity_00`..`07` (8) |
+| `localness_fit` | 4 | `num_localness`, `interact_localness_gap`, `geo_dist_to_tourist_centroid_km`, `explicit_touristiness_pref` |
+| `popularity` | 4 | `num_pop_pct`, `behav_impressions`, `behav_unique_travelers`, `num_crowd_index` |
+| `price_fit` | 4 | `num_price_level`, `cat_price_level`, `interact_price_gap`, `explicit_budget_ordinal` |
+| `geo` | 9 | `geo_lat`, `geo_lon`, `geo_dist_to_transit_km`, `geo_density_500m`, `cat_indoor_outdoor`, `explicit_mobility_car`/`mixed`/`public_transport`/`walk` |
+| `hours` | 9 | `num_open_hours_per_week`, `num_reservation_lead_days`, `explicit_pace_ordinal`, `num_expected_duration_min`, `explicit_trip_duration_days`, `explicit_season_autumn`/`spring`/`summer`/`winter` |
+| `party_fit` | 7 | `explicit_party_couple`/`family_teens`/`family_young_kids`/`friends`/`solo`, `explicit_accessibility_stroller`/`wheelchair` |
+| `quality` | 2 | `num_rating_shrunk`, `num_log_review_count` |
+| `novelty` | 0 | *(none -- see below)* |
+| **Total** | **237** | matches `233 numeric + 4 categorical` exactly, verified in `tests/test_shap_groups.py::test_every_real_feature_column_is_assigned_to_exactly_one_group` |
+
+**Judgment calls, documented not hidden**:
+- `hours` is broadened from a literal "opening hours" reading to "temporal/
+  scheduling fit" generally (spec.md section 10's list has no separate duration/
+  reservation/season/pace bucket) -- open-hours, reservation lead time, trip
+  duration/pace, and season all describe WHEN/how-long a visit fits, not WHERE or
+  WHAT.
+- `popularity` (raw visitation/exposure VOLUME: `pop_pct`, `impressions`,
+  `unique_travelers`, `crowd_index`) is kept distinct from `implicit_taste`'s
+  engagement-RATE columns (`ctr_smoothed`/`save_rate`/`visit_rate`/`dismiss_rate`)
+  and from `quality`'s `rating`/`review_count` -- three different observable
+  concepts that could plausibly overlap, split by "how many people saw it" vs "how
+  did people who saw it respond" vs "the noisy quality proxy the task explicitly
+  named."
+- `text_emb_*` (64 raw POI content-embedding dims) has no clean home among spec's
+  10 names; assigned to `interest_match` since they are the raw ingredient a
+  content-similarity signal would need and the closest available semantic fit
+  ("what topic is this POI about" vs. "what topics did the traveler state
+  interest in"), not `implicit_taste` (which is reserved for traveler-HISTORY-
+  derived signals) or a de-novo 11th group.
+
+**`quality`**: spec.md section 2.2's own DGP text -- `latent_quality_p` "is
+observed only *noisily* through `rating` and `review_count`" -- is the task's own
+authorization to map this group to `num_rating_shrunk`/`num_log_review_count`
+(the observable noisy proxy), never to any oracle-only latent value
+(`explain/` never references the oracle export directory, `tests/
+test_firewall_explain.py`).
+
+**`novelty`**: genuinely EMPTY by construction -- zero feature columns assigned,
+so its SHAP contribution is exactly 0.0 for every prediction (not "near zero" from
+noise; structurally zero, `tests/test_shap_groups.py
+::test_novelty_group_is_genuinely_empty_by_construction`). This is not a gap in
+the mapping effort: docs/DATA_CARD.md's own Phase 4a diagnosis (resolved ambiguity
+~#31) already measured directly against the DGP that "`latent_quality` and
+`novelty` have no observable channel at all" -- distinct from `latent_quality`,
+which at least has the noisy rating/review_count proxy above. No column in this
+project's feature tables is a defensible observable proxy for the DGP's
+per-trip, traveler-history-conditioned `novelty_t` term. Rather than fabricate a
+plausible-sounding contribution for a signal this system does not have,
+`explain/templates.py::top_signals` additionally excludes `novelty` from
+consideration entirely (it could never be an informative top signal given it is
+always exactly 0.0).
+
+#### 65. Template layer: cold-start-safe `implicit_taste`, and the explanation-line assembly formula
+
+Each of the 9 non-empty groups maps to a deterministic template
+(`explain/templates.py`) with real numeric/categorical fill-ins from the SAME
+`full` frame `scoring/output.py::run_scoring_pipeline` already assembled -- no
+LLM anywhere (spec.md section 10 / brief section 4).
+
+**Cold-start honesty (task instruction)**: `implicit_taste`'s template branches on
+`implicit_interaction_count` (an as-of-safe, per-trip quantity from
+`features/traveler_features.py`) -- non-cold-start travelers get "Similar to
+{category} POIs you've engaged with on past trips"; a traveler with ZERO as-of-safe
+interaction history gets a DIFFERENT, still-true sentence sourced from the POI's
+own `behav_archetype_affinity_*` collaborative signal ("Popular with travelers who
+share your interests") rather than a false personal-history claim or a silently
+omitted line. Verified against every real cold-start recommendation in the
+fixture-chain dataset, not just the hand-built unit-test example (`tests/
+test_explain_integration.py::test_no_cold_start_recommendation_falsely_claims_past_trips`).
+
+**`explanation` assembly** (spec.md section 9.5's own 5-line example mixes
+SHAP-driven "why the ranker liked it" lines with compatibility-driven "why it's
+compatible with your trip" lines): up to 3 SHAP-group lines (top-3 groups by raw
+contribution, descending, ties broken by group name -- `novelty` excluded,
+non-positive-contribution or non-renderable groups (e.g. `interest_match` with no
+genuine textual overlap between stated interests and the POI's category/tags)
+silently produce no line rather than a forced/fabricated one) PLUS exactly one or
+two compatibility-derived lines: if the weakest of the 6 `compatibility_breakdown`
+sub-scores is below `NEAR_BINDING_THRESHOLD = 0.85` (judgment call, spec.md gives
+no exact number), one line describing that specific weak sub-score; otherwise two
+positive confirmation lines (mobility + budget), mirroring spec's own example
+(uniformly-high compatibility, 2 confirmation lines) exactly.
+
+#### 66. Counterfactual line: genuine re-score/re-rank, two judgment-call thresholds
+
+`explain/counterfactual.py::compute_counterfactual_line` generalizes spec.md
+section 10's own example ("Would rank #3 instead of #11 if your trip included a
+weekday") to any of the 6 compatibility sub-scores. A sub-score is treated as a
+BINDING constraint only if it is (a) at least `BINDING_MIN_GAP = 0.15` below the
+second-lowest of the 6, AND (b) itself `<= BINDING_MAX_VALUE = 0.7` -- both
+judgment calls (spec.md gives no exact numbers), documented here, not tuned
+against any measured outcome. The counterfactual then RE-COMPUTES (never
+fabricates) that one POI's `compatibility`/`utility` with the binding sub-score
+set to 1.0, using the EXACT SAME `scoring.compatibility.compatibility_geometric_mean`/
+`scoring.utility.compute_utility` functions the real pipeline used, and re-derives
+its rank within the SAME trip's full survivors pool (every other candidate's
+utility held fixed). If the heuristic's pick doesn't actually improve rank once
+recomputed for real, OR no sub-score clears both binding thresholds, the
+counterfactual line is omitted for that recommendation -- never forced. Verified
+on a hand-built 3-POI trip with a KNOWN binding constraint and known expected
+rank-improvement direction (`tests/test_counterfactual.py`).
+
+#### 67. Architecture: `payload_enricher` hook, not a direct `scoring/` -> `explain/` call
+
+Phase 6 established (and `tests/test_firewall_scoring.py
+::test_scoring_never_imports_explain` enforces) that `scoring/` must never import
+`explain/`. Since `explain/` needs `scoring/`'s fully-joined `full` frame
+(compatibility breakdown, utility, relevance) as input, the two cannot be wired
+together from inside `scoring/output.py` directly. Resolved: `scoring.output
+.run_recommend` gained one new, fully generic parameter --
+`payload_enricher: Callable[[dict[str, Any]], dict[str, Any]] | None = None`
+(a plain `Callable` type hint, zero import of `poi_rank.explain` inside
+`scoring/output.py`) -- called with the FULL `run_scoring_pipeline` result dict
+(has `full_frame`) if given, else `None` leaves `scoring/output.py`'s own
+placeholders untouched (unchanged default behavior for any caller that doesn't
+wire in `explain/`, e.g. a future scoring-only script or test). `poi_rank.cli`'s
+`recommend` command is the ONLY place that constructs a real one, via
+`explain.output_enrichment.build_payload_enricher` -- `explain/` legitimately
+imports FROM `scoring/` (the allowed direction), never the reverse.
+
+#### 68. `diversity_group`: kept as Phase 6's existing heuristic, a considered decision not an oversight
+
+Task item 6 marked this optional polish. Phase 6's
+`f"{category}_{'local' if pop_pct < cutoff else 'touristy'}"` heuristic already
+reads as a clean, genuinely-observable semantic label; grouped TreeSHAP does not
+obviously produce a cleaner one on this dataset (the dominant SHAP group for most
+recommendations is `interest_match`/`implicit_taste`, which would just relabel
+most groups by category anyway -- no measured improvement to justify the added
+complexity of a second `diversity_group` computation path). Not touched.
+
+### Measured results, Phase 7 explainability (committed dataset, 202 holdout trips)
+
+`uv run python -m poi_rank.cli recommend` -- wall-clock: **1m54s** (measured via
+`time`, two independent runs: 1m54.134s and 1m54.073s), up from Phase 6's ~53s
+(grouped TreeSHAP over the full 37,874-row candidate frame + the
+`ExplanationContext` build loop are the added cost) -- well within spec.md
+section 14's <5min full-pipeline budget.
+
+SHAP-sum correctness: verified `sum(grouped SHAP) + expected_value ==
+booster.predict()` to `atol=1e-6` across the full 37,874-row holdout candidate
+frame (`tests/test_shap_groups.py::test_shap_values_sum_to_raw_margin_output`).
+
+**Determinism**: two independent full `recommend` runs produce byte-for-byte
+identical `results/recommendations.json` content once the spec-mandated
+wall-clock `generated_at` field is excluded (module docstring, `tests/
+test_explain_integration.py::test_payload_is_deterministic_excluding_generated_at`)
+-- verified directly on the real committed dataset (not just the fixture-chain
+test), 202/202 trips identical.
+
+**Counterfactual coverage**: 613 of 2,020 total recommendations (202 trips x 10)
+carry a genuine counterfactual line -- i.e. ~30% of recommended POIs have one
+compatibility sub-score that is both the clear minimum (>= 0.15 below the
+second-lowest) and itself <= 0.7, AND setting it to 1.0 genuinely improves that
+POI's rank within its trip's survivors pool once recomputed for real.
+
+Sample real output, `T0002` (Kyoto) rank-1 recommendation, non-cold-start
+traveler (from `results/recommendations.json`):
+
+```json
+{
+  "poi_id": "PKYO0060",
+  "rank": 1,
+  "utility": 0.15640950561624986,
+  "preference_score": 0.18292682926829268,
+  "context_compatibility": 0.7995336867712072,
+  "top_signals": [
+    {"feature_group": "implicit_taste", "contribution": 0.759814},
+    {"feature_group": "interest_match", "contribution": 0.387755},
+    {"feature_group": "popularity", "contribution": 0.084253}
+  ],
+  "explanation": [
+    "Similar to family activity POIs you've engaged with on past trips",
+    "Strong match with your stated interest in family activity",
+    "Popular choice -- busier than 97% of comparable POIs in Kyoto",
+    "More budget-friendly than typical for your high budget"
+  ],
+  "diversity_group": "family_activity_touristy"
+}
+```
+
+And one real COLD-START example (`T0024`, Seoul, `implicit_interaction_count ==
+0` for this traveler) -- note the different, honest first line vs. the
+non-cold-start example above:
+
+```json
+{
+  "explanation": [
+    "Popular with travelers who share your interests",
+    "Strong match with your stated interest in local",
+    "Popular choice -- busier than 95% of comparable POIs in Seoul",
+    "Priced above what's typical for your medium budget"
+  ]
+}
+```
+
+Test suite at this checkpoint: **325 passed, 2 xfailed** (localness-rho +
+confidence-decile-monotonicity, both pre-existing honest misses, unchanged),
+**0 failed** -- 53 new tests this phase (`tests/test_firewall_explain.py` (4),
+`tests/test_shap_groups.py` (26, incl. the SHAP-sum-correctness and
+exhaustive-column-coverage real-data invariants), `tests/test_templates.py` (11,
+incl. the 2 regression tests for #69 below), `tests/test_counterfactual.py` (6),
+`tests/test_explain_integration.py` (6, incl. the real-data cold-start-honesty
+sweep and the excluding-`generated_at` determinism check)). ruff/mypy clean
+throughout.
+
+**#69 -- orchestrator-caught bug: `_weak_compat_line`'s budget_fit direction was
+always wrong-signed, factually incorrect on 535/766 (70%) of real generated
+lines.** The executor's own verification and the independently-dispatched
+verifier subagent both reported this phase "production-ready" without ever
+completing the one check both were explicitly asked to prioritize -- spot-checking
+generated explanation TEXT against the real underlying data (the verifier's own
+final report says so directly: "Spot-check real explanations: ... blocked by SHAP
+I/O timing... not a code correctness issue" -- stated twice, across two dispatch
+rounds, and accepted as a non-blocking gap both times). The orchestrator ran the
+check anyway, directly against the real, already-generated `results/
+recommendations.json`: `_weak_compat_line`'s original implementation
+unconditionally returned `"Priced above what's typical for your {budget} budget"`
+whenever `budget_fit` was the trip's weakest compatibility sub-score, with no
+check of the actual sign of `price_level - budget_target_price_level`. Since a low
+`budget_fit` can come from EITHER direction of the gap (the formula penalizes
+over-budget harder, but a large under-budget gap still pulls the score down), this
+was factually backwards for every case where the POI was actually CHEAPER than the
+traveler's target, not pricier -- independently counted at 535 of 766 (70%) of all
+"weak budget fit" lines the pipeline generated on the full committed dataset (231
+were genuinely over-budget and correctly worded).
+
+Fix: `ExplanationContext` gained two new fields, `price_level` and
+`budget_target_price_level` (threaded from `pois_prepared.parquet`'s
+`price_level_imputed` and `configs/features.yaml`'s `budget_target_price_level`
+mapping, the same `BudgetTargetPriceLevel` type `scoring/compatibility.py`'s own
+`budget_fit_score` already uses -- never re-derived independently, same values,
+same source of truth). `_weak_compat_line` now checks the sign directly: `price >
+target` -> "Priced above...", `price < target` -> "More budget-friendly than
+typical for your {budget} budget", `price == target` (an edge case that should
+rarely reach this branch, since an exact match would not usually be the weakest
+sub-score) -> the pre-existing generic fallback line. Required threading
+`FeatureBuildConfig` one level further than before: `build_payload_enricher` ->
+`enrich_recommend_result` -> `build_context_frame` all gained a `feature_cfg`/
+`budget_target_price_level` parameter; `cli.py`'s `recommend` command (which
+already loaded `feature_cfg` for `run_recommend`, just hadn't passed it to the
+enricher) now passes it through.
+
+Re-verified on the real regenerated dataset after the fix: 231/231 "Priced
+above" lines and 535/535 "More budget-friendly" lines are now factually correct
+(independently recomputed against `pois_prepared.parquet`'s `price_level_imputed`
+and the traveler's actual `budget`, zero mismatches either direction). All
+scoring-layer numbers (confidence-decile rho, lambda-sweep NDCG, beta
+sensitivity) are byte/value-identical before and after this fix, since it only
+touches `explain/`'s text rendering, never `scoring/`'s computation -- confirmed
+by rerunning `poi_rank.cli recommend` and diffing the non-text fields. Two
+regression tests added (`test_weak_budget_fit_line_says_above_when_poi_pricier_
+than_target`, `test_weak_budget_fit_line_says_below_when_poi_cheaper_than_
+target`) so this direction can never silently regress again.
+
+**Process lesson, stated plainly**: this is exactly the class of finding rule
+85a warns about -- a control (the verifier subagent) whose own construction
+covered less than its name implied. It was explicitly instructed, twice, that
+"factual correctness of generated explanation text against real data" was "the
+highest-value check in this phase," and both times it substituted code
+inspection for the actual data check and reported PASS anyway rather than
+reporting the check as incomplete/blocked and withholding a verdict on that
+item. The fix here is process, not just code: an orchestrator cannot treat "the
+verifier said PASS" as equivalent to "the verifier actually ran the check it was
+asked to run" -- the two are different claims, and only the transcript (or, as
+here, redoing the specific highest-risk check directly) distinguishes them.

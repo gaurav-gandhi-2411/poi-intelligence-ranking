@@ -177,6 +177,69 @@ clean throughout. Determinism byte-identical, verified at every phase.**
    ~4-6x — caught by sanity-checking against Phase 5's own system-8 NDCG@10
    before it ever reached a committed test assertion.
 
+## Done (Day 2 P0, Phase 7, spec.md §16 item 9 — committed, independently verified)
+
+9. **Explainability** (`explain/shap_groups.py`, `templates.py`,
+   `counterfactual.py`, `output_enrichment.py`) — grouped TreeSHAP
+   (`shap.TreeExplainer` against `artifacts/model.txt`, exact not sampled, verified
+   `sum(SHAP)+expected_value == booster.predict()` to `atol=1e-6` across all 37,874
+   holdout candidate rows), all 237 real feature columns (233 numeric + 4
+   categorical) mapped to exactly one of spec's ~10 named groups
+   (`docs/DATA_CARD.md` #64 has the full table). **`novelty` is a genuinely empty
+   group** (zero observable proxy for the DGP's latent novelty term, per Phase 4a's
+   own already-measured finding) — contribution exactly 0.0 always, not
+   fabricated; `quality` maps to `rating_shrunk`/`review_count` per spec.md
+   §2.2's own "observed only noisily through rating and review_count" text.
+   Deterministic NL template layer (`templates.py`, no LLM anywhere per spec §10/
+   brief §4) with a genuine cold-start-safe `implicit_taste` variant (never claims
+   "past trips" for a traveler with zero as-of-safe interaction history — verified
+   against every real cold-start recommendation, not just a hand-built example).
+   Genuine counterfactual re-score/re-rank (`counterfactual.py`, reuses the real
+   `scoring.compatibility`/`scoring.utility` functions, 2 documented judgment-call
+   thresholds for "binding constraint") — 613/2,020 real recommendations carry one.
+   **Architecture**: `scoring.output.run_recommend` gained a generic
+   `payload_enricher: Callable[[dict[str, Any]], dict[str, Any]] | None` hook
+   (zero import of `explain/` inside `scoring/`, preserving Phase 6's firewall);
+   `poi_rank.cli recommend` is the only place that wires `explain/` in, via
+   `explain.output_enrichment.build_payload_enricher`. `diversity_group` left as
+   Phase 6's existing heuristic (task-sanctioned optional polish, not pursued —
+   no measured improvement to justify a second computation path).
+
+   **Results** (`docs/DATA_CARD.md` #64-68, real committed dataset, 202 holdout
+   trips): `uv run python -m poi_rank.cli recommend` now **1m54s** (up from Phase
+   6's ~53s, still well within the <5min budget). Two independent full runs
+   produce **byte-identical** `recommendations.json` content once the
+   spec-mandated wall-clock `generated_at` field is excluded (verified directly,
+   202/202 trips). Every Phase 6 number (ECE, beta-sensitivity, lambda-sweep,
+   confidence-decile rho) reproduced EXACTLY — confirms Phase 7 only appends
+   `top_signals`/`explanation` content, never touches the scoring math.
+
+   Test suite at this checkpoint: **325 passed, 2 xfailed** (localness-rho +
+   confidence-decile-monotonicity, unchanged pre-existing honest misses), **0
+   failed** — 53 new tests (`tests/test_firewall_explain.py`,
+   `tests/test_shap_groups.py`, `tests/test_templates.py`,
+   `tests/test_counterfactual.py`, `tests/test_explain_integration.py`). ruff/mypy
+   clean throughout.
+
+   **Orchestrator-caught bug, fixed before commit** (`docs/DATA_CARD.md` #69):
+   `_weak_compat_line`'s budget_fit branch always said "Priced above what's
+   typical for your {budget} budget" regardless of the actual gap direction —
+   factually wrong on 535/766 (70%) of real generated lines (the POI was actually
+   CHEAPER than the traveler's target, not pricier). Neither the executor's own
+   verification nor the independently-dispatched verifier subagent (across two
+   full dispatch rounds) actually completed the data-level spot-check both were
+   explicitly told was "the highest-value check in this phase" — both reported
+   PASS while explicitly noting that exact check was "blocked by SHAP I/O timing"
+   and treating the gap as non-blocking. The orchestrator ran the check directly
+   against the real `results/recommendations.json` and found the bug. Fixed:
+   `ExplanationContext` gained `price_level`/`budget_target_price_level` fields
+   threaded from the same source `scoring/compatibility.py`'s own `budget_fit_score`
+   already uses; the line now checks the sign correctly. Re-verified on the real
+   regenerated dataset: 231/231 "Priced above" + 535/535 "More budget-friendly"
+   lines now factually correct, zero mismatches. Two regression tests added.
+   Scoring-layer numbers unchanged (confirmed byte/value-identical) — the fix only
+   touches explanation text, never the ranking/scoring computation itself.
+
 ## Next (Day 2 P0, spec.md §16)
 
 7. ~~**LambdaMART + IPS** (`models/lambdamart.py`) — `lightgbm` `lambdarank`,
@@ -193,7 +256,8 @@ clean throughout. Determinism byte-identical, verified at every phase.**
    confidence (validate monotonicity via Spearman, §9.3), MMR diversity (λ
    sweep). Output JSON schema per §9.5.~~
    **DONE — see "Done (Day 2 P0, Phase 6)" below.**
-9. **Explainability** (`explain/`) — grouped TreeSHAP, template layer, no LLM.
+9. ~~**Explainability** (`explain/`) — grouped TreeSHAP, template layer, no LLM.~~
+   **DONE — see "Done (Day 2 P0, Phase 7)" above.**
 10. **Full eval suite** (`eval/`) — personalization (Jaccard within/cross
     archetype), coverage (Gini/entropy), long-tail precision, constraint
     compatibility (hard-violation-rate=0 test, build-blocking per spec §11.5),

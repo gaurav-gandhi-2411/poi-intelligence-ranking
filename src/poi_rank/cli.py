@@ -23,6 +23,7 @@ from poi_rank.datagen.config import DatagenConfig
 from poi_rank.datagen.pipeline import run_generate
 from poi_rank.eval.config import EvalConfig
 from poi_rank.eval.run import ALL_SYSTEM_NAMES, WILCOXON_METRIC, run_evaluate
+from poi_rank.explain.output_enrichment import build_payload_enricher
 from poi_rank.features.build import run_features
 from poi_rank.features.config import FeatureBuildConfig
 from poi_rank.models.config import ModelConfig
@@ -353,6 +354,9 @@ def recommend(
     candidates_cfg = CandidatesConfig.from_yaml(features_config_path)
 
     trip_id_filter = {trip_id} if trip_id else None
+    payload_enricher = build_payload_enricher(
+        data_dir, artifacts_dir, results_dir / "figures", scoring_cfg, feature_cfg
+    )
     summary = run_recommend(
         data_dir,
         artifacts_dir,
@@ -363,6 +367,7 @@ def recommend(
         candidates_cfg.geo,
         candidates_cfg.longtail.pop_pct_cutoff,
         trip_id_filter=trip_id_filter,
+        payload_enricher=payload_enricher,
     )
 
     typer.echo("=== poi-rank recommend: summary ===")

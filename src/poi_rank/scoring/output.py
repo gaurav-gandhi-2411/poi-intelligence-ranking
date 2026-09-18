@@ -25,13 +25,21 @@ every prior phase's evaluation convention):
    (defense in depth) before ever serializing output.
 7. MMR-rerank each trip's top-50-by-utility pool to a top-K list
    (`scoring/diversity.py`), plus the lambda-sweep NDCG-vs-diversity curve.
-8. Assemble the spec.md section 9.5 JSON schema, one entry per trip.
+8. Assemble the spec.md section 9.5 JSON schema, one entry per trip -- `top_signals`/
+   `explanation` are assembled here as documented PLACEHOLDERS (module-level
+   constants below); `run_recommend`'s `payload_enricher` hook is where a caller
+   (`poi_rank.cli recommend`, via `poi_rank.explain.output_enrichment
+   .build_payload_enricher`) replaces them with real grouped-TreeSHAP-driven content
+   (spec.md section 10, Phase 7) -- `scoring/` itself never computes or imports that
+   content directly (firewall: `tests/test_firewall_scoring.py
+   ::test_scoring_never_imports_explain`).
 """
 
 from __future__ import annotations
 
 import json
 import pickle
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -224,9 +232,12 @@ def assemble_output_payload(
     a violation here raises, it is never silently dropped or logged-and-ignored.
 
     `diversity_group` and `top_signals`/`explanation` are documented placeholders
-    (module-level constants) -- grouped TreeSHAP (spec.md section 10) is a LATER
-    phase (`src/poi_rank/explain/`), out of this phase's scope. `diversity_group`
-    uses a simple category + local/touristy heuristic (`num_pop_pct` vs
+    (module-level constants) here -- grouped TreeSHAP (spec.md section 10,
+    `src/poi_rank/explain/`) lives outside this module by firewall construction
+    (`scoring/` must never import `explain/`); `run_recommend`'s `payload_enricher`
+    hook is where a caller replaces `top_signals`/`explanation` with real content
+    AFTER this function returns (module docstring). `diversity_group` uses a simple
+    category + local/touristy heuristic (`num_pop_pct` vs
     `longtail_pop_pct_cutoff`, reused from `candidates/config.py`'s own long-tail
     threshold for consistency with the rest of this project's "local discovery"
     framing) rather than the eventual TreeSHAP-grouped signal. See docs/DATA_CARD.md.
@@ -475,6 +486,7 @@ def run_recommend(
     geo_cfg: GeoChannelConfig,
     longtail_pop_pct_cutoff: float,
     trip_id_filter: set[str] | None = None,
+    payload_enricher: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """`poi_rank.cli recommend`'s entry point: run the full scoring pipeline,
     persist `results/recommendations.json`, `artifacts/calibrator.pkl` (spec.md
@@ -482,6 +494,18 @@ def run_recommend(
     (`results/figures/`). Requires `poi_rank.cli train` to have already written
     `artifacts/model.txt` (system 8, LOADED here, never retrained). Returns a
     summary dict for the CLI report and tests.
+
+    `payload_enricher`, if given, is called with the FULL `run_scoring_pipeline`
+    result dict (has `full_frame`, `payload`, everything) and must return a
+    replacement payload -- the hook `poi_rank.explain.output_enrichment
+    .build_payload_enricher` plugs into (module docstring: `scoring/` must never
+    import `poi_rank.explain` per `tests/test_firewall_scoring.py
+    ::test_scoring_never_imports_explain`, so this parameter is a plain, generic
+    `Callable` -- `poi_rank.cli`'s `recommend` command is the only place that ever
+    constructs a real one). `None` (the default) leaves `result["payload"]`
+    untouched, i.e. `top_signals`/`explanation` stay `scoring/output.py`'s own
+    documented placeholders -- unchanged default behavior for any caller (a direct
+    test, a future scoring-only script) that doesn't wire in `explain/`.
     """
     result = run_scoring_pipeline(
         data_dir,
@@ -493,6 +517,7 @@ def run_recommend(
         longtail_pop_pct_cutoff,
         trip_id_filter=trip_id_filter,
     )
+    payload = payload_enricher(result) if payload_enricher is not None else result["payload"]
 
     artifacts_dir.mkdir(parents=True, exist_ok=True)
     calibrator_path = artifacts_dir / CALIBRATOR_FILENAME
@@ -502,7 +527,7 @@ def run_recommend(
     results_dir.mkdir(parents=True, exist_ok=True)
     recommendations_path = results_dir / RECOMMENDATIONS_FILENAME
     recommendations_path.write_text(
-        json.dumps(result["payload"], indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
 
     figures_dir = results_dir / "figures"
@@ -524,7 +549,7 @@ def run_recommend(
         "reliability_figure_path": reliability_path,
         "lambda_sweep_figure_path": lambda_sweep_path,
         "n_holdout_trips": result["n_holdout_trips"],
-        "n_trips_output": len(result["payload"]),
+        "n_trips_output": len(payload),
         "calibration": result["calibration"],
         "beta_sensitivity": result["beta_sensitivity"],
         "confidence_decile_validation": result["confidence_decile_validation"],

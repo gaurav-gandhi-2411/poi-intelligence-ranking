@@ -14,10 +14,13 @@ from poi_rank.data.config import FeaturesConfig
 from poi_rank.data.prepare import prepare_pois
 from poi_rank.datagen.config import DatagenConfig
 from poi_rank.datagen.pipeline import run_generate
+from poi_rank.explain.output_enrichment import enrich_recommend_result
+from poi_rank.explain.shap_groups import GroupedShapResult, compute_grouped_shap
 from poi_rank.features.build import run_features
 from poi_rank.features.config import FeatureBuildConfig
+from poi_rank.models.baselines import categorical_feature_columns, numeric_feature_columns
 from poi_rank.models.config import LambdaMartConfig, ModelConfig
-from poi_rank.models.lambdamart import save_boosters, train_lambdamart_systems
+from poi_rank.models.lambdamart import load_boosters, save_boosters, train_lambdamart_systems
 from poi_rank.models.ranking_data import load_train_ranking_frame
 from poi_rank.scoring.config import ScoringConfig
 from poi_rank.scoring.output import run_scoring_pipeline
@@ -237,4 +240,56 @@ def scoring_pipeline_result(
         scoring_cfg,
         candidates_cfg.geo,
         candidates_cfg.longtail.pop_pct_cutoff,
+    )
+
+
+# -----------------------------------------------------------------------------------
+# Phase 7 (explain/): grouped TreeSHAP + enrichment, built on top of the SAME
+# session-scoped `scoring_pipeline_result`/`trained_scoring_artifacts_dir` fixtures
+# above -- mirrors their own "real fixture-chain data, computed once per session"
+# convention.
+# -----------------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def explain_ips_booster(trained_scoring_artifacts_dir: Path) -> Any:
+    """The system-8 (LambdaMART+IPS) booster, loaded exactly as `scoring/output.py
+    ::run_scoring_pipeline` loads it -- never retrained here."""
+    return load_boosters(trained_scoring_artifacts_dir)["lambdamart_ips"]
+
+
+@pytest.fixture(scope="session")
+def explain_grouped_shap(
+    scoring_pipeline_result: dict[str, Any], explain_ips_booster: Any
+) -> GroupedShapResult:
+    """Grouped TreeSHAP over `scoring_pipeline_result["full_frame"]` (every holdout
+    candidate this session's fixture chain scored), computed once and shared
+    read-only across every `explain/` test that needs it."""
+    full = scoring_pipeline_result["full_frame"]
+    numeric_columns = numeric_feature_columns(full)
+    categorical_columns = categorical_feature_columns(full)
+    return compute_grouped_shap(explain_ips_booster, full, numeric_columns, categorical_columns)
+
+
+@pytest.fixture(scope="session")
+def enriched_payload(
+    scoring_pipeline_result: dict[str, Any],
+    evaluate_ready_data_dir: Path,
+    trained_scoring_artifacts_dir: Path,
+    scoring_cfg: ScoringConfig,
+    feature_build_cfg: FeatureBuildConfig,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> dict[str, Any]:
+    """The real, fully-enriched output payload (`explain/output_enrichment
+    ::enrich_recommend_result`) built from the session's real scoring-pipeline
+    result -- `top_signals`/`explanation` here are genuine content, not
+    `scoring/output.py`'s placeholders."""
+    figures_dir = tmp_path_factory.mktemp("explain_figures")
+    return enrich_recommend_result(
+        scoring_pipeline_result,
+        evaluate_ready_data_dir,
+        trained_scoring_artifacts_dir,
+        figures_dir,
+        scoring_cfg,
+        feature_build_cfg,
     )
