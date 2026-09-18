@@ -1,0 +1,74 @@
+# Data-generating-process hyperparameters for poi-intelligence-ranking.
+#
+# Every stochastic knob in src/poi_rank/datagen/** is sourced from this file so the
+# DGP is auditable/tunable without touching code (spec.md section 1.2/14). Nothing
+# in datagen/ hardcodes a distribution parameter that belongs here.
+
+seed: 42
+
+scale:
+  n_destinations: 3
+  pois_per_destination: 500
+  n_travelers: 600
+  travelers_per_destination: 200
+  # 200 of 600 travelers (1/3) take a 2nd trip -> 600 + 200 = 800 trips total (spec target).
+  two_trip_traveler_fraction: 0.3333333333333333
+  target_train_impressions: 120000
+  target_holdout_random_impressions: 30000
+  # Secondary log; spec does not fix a target for this one. Sized at ~half the
+  # random-holdout session density per trip (documented in docs/DATA_CARD.md).
+  target_holdout_logged_impressions: 15000
+  target_positive_interactions: 25000
+
+utility_weights:
+  w_taste: 2.0
+  w_cat: 1.0
+  w_local: 1.0
+  w_qual: 1.5
+  w_party: 1.0
+  w_price: 0.8
+  w_novel: 0.5
+
+noise:
+  sigma: 0.4 # irreducible utility noise, epsilon ~ N(0, sigma)
+
+choice:
+  tau: 0.5 # Plackett-Luce temperature for slate choice simulation
+
+slate:
+  slate_size: 20 # both biased and random-exposure slates, for comparability
+
+exposure:
+  popularity_exponent: 1.5 # p(expose) ~ popularity_raw^exponent * geo_proximity^geo_weight_exponent
+  geo_decay_km: 5.0 # geo_proximity = exp(-distance_km / geo_decay_km)
+  geo_weight_exponent: 1.0
+
+interests:
+  random_interest_rate: 0.10 # fraction of stated-interest slots replaced with an unrelated label
+  omission_rate: 0.20 # probability each genuinely high-latent interest is dropped from the stated list
+  top_k_latent: 6 # size of the latent top-k before omission/randomization is applied
+
+split:
+  train_fraction: 0.80 # temporal: first 80% of trip timeline = train, last 20% = holdout
+
+timeline:
+  start_date: "2024-01-01"
+  end_date: "2025-12-31"
+
+dirtiness:
+  near_duplicate_rate: 0.04
+  missing_price_level_rate: 0.08
+  missing_expected_duration_rate: 0.05
+  missing_opening_hours_rate: 0.12
+  sparse_review_count_rate: 0.15 # review_count < 10
+  new_poi_rate: 0.05 # created_at falls inside the holdout window, zero interactions by construction
+  inconsistent_category_rate: 0.06 # stored `category` string replaced by a messy variant
+
+interaction_generation:
+  engage_lambda: 3.0 # Poisson mean number of engaged POIs per slate
+  dismiss_lambda: 0.5 # Poisson mean number of dismissed POIs per slate
+  rank_decay: 2.0 # controls how fast interaction-type severity decays with PL draw rank
+
+novelty:
+  same_poi_repeat_penalty: 0.6 # novelty penalty for a POI the traveler already engaged with
+  similar_category_repeat_penalty: 0.2 # smaller penalty for a repeat of the same (category, subcategory)

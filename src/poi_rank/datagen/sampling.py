@@ -1,0 +1,49 @@
+"""Shared Plackett-Luce / softmax sampling primitives for the DGP.
+
+Used by both `exposure.py` (which POIs are shown) and `interactions.py` (which shown
+POIs get engaged with) so the stochastic-choice simulation is implemented once.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import numpy.typing as npt
+
+
+def softmax(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Numerically stable softmax over the last axis."""
+    shifted = x - np.max(x)
+    exp = np.exp(shifted)
+    total = exp.sum()
+    if total <= 0:
+        return np.full_like(x, 1.0 / len(x))
+    result: npt.NDArray[np.float64] = exp / total
+    return result
+
+
+def pl_sample_without_replacement(
+    rng: np.random.Generator, weights: npt.NDArray[np.float64], k: int
+) -> list[int]:
+    """Sequential Plackett-Luce draw of `k` distinct indices, proportional to `weights`.
+
+    Standard Luce's-choice-axiom sampling: draw one index proportional to the
+    remaining weight mass, remove it, renormalize, repeat. Returns indices into the
+    original `weights` array in draw order (draw order == implied preference order).
+    """
+    n = len(weights)
+    k = min(k, n)
+    if k <= 0:
+        return []
+    remaining_idx = list(range(n))
+    remaining_w = np.asarray(weights, dtype=np.float64).copy()
+    chosen: list[int] = []
+    for _ in range(k):
+        total = remaining_w.sum()
+        if total <= 0 or not np.isfinite(total):
+            break
+        probs = remaining_w / total
+        pick = int(rng.choice(len(remaining_idx), p=probs))
+        chosen.append(remaining_idx[pick])
+        del remaining_idx[pick]
+        remaining_w = np.delete(remaining_w, pick)
+    return chosen
