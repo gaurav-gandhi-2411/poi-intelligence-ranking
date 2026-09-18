@@ -8,6 +8,8 @@ from typing import Any
 import pandas as pd
 import pytest
 
+from poi_rank.candidates.config import CandidatesConfig
+from poi_rank.candidates.union import generate_candidates
 from poi_rank.data.config import FeaturesConfig
 from poi_rank.data.prepare import prepare_pois
 from poi_rank.datagen.config import DatagenConfig
@@ -86,4 +88,41 @@ def built_features(
         "output_dir": output_dir,
         "artifacts_dir": artifacts_dir,
         "cfg": feature_build_cfg,
+    }
+
+
+@pytest.fixture(scope="session")
+def candidates_cfg() -> CandidatesConfig:
+    return CandidatesConfig.from_yaml(FEATURES_CONFIG_PATH)
+
+
+@pytest.fixture(scope="session")
+def generated_candidates(
+    built_features: dict[str, Any], candidates_cfg: CandidatesConfig
+) -> dict[str, Any]:
+    """Run the full-scale Phase 4a candidate-generation pipeline once per test
+    session, on top of `built_features`'s output."""
+    output_dir: Path = built_features["output_dir"]
+    pois_df = pd.read_parquet(output_dir / "pois_prepared.parquet")
+    travelers_df = pd.read_parquet(output_dir / "travelers.parquet")
+    trips_df = pd.read_parquet(output_dir / "trips.parquet")
+    interactions_train = pd.read_parquet(output_dir / "interactions_train.parquet")
+
+    candidates_df = generate_candidates(
+        pois_df,
+        travelers_df,
+        trips_df,
+        built_features["poi_features"],
+        built_features["traveler_features"],
+        interactions_train,
+        candidates_cfg,
+    )
+    return {
+        "candidates": candidates_df,
+        "pois": pois_df,
+        "travelers": travelers_df,
+        "trips": trips_df,
+        "interactions_train": interactions_train,
+        "output_dir": output_dir,
+        "cfg": candidates_cfg,
     }

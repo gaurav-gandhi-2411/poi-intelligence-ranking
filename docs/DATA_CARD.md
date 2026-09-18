@@ -518,3 +518,232 @@ sections, independent of `data/config.py::FeaturesConfig` (Phase 2's
 file — mirrors the codebase's established one-typed-config-class-per-phase
 convention (`datagen/config.py::DatagenConfig`, `data/config.py::FeaturesConfig`)
 rather than coupling one phase's config class to another's.
+
+---
+
+## Phase 4a — candidate generation (`src/poi_rank/candidates/`)
+
+Reads `pois_prepared.parquet`, `travelers.parquet`, `trips.parquet`,
+`poi_features.parquet`, `traveler_features.parquet`, `interactions_train.parquet`
+(never holdout logs at generation time — those are read only by the recall-metrics
+evaluation step, never fed into channel logic) and writes
+`data/synthetic/candidates.parquet`: one row per `(trip_id, poi_id)` selected by
+**any** of 6 channels, with a boolean membership column per channel. CLI:
+`python -m poi_rank.cli candidates` / `make candidates`.
+
+### Resolved ambiguities / design choices
+
+#### 25. No dedicated `configs/candidates.yaml`
+
+spec.md section 14's repository layout lists exactly `datagen.yaml, features.yaml,
+model.yaml, scoring.yaml, eval.yaml` — no `candidates.yaml`. A new `candidates:`
+section was appended to the existing `configs/features.yaml` instead, read by its own
+`candidates/config.py::CandidatesConfig` typed loader — mirrors the precedent already
+established twice in this same file (`data.config.FeaturesConfig` and
+`features.config.FeatureBuildConfig` each read their own section of the identical
+physical YAML), rather than inventing a file spec.md never asked for.
+
+#### 26. Interest channel matches `travelers.interests` against POI `{category} ∪ tags`, not the exploded `explicit_interest_*` columns
+
+Both representations are available (`travelers.parquet['interests']` — the raw
+stated-interest list per traveler — and `traveler_features.parquet`'s one-hot
+`explicit_interest_*` columns built from the same list). The raw list is simpler to
+consume for a **membership** check (`stated_interests & (poi.tags ∪ {poi.category})`)
+and avoids re-deriving the traveler-feature-table row for every trip inside the
+candidate-generation loop. Measured: the interest vocabulary (31 labels) is an exact
+1:1 match with the POI tag+category vocabulary (also 31 labels, zero labels present on
+one side only) — both taxonomies are drawn from the same `datagen/taxonomy.py` source,
+so membership matching works cleanly with no silent under-coverage from a vocabulary
+mismatch.
+
+#### 27. Geo channel: H3 k-ring is a coarse first filter, never the final radius decision
+
+spec.md section 7 literally specifies "H3 k-ring from stay point, radius by
+mobility." H3's k-ring covers an *approximate* disk (its true footprint varies with
+hex orientation relative to the query point, especially at small k) — taken
+literally, an under-sized k could silently clip real in-radius POIs sitting just past
+a coarse hex boundary, or an over-sized k could admit POIs beyond the literal radius.
+**Resolved**: `channel_geo` computes `k = ceil(radius_km / edge_length_km) + 1` (a
+generous +1-ring safety margin), gathers the k-ring's POIs from
+`pois_prepared.h3_cell`, then applies an **exact haversine cutoff** at the literal
+mobility-conditioned radius before ranking nearest-first and truncating to quota. The
+k-ring is a cheap coarse filter; the haversine cutoff is what actually enforces the
+spec's literal radius semantics.
+
+`radius_km_mixed` (spec.md leaves "mixed" mobility's radius undefined, suggesting
+"e.g. max of transit/car" as a documented default): set equal to `car`'s radius
+(25 km) — "mixed" mobility means the traveler has access to the most permissive
+transport mode available, not an average across modes.
+
+`geo.h3_resolution` in `configs/features.yaml` is pinned to `8`, matching
+`dedup.h3_resolution` (also `8`) — `pois_prepared.h3_cell` is built at that
+resolution, and k-ring cell-id comparisons are only meaningful when both sides agree
+on resolution. Documented as a coupled pair, not independently tunable.
+
+#### 28. `pois_prepared.pop_pct` is a `[0, 1]` percentile, not spec.md's literal "0-40" reading
+
+`data/popularity.py::compute_popularity_percentile` produces a `[0, 1]`
+within-destination percentile rank (measured: `min≈0.002, max=1.0` on the committed
+dataset), not a `0-100` scale. spec.md section 7's literal `pop_pct < 40` is
+implemented as `pop_pct < 0.40` on this dataset's actual scale — the same
+bottom-40th-percentile semantics, just expressed on the scale the column actually
+uses.
+
+#### 29. Long-tail channel's cold-start fallback: the semantic-relevance filter is skipped, not defaulted to a permissive threshold
+
+`compute_semantic_similarity` returns an *identical* `0.0` for every POI in a
+destination when the traveler's taste vector has zero magnitude (a genuine
+zero-interaction-history cold start — measured 635/800 trips overall, 137/202 in the
+holdout evaluation set specifically). A literal `sims > 0.0` filter would therefore
+exclude **every** POI for a cold-start trip, silently starving the channel's HARD
+FLOOR for the majority of trips. **Resolved**: `channel_longtail` skips the semantic
+filter entirely for cold-start travelers (only the popularity cutoff applies), and the
+"rest by semantic score" ranking degenerates to a stable poi_id tie-break (all scores
+tied at 0.0) — exploration is genuinely uniform for these travelers, which is the more
+honest behavior for a traveler with no taste signal to rank against at all.
+
+#### 30. Collaborative-filtering channel: co-interaction is engagement co-occurrence across the FULL train window, not per-slate co-occurrence; leakage safety lives in the per-trip seed, not the global matrix
+
+"Co-interaction" is defined as: two POIs co-interact iff the SAME traveler
+positively engaged (`label >= 1`) with both, anywhere in `interactions_train`'s train
+window — the standard user-item → item-item cosine-similarity construction (binary
+engagement matrix, item similarity = column-cosine), not restricted to the same
+slate/session. This global similarity matrix is fit **once**, over the full train
+window, mirroring `poi_features.py::build_behavioral_block`'s already-established
+precedent (POI-level behavioral aggregates use the full train window, not a per-trip
+as-of cutoff — resolved ambiguity #18's sibling reasoning). The task's explicit
+leakage-safety obligation ("reuse the same temporal as-of-cutoff discipline... do not
+leak") applies to the per-trip **seed** (`union.cf_seed_poi_ids`), which reuses
+`features.traveler_features.traveler_history_before` directly and is restricted to
+the traveler's own earlier-trip, positively-engaged history — never reimplemented,
+never the current trip's own session, never a later trip. Additionally,
+`interactions_train.parquet` structurally contains zero rows for any holdout trip
+(verified: 0 of 121,360 rows reference a holdout `trip_id`), so for every trip
+actually scored by `candidates/recall_metrics.py` (holdout trips only) the global
+matrix carries no information about that trip's own session at all — the matrix's
+full-train-window construction cannot leak into the metric that matters.
+
+Collaborative-filtering channel coverage is inherently sparse: 165/800 trips overall
+(65/202 in the holdout set) have a non-empty seed history and so a non-empty
+`channel_cf` — the remainder correctly get an empty CF channel (their first trip),
+per spec.md section 12's assignment of the archetype-prior channel, not this one, as
+the designated cold-start path.
+
+#### 31. Semantic channel and CF channel reuse Phase 3's precomputed artifacts directly, never recompute
+
+The semantic channel's `taste_t` is read directly from
+`traveler_features.parquet`'s `implicit_taste_*` columns (already as-of-safe per
+Phase 3's temporal-leakage discipline) rather than recomputed from raw interaction
+history. The archetype-prior channel reuses
+`features.traveler_features.assign_traveler_segments` directly (same K-Means
+observable-segment construction that built `poi_features.parquet`'s
+`behav_archetype_affinity_NN` columns) and ranks by those already-computed affinity
+columns. Both choices avoid a second, potentially-inconsistent reimplementation of
+already-built, already-tested Phase 3 logic.
+
+#### 32. Long-tail exploration: ε-greedy parameterization and per-trip seeding
+
+`epsilon = 0.30` (30% of the long-tail quota filled by uniform-random draw from the
+qualifying pool; 70% by semantic-score rank) is a documented, arbitrary-but-stated
+choice, not derived from any target metric. The random draw is seeded per trip via
+`channels.trip_seed` — a SHA256 digest of `(seed, trip_id)`, deliberately **not**
+Python's built-in `hash()`, which is only reproducible across process runs when
+`PYTHONHASHSEED` happens to already be externally fixed (`Makefile` sets it for
+`make candidates`, but a direct `uv run python -m poi_rank.cli candidates` invocation
+does not). Verified directly: two independent `uv run python -m poi_rank.cli
+candidates` invocations (no `make`, no externally-set `PYTHONHASHSEED`) produced a
+byte-identical `candidates.parquet`
+(`sha256=629d4312b136277b4abe2f232a2c188096bd55322310921e104cb1a1e18deded`).
+
+### Measured results (committed dataset, 800 trips)
+
+`uv run python -m poi_rank.cli candidates`, wall clock ≈ 39–40 s (well inside the
+project's < 5 min full-pipeline budget):
+
+| Metric | Value |
+|---|---|
+| Candidates per trip (mean / median / min / max) | 186.7 / 189.0 / 148 / 224 |
+| `candidate_recall@250`, overall | **0.4413** (n=202 holdout trips, 0 excluded) |
+| `candidate_recall@250`, long-tail stratum (pop_pct < 0.5) | **0.3936** (n=201, 1 excluded — zero long-tail-relevant POIs) |
+
+Targets (spec.md §11.10): overall ≥ 0.90, long-tail ≥ 0.80. **Both missed — reported
+honestly, per-channel diagnostics below, no channel logic was tuned to inflate this
+number.**
+
+Per-channel marginal recall (leave-one-channel-out, overall):
+
+| Channel | `recall_without_channel` | Marginal |
+|---|---|---|
+| `channel_geo` | 0.3712 | **+0.0702** |
+| `channel_interest` | 0.3166 | **+0.1248** (largest single contributor) |
+| `channel_semantic` | 0.4055 | +0.0358 |
+| `channel_cf` | 0.4298 | +0.0116 (smallest — see diagnosis below) |
+| `channel_longtail` | 0.3980 | +0.0434 |
+| `channel_archetype` | 0.4045 | +0.0368 |
+
+Every channel contributes strictly positive marginal recall — **none is flagged for
+removal**. `channel_cf`'s marginal is the smallest in absolute terms, but this is a
+**coverage artifact, not a weak mechanism**: it is structurally non-empty for only
+65/202 holdout trips (32%, first-trip travelers correctly get an empty CF channel by
+design — see resolved ambiguity #30). Restricting the same leave-one-out computation
+to only the 65 trips where `channel_cf` actually fires (a diagnostic-only
+computation, not part of the production metric): recall_full=0.4624,
+recall_without_cf=0.4263, **conditional marginal = 0.0360** — three times its
+unconditional value, and comparable in magnitude to `channel_semantic`'s (0.0358) and
+`channel_archetype`'s (0.0368) unconditional marginals. `channel_cf` is not deleted:
+its low *unconditional* marginal is explained by sparse eligibility, not by the
+mechanism failing to add signal when it does fire.
+
+### Honest diagnosis: why overall recall (0.44) and long-tail recall (0.39) miss their 0.90/0.80 targets
+
+Two root causes, both measured directly against the committed dataset rather than
+guessed:
+
+1. **Achieved candidate-set size is below the ~250 target.** Mean candidates per trip
+   is 186.7 (75% of ~250), not because any channel under-fills its own quota
+   relative to *qualifying* POIs (`channel_interest`, `channel_semantic`, and
+   `channel_longtail` hit their exact quota of 50/50/50 on every single trip;
+   `channel_geo` averages 50.1/60 and `channel_archetype` exactly 30/30) — the mean
+   per-channel selection count sums to 237.1 (50.1 + 50.0 + 50.0 + 7.0 + 50.0 +
+   30.0), yet the deduplicated union averages only 186.7: (a) heavy inter-channel
+   overlap (channels are correlated, not independent, by construction — e.g.
+   semantic and long-tail both rank by the same `taste_t` cosine score) and (b)
+   `channel_cf` is structurally
+   near-empty for 68% of trips (resolved ambiguity #30) — an expected, documented
+   consequence of the dataset's cold-start rate, not a bug.
+
+2. **The deeper, larger cause: even at the literal ~250 target, a purely
+   coverage-driven ceiling would remain far below 0.90.** A trip's holdout-"relevant"
+   POI (the one it positively engaged with under `interactions_holdout_random`'s
+   *uniform*-random exposure policy) is governed by the DGP's full latent utility
+   function `u(t,p)` — 7 weighted terms (taste cosine, category affinity, signed
+   localness, latent quality, party fit, price fit, novelty) plus irreducible
+   Plackett–Luce choice noise (`datagen/utility.py`) — while every candidate channel
+   here is restricted, by the project's own circularity firewall, to *observable*
+   proxies for a subset of those terms (stated interests are a genuinely lossy,
+   noisy projection of latent taste — 20% omission + 10% noise by construction, per
+   the DGP; `latent_quality` and `novelty` have no observable channel at all).
+   Measured evidence this is a real information gap, not a channel implementation
+   bug: **a naive random-baseline recall — selecting `k` POIs from the destination
+   catalog uniformly at random, where `k` equals the trip's own actual candidate-set
+   size — averages 0.3889 (mean `k/N` across the 202 holdout trips)**, essentially
+   the same order of magnitude as the measured 0.4413. The full 6-channel union
+   beats this naive baseline by only ~13% relative. Splitting further by whether the
+   traveler had any as-of-safe interaction history at all (i.e. whether the
+   semantic/CF channels carried real signal instead of degenerating to the
+   cold-start fallback): non-cold-start trips (n=65) recall = **0.4624**; cold-start
+   trips (n=137) recall = **0.4314** — genuine, positive lift from real behavioral
+   signal, but a modest one (~7% relative), consistent with the channels adding real
+   but limited information over a fundamentally weak observable→latent mapping.
+
+   This mirrors the already-documented localness-ρ miss (resolved ambiguity #13):
+   both are cases where an observable, firewall-compliant proxy captures a real but
+   partial slice of a latent DGP quantity, measured honestly rather than hidden or
+   curve-fit. **What was deliberately not done**: no channel threshold, quota, or
+   ranking rule was adjusted specifically to raise this number — the quotas are
+   spec.md's own literal per-channel table (60/50/50/40/50/30), and the two
+   arbitrary-but-principled threshold choices made during implementation
+   (`pop_pct_cutoff=0.40` from spec.md's literal text rescaled to this dataset's
+   `[0,1]` scale; `semantic_sim_threshold=0.0`, a genuine floor rather than a high
+   bar) were fixed *before* the recall number was ever computed, not tuned
+   afterward.

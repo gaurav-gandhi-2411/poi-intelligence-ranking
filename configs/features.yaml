@@ -99,3 +99,56 @@ traveler_features:
     low: 1.5
     medium: 2.5
     high: 3.5
+
+# --- Phase 4a (src/poi_rank/candidates/**) -----------------------------------------
+# Candidate-generation channel quotas + thresholds (spec.md section 7). No dedicated
+# `configs/candidates.yaml` exists in spec.md's repository layout (section 14 lists
+# exactly datagen/features/model/scoring/eval.yaml) -- mirrors the established
+# one-typed-config-per-phase convention already used twice in this same file
+# (data.config.FeaturesConfig and features.config.FeatureBuildConfig both read their
+# own section of THIS file) rather than inventing a new yaml spec.md never asked for.
+# Reuses the top-level `seed` above; the long-tail channel's epsilon-greedy sampling
+# is additionally seeded per-trip via a SHA256 digest of `(seed, trip_id)` -- never
+# Python's built-in `hash()`, which is only deterministic across runs when
+# PYTHONHASHSEED is externally fixed. See docs/DATA_CARD.md.
+candidates:
+  geo:
+    quota: 60
+    # MUST match `dedup.h3_resolution` above -- `pois_prepared.parquet`'s `h3_cell`
+    # column (consumed here) is built at that resolution; k-ring cell-id comparisons
+    # are only meaningful when both sides use the same resolution.
+    h3_resolution: 8
+    radius_km_walk: 2.0
+    radius_km_public_transport: 8.0
+    radius_km_car: 25.0
+    # spec.md leaves "mixed" mobility's radius undefined ("use your judgment, e.g.
+    # max of transit/car"). Documented choice: equal to `car`'s radius -- "mixed"
+    # mobility means the traveler has access to the most permissive mode available,
+    # not an average of modes. See docs/DATA_CARD.md.
+    radius_km_mixed: 25.0
+  interest:
+    quota: 50
+  semantic:
+    quota: 50
+  collaborative:
+    quota: 40
+    # Per-seed-POI neighbor-list size for the item-item kNN lookup (spec.md section
+    # 7's "item-item kNN"), not the final channel quota -- see docs/DATA_CARD.md.
+    top_k_neighbors: 100
+  longtail:
+    quota: 50 # HARD FLOOR -- never backfilled by other channels, spec.md section 7.
+    # `pois_prepared.pop_pct` is a [0, 1] within-destination percentile
+    # (data/popularity.py), not a literal 0-100 scale -- spec.md's "pop_pct < 40" is
+    # read as "< 40th percentile" i.e. 0.40 on this dataset's actual scale. See
+    # docs/DATA_CARD.md.
+    pop_pct_cutoff: 0.40
+    # Documented threshold: any non-negative semantic relevance to the traveler's
+    # taste vector qualifies (a genuine floor, not a high bar) -- see
+    # docs/DATA_CARD.md for the cold-start fallback when the taste vector is zero.
+    semantic_sim_threshold: 0.0
+    # Fraction of the long-tail quota filled by uniform-random draw from the
+    # qualifying pool (exploration); the remainder is filled by semantic-score rank
+    # (exploitation). Documented choice -- see docs/DATA_CARD.md.
+    epsilon: 0.30
+  archetype:
+    quota: 30

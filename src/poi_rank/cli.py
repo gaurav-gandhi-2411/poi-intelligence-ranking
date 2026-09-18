@@ -8,8 +8,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
 import typer
 
+from poi_rank.candidates.config import CandidatesConfig
+from poi_rank.candidates.recall_metrics import (
+    marginal_recall_per_channel,
+    overall_and_longtail_recall,
+)
+from poi_rank.candidates.union import run_candidates
 from poi_rank.data.config import FeaturesConfig
 from poi_rank.data.prepare import run_prepare
 from poi_rank.datagen.config import DatagenConfig
@@ -109,6 +116,52 @@ def features(
         f"    n_traveler_trip_rows={summary['n_traveler_trip_rows']}, "
         f"n_columns={summary['n_traveler_feature_columns']}"
     )
+
+
+@app.command()
+def candidates(
+    config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_FEATURES_CONFIG_PATH, help="Path to features.yaml"
+    ),
+    data_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_OUTPUT_DIR, help="Directory containing data/synthetic/*.parquet"
+    ),
+) -> None:
+    """Run the Phase 4a candidate-generation pipeline (6 channels + quotas) and
+    print candidate-set-size + candidate-recall@250 (overall, long-tail-stratum,
+    per-channel marginal) summaries."""
+    cfg = CandidatesConfig.from_yaml(config_path)
+    summary = run_candidates(cfg, data_dir)
+
+    typer.echo("=== poi-rank candidates: summary ===")
+    typer.echo(f"  output: {summary['output_path']}")
+    typer.echo(f"  n_trips={summary['n_trips']}, n_candidate_rows={summary['n_rows']}")
+    typer.echo(
+        f"  candidates_per_trip: mean={summary['mean_candidates_per_trip']:.1f} "
+        f"median={summary['median_candidates_per_trip']:.1f} "
+        f"min={summary['min_candidates_per_trip']} max={summary['max_candidates_per_trip']}"
+    )
+
+    pois_df = pd.read_parquet(data_dir / "pois_prepared.parquet")
+    candidates_df = pd.read_parquet(summary["output_path"])
+    holdout_random = pd.read_parquet(data_dir / "interactions_holdout_random.parquet")
+
+    recall = overall_and_longtail_recall(pois_df, candidates_df, holdout_random)
+    typer.echo("\n=== candidate_recall@250 ===")
+    for name, result in recall.items():
+        typer.echo(
+            f"  {name}: recall={result.recall_mean:.4f} "
+            f"(n_trips_evaluated={result.n_trips_evaluated}, "
+            f"n_trips_excluded_no_relevant={result.n_trips_excluded_no_relevant})"
+        )
+
+    typer.echo("\n=== per-channel marginal recall (leave-one-channel-out) ===")
+    marginal = marginal_recall_per_channel(pois_df, candidates_df, holdout_random)
+    for channel, stats in marginal.items():
+        typer.echo(
+            f"  {channel}: recall_without={stats['recall_without_channel']:.4f} "
+            f"marginal={stats['marginal_recall']:.4f}"
+        )
 
 
 if __name__ == "__main__":
