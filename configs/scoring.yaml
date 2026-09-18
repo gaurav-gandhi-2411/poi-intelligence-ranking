@@ -1,0 +1,189 @@
+# Scoring-layer hyperparameters for poi-intelligence-ranking Phase 6 (spec.md section
+# 9): the multiplicative utility formula, its 6 compatibility sub-scores + hard gates,
+# isotonic calibration, confidence, and MMR diversity re-ranking. Mirrors the
+# codebase's established one-typed-config-per-phase convention (`configs/model.yaml`,
+# `configs/eval.yaml`) -- spec.md section 14 lists `scoring.yaml` as its own top-level
+# file.
+#
+# Every numeric constant a compatibility sub-score formula needs that is NOT already
+# owned by an earlier phase's config lives here. Two exceptions, both deliberate
+# reuse of an existing config rather than a new duplicate constant: `budget_fit`
+# reuses `configs/features.yaml`'s `traveler_features.budget_target_price_level`
+# (the SAME mapping `features/traveler_features.py::price_gap` already uses -- see
+# docs/DATA_CARD.md resolved ambiguity #2, which already establishes that this
+# mapping is meant to be shared across "observable scoring" code, just never with
+# the DGP's own latent copy); `mobility_fit`/the hard gate's "unreachable by
+# mobility" condition reuse `configs/features.yaml`'s `candidates.geo` section
+# (`GeoChannelConfig.radius_km_for_mobility`, the SAME radius
+# `candidates/channels.py`'s geo channel and `models/baselines.py`'s
+# popularity+geo baseline already use) -- see docs/DATA_CARD.md.
+
+seed: 42
+
+utility:
+  # utility = hard_gate * relevance^alpha * compatibility^beta (spec.md section 9.1)
+  alpha: 1.0
+  beta: 0.7
+  # Swept for the beta-sensitivity table (spec.md section 9.1: "swept, sensitivity
+  # reported") -- 0.7 (the default) plus 2 values on either side.
+  beta_sweep: [0.3, 0.5, 0.7, 0.9, 1.1]
+
+compatibility:
+  budget_fit:
+    # `1 - normalized|price_level - budget_target|`, asymmetric: over-budget gaps
+    # are penalized `over_budget_multiplier`x an equal-magnitude under-budget gap
+    # (spec.md section 9.1: "over-budget penalized ~2x under-budget").
+    over_budget_multiplier: 2.0
+    # Normalizes the (possibly doubled) gap into [0, 1]-ish penalty space. price_level
+    # lives on a 1-4 scale, so the largest plausible raw gap is 3 (target 1 vs POI 4,
+    # or vice versa); with the 2x over-budget multiplier the largest possible
+    # penalty numerator is 2*3=6, i.e. this constant is NOT the literal max-gap bound
+    # -- `budget_fit_score`'s own `np.clip(..., 0.0, 1.0)` floor is what actually
+    # keeps the sub-score in range for gaps larger than this constant. See
+    # docs/DATA_CARD.md.
+    normalization_range: 3.0
+  mobility_fit:
+    # Decaying function of travel time under the traveler's mobility mode (spec.md
+    # section 9.1). Assumed average speed per mode (km/h) -- used only to convert
+    # the hard gate's already-computed haversine distance into an approximate travel
+    # time in minutes; not a routing engine.
+    speed_kmh:
+      walk: 4.5
+      public_transport: 20.0
+      car: 30.0
+      mixed: 30.0
+    # Exponential half-life (minutes): `mobility_fit = 0.5 ** (travel_time_min /
+    # half_life_min)`, i.e. a travel time equal to this constant halves the fit
+    # score. Roughly "how long before this mode of travel starts to feel like a
+    # real cost", mode-specific (public transport tolerates a longer ride before
+    # feeling like a chore than a 25-minute walk does).
+    half_life_min:
+      walk: 20.0
+      public_transport: 30.0
+      car: 25.0
+      mixed: 25.0
+  hours_fit:
+    # "Plausible visit window" (spec.md section 9.1: "fraction of trip days x
+    # plausible visit windows the POI is open") -- a typical tourist's waking/active
+    # hours, half-open [start, end) on the 24-hour clock.
+    plausible_window_start_hour: 9
+    plausible_window_end_hour: 21
+  reservation_fit:
+    # This synthetic dataset provides no "recommendation generation / booking"
+    # timestamp distinct from `trip.start_date` (the exact same gap
+    # `features/traveler_features.py`'s `explicit_days_remaining` docstring already
+    # documents for a different field) -- `days_until_trip` is therefore defined as
+    # a fixed assumed planning lead time, applied uniformly to every trip, rather
+    # than an invented per-trip value with no grounding in the data. 21 days: a
+    # traveler who has already started actively researching POIs 3 weeks before
+    # departure, a reasonable mid-point between a same-week impulse trip and a
+    # months-out booking. See docs/DATA_CARD.md.
+    assumed_planning_lead_days: 21
+    # Steep-decay rate (spec.md section 9.1: "else steep decay") once
+    # `reservation_lead_days > days_until_trip`: `exp(-shortfall_days / decay_days)`
+    # -- a 2-day shortfall already more than halves the fit score.
+    decay_days: 2.0
+  party_fit:
+    # Distinct from the DGP's LATENT party_fit (`datagen/utility.py`) -- fresh,
+    # purely observable computation from `party_type`/`accessibility_needs` vs the
+    # POI's own `accessibility` flags (docs/DATA_CARD.md resolved ambiguity #2's
+    # established precedent, same naming deliberately independent implementation).
+    # A family-with-kids party at a POI NOT flagged `kid_friendly` gets this
+    # (steep, not zero -- zero is reserved for the wheelchair/stroller HARD gate,
+    # never for a soft kid-friendliness preference) penalty multiplier instead of
+    # the full 1.0.
+    kid_friendly_penalty: 0.3
+    # party_fit = kid_component_weight * kid_component + (1 - kid_component_weight)
+    # * accessibility_component -- weighted toward the kid-friendliness signal since
+    # the wheelchair/stroller accessibility_needs dimension is already a HARD gate
+    # (any unmet stated need means the candidate never reaches this sub-score at
+    # all), so party_fit's own accessibility_component is close to a redundant
+    # always-1.0 check for any candidate that survives the hard gate -- reported
+    # anyway for transparency in `compatibility_breakdown`, but under-weighted
+    # relative to the kid-friendliness signal this sub-score actually carries new
+    # information about.
+    kid_component_weight: 0.6
+  duration_fit:
+    # `expected_duration` vs remaining daily time budget given `pace` (spec.md
+    # section 9.1) -- an assumed per-POI time budget (minutes) implied by each pace
+    # setting: "packed" itineraries budget short visits per stop (more stops/day),
+    # "relaxed" tolerates long, unhurried visits.
+    pace_budget_min:
+      relaxed: 180.0
+      moderate: 120.0
+      packed: 75.0
+
+calibration:
+  # ECE bin count (spec.md section 9.2, literal: "ECE (15 bins)").
+  n_bins: 15
+  # Calibration split carved from the SAME fit-split trips LightGBM's own
+  # early-stopping validation split is carved from (see
+  # `scoring/calibration.py::carve_calibration_split`, reusing
+  # `models.lambdamart.train_val_split_by_trip` directly) -- i.e. a further,
+  # disjoint sub-split of `fit_frame`, never the val_frame or the holdout being
+  # reported on. Fraction of `fit_frame`'s trips set aside for calibration fitting.
+  calibration_fraction: 0.2
+  # Distinct from every other seed in this project's config files -- an
+  # independent RNG stream, not reused.
+  calibration_split_seed: 46
+
+confidence:
+  # g(n_interactions_traveler, poi_impression_count, review_count, ensemble_std,
+  # calibration_bin_width) (spec.md section 9.3) -- left abstract by spec.md, this
+  # project's own design: an evidence-volume shrinkage term per raw-count input
+  # (mirrors `features/traveler_features.py`'s own `alpha_t = n_t / (n_t + k)`
+  # cold-start-shrinkage convention, same shape, independently parameterized here
+  # since confidence is a different job -- see `features/traveler_features.py`'s
+  # own "two different mechanisms for two different jobs" framing), plus two
+  # stability terms that DECREASE confidence as ensemble disagreement /
+  # calibration-bin coarseness grows. `k`: shrinkage midpoint (raw count at which
+  # the evidence term reaches 0.5) for each of the 3 volume-based terms.
+  traveler_evidence_k: 5.0
+  poi_impression_k: 20.0
+  # Applied to log1p(review_count) (review counts are heavy-tailed, unlike
+  # impressions/interactions -- see `num_log_review_count` in
+  # `features/poi_features.py`), so this `k` is on a log1p scale, not a raw-count
+  # scale.
+  review_count_k: 2.0
+  # 5 LightGBM models (spec.md section 9.3: "ensemble_std (5 seeds)"), same
+  # IPS-weighted, dropout-augmented training recipe as system 8's own booster
+  # (`scoring/confidence.py::train_ensemble_boosters`, reusing
+  # `models.lambdamart.fit_lambdamart_booster` directly) -- only the LightGBM
+  # boosting/bagging seed itself varies across the 5, never the train/val split or
+  # the dropout mask (those stay pinned to `configs/model.yaml`'s own seeds, so the
+  # ensemble measures genuine training-stochasticity disagreement, not
+  # data-split disagreement).
+  ensemble_seeds: [201, 202, 203, 204, 205]
+  # exp(-ensemble_std / ensemble_std_tau): scale of "how much raw-score spread
+  # across the 5 seeds still counts as high agreement" -- calibrated against this
+  # dataset's observed raw LambdaMART score range, not a universal constant.
+  ensemble_std_tau: 0.5
+  # exp(-calibration_bin_width / calibration_bin_width_tau): scale of "how wide an
+  # isotonic-regression step can be before it signals a data-sparse region of the
+  # raw-score range".
+  calibration_bin_width_tau: 0.15
+  # Combined via a weighted arithmetic mean (normalized to sum 1.0 defensively in
+  # code even though these already do) of the 5 terms above.
+  weight_traveler: 0.2
+  weight_poi: 0.2
+  weight_reviews: 0.2
+  weight_ensemble: 0.2
+  weight_calibration: 0.2
+
+diversity:
+  # MMR re-rank over top-50 (spec.md section 9.4), default lambda = 0.8.
+  lambda_default: 0.8
+  lambda_sweep: [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+  top_pool_size: 50
+  # similarity = 0.6*cosine(emb) + 0.4*same-category indicator (spec.md section
+  # 9.4, verbatim).
+  similarity_cosine_weight: 0.6
+  similarity_category_weight: 0.4
+
+output:
+  # Final recommendation-list size per trip (spec.md section 9.5's example shows a
+  # single top-1 entry, but "planner_weight ... normalized to sum 1 over the
+  # returned set" implies a fixed-size returned set -- 10, matching every other
+  # "@10" convention already established throughout this project's eval harness).
+  top_k: 10
+  model_version: "lambdamart-ips-v1"

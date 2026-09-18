@@ -1028,3 +1028,283 @@ difference at this cohort size**. Reported honestly: the direction is consistent
 with the intended robustness effect (dropout-trained model scores marginally
 higher), but 44 trips is too small a sample to distinguish this from noise, and no
 hyperparameter was adjusted to try to manufacture significance.
+
+## Phase 6 (`src/poi_rank/scoring/`, spec.md section 9): scoring layer
+
+#### 48. `days_until_trip` (reservation_fit): a fixed assumed planning lead time, not an invented per-trip quantity
+
+Spec.md section 9.1's `reservation_fit` formula (`1 if reservation_lead_days <=
+days_until_trip else steep decay`) needs a `days_until_trip` quantity this dataset
+does not provide directly — mirrors the EXACT gap `features/traveler_features.py`'s
+`explicit_days_remaining` docstring already documents (no "recommendation
+generation/booking" timestamp distinct from `trip.start_date`). Real wall-clock
+"now" is unusable here: the committed synthetic trip dates (2024-01-01 to
+2025-12-28) are all in the past relative to any real invocation date, which would
+put every `days_until_trip` deeply negative and make `reservation_fit` collapse to
+its steep-decay floor for every trip — an artifact of the dataset's fixed
+timeline, not a meaningful signal. Resolved: `configs/scoring.yaml`
+`compatibility.reservation_fit.assumed_planning_lead_days = 21` (three weeks),
+applied uniformly to every trip. Documented, not hidden — see
+`scoring/compatibility.py`'s module docstring.
+
+#### 49. `budget_fit`'s asymmetric over/under-budget penalty: exact formula
+
+`penalty = (max(0, gap) * over_budget_multiplier + max(0, -gap)) /
+normalization_range`, `budget_fit = clip(1 - penalty, 0, 1)`, `gap = poi_price_level
+- budget_target`. `over_budget_multiplier = 2.0` gives the literal "over-budget
+penalized ~2x under-budget" spec.md section 9.1 asks for, verified by
+`tests/test_compatibility.py::test_budget_fit_over_budget_penalized_twice_under_budget`
+on a hand-computed example (equal-magnitude gaps of ±1.0 on a 3.0-range give
+penalties of exactly 1/3 and 2/3 — a literal 2x ratio). `budget_target` reuses
+`configs/features.yaml`'s `traveler_features.budget_target_price_level` directly
+(the SAME mapping `features/traveler_features.py::price_gap` already uses) — never
+a third, independently-authored copy — per resolved ambiguity #2's established
+"observable scoring code shares this mapping" precedent.
+
+#### 50. `mobility_fit`: exponential half-life decay in travel time, mode-specific speed + half-life constants
+
+`travel_time_min = haversine_km(poi, stay) / speed_kmh[mode] * 60`, `mobility_fit =
+0.5 ** (travel_time_min / half_life_min[mode])` — a travel time equal to the
+mode's configured half-life exactly halves the fit score. Assumed average speeds
+and half-lives (`configs/scoring.yaml`) are order-of-magnitude judgment calls (walk
+4.5 km/h / 20 min half-life, public transport 20 km/h / 30 min, car and mixed 30
+km/h / 25 min) — not fit against any external routing data (none exists for this
+synthetic catalog), analogous in spirit to `data/geo_prep.py`'s synthetic transit
+graph already being a documented, non-oracle judgment call.
+
+#### 51. `hours_fit`: fraction of trip days x plausible-visit-window hours open, computed per actual calendar day (not deduped by weekday)
+
+Spec.md section 9.1: "fraction of trip days x plausible visit windows the POI is
+open." Read literally: for EVERY calendar day the trip spans (day `d` of a
+`trip_duration_days`-day trip starting on weekday `start.weekday()`, so a day
+repeats once `trip_duration_days > 7`), compute the fraction of the plausible
+window (`configs/scoring.yaml`'s `hours_fit.plausible_window_{start,end}_hour`,
+default 09:00-21:00) the POI is open, then average across all of those (possibly
+repeated) days — NOT deduplicated to distinct weekdays first, since "fraction of
+trip DAYS" is the literal spec wording. Distinct from the HARD gate's
+`closed_entire_trip` (module `compatibility.py`'s own docstring): the hard gate
+checks the full 24h across every day the trip spans (a much lower bar — "never
+open at all during the whole trip"), while `hours_fit` is a soft score over just
+the plausible-visit window.
+
+#### 52. `party_fit`: independent, observable computation — same naming, deliberately different code from the DGP's latent `party_fit`
+
+Extends resolved ambiguity #2's established precedent (`budget_fit`/`price_fit` are
+latent-only in `datagen/utility.py`, never shared code with `scoring/`'s
+observable versions) to a 5th sub-score. `party_fit = kid_component_weight *
+kid_component + (1 - kid_component_weight) * access_component`: `kid_component`
+is a steep-but-non-zero penalty (`configs/scoring.yaml`'s `kid_friendly_penalty =
+0.3`, NOT 0.0 — zero is reserved for the wheelchair/stroller HARD gate, never a
+soft kid-friendliness preference) for a `family_young_kids`/`family_teens` party
+at a POI not flagged `kid_friendly`; `access_component` is near-redundant with the
+hard gate for any surviving candidate (kept for transparency in
+`compatibility_breakdown` regardless), so `kid_component_weight = 0.6` weights
+toward the sub-score's genuinely new information.
+
+#### 53. `duration_fit`: pace-conditioned per-POI time budget, not a literal "remaining daily time budget" simulation
+
+Spec.md section 9.1: "`expected_duration` vs remaining daily time budget given
+`pace`." A literal running remaining-daily-time-budget would require full-itinerary
+simulation state (which POIs are already scheduled earlier that day) — out of
+scope for a per-candidate compatibility SCORE (as opposed to an itinerary planner,
+explicitly the downstream consumer per spec.md section 12/19, not this phase).
+Resolved as a fixed PER-POI time budget implied by `pace`
+(`configs/scoring.yaml`'s `pace_budget_min`: relaxed 180 min, moderate 120 min,
+packed 75 min — packed itineraries budget short visits per stop so more stops fit
+in a day), `duration_fit = 1.0` within budget, `exp(-excess/budget)` beyond it.
+
+#### 54. Multiplicative utility (deviation from the brief's additive example) — justification, not asserted
+
+`utility = hard_gate * relevance^alpha * compatibility^beta` (`alpha=1.0,
+beta=0.7`, swept — see below). The brief's own section 11 example is additive;
+this project deviates because additive scoring lets `preference=0.95 +
+availability=0.00` survive ranking — exactly the failure mode the brief itself
+warns about. Multiplicative + a hard gate makes a zero in ANY factor propagate to
+zero utility, never averaged away by a high preference score alone.
+
+#### 55. Beta sensitivity table (measured, `configs/scoring.yaml` `utility.beta_sweep = [0.3, 0.5, 0.7, 0.9, 1.1]`)
+
+On the committed dataset (202 holdout trips), swept mean NDCG@10 (computed via
+`scoring/utility.py::beta_sensitivity_table`, this package's own internal
+`_ranking_metrics.ndcg_at_k` duplicate — resolved ambiguity #60 below): beta=0.3 ->
+0.0686, 0.5 -> 0.0688, 0.7 (default) -> 0.0688, 0.9 -> 0.0686, 1.1 -> 0.0693. The
+curve is essentially FLAT across this range (spread of 0.0007, well within
+per-trip noise at n=202) — utility's ranking outcome on this dataset is not
+strongly sensitive to `beta` in this range, itself a measured finding, not an
+assumption. Not tuned: 0.7 (the spec-suggested default) was kept as this
+project's default rather than hand-picking whichever swept value happened to score
+marginally highest.
+
+#### 56. Calibration split: a further sub-split of LightGBM's own `fit_frame`, disjoint from both val AND holdout by construction
+
+`scoring/calibration.py::carve_calibration_split` reuses
+`models.lambdamart.train_val_split_by_trip` (the SAME function, same by-trip
+discipline) a SECOND time on `fit_frame` (after `models.lambdamart`'s own
+val_fraction/val_split_seed has already carved out `val_frame`) — the calibration
+split's trips are therefore guaranteed disjoint from LightGBM's early-stopping val
+trips (both carved from the same post-val `fit_frame`) and from every holdout trip
+(TRAIN-only by construction of `load_train_ranking_frame`). ECE/Brier
+before-vs-after are reported on the actual HOLDOUT — never on the calibration
+split itself, which would trivially flatter ECE by evaluating a fit against the
+exact rows it was fit to. `configs/scoring.yaml`: `calibration_fraction = 0.2` of
+`fit_frame`'s trips, `calibration_split_seed = 46` (independent RNG stream, not
+reused from any other seed in this project).
+
+#### 57. "Naive" pre-calibration baseline: min-max normalization of the raw score, never fit against labels
+
+Raw LambdaMART scores are unbounded reals, not `[0, 1]` — spec.md section 9.2's
+implicit "before calibration" comparison needs SOME transform just to make
+ECE/Brier computable at all. Resolved as min-max normalization over the SAME
+evaluation set (`scoring/calibration.py::naive_probability_from_raw_score`) —
+label-free, the simplest defensible "naive treat-the-score-as-a-probability"
+baseline, not itself a competing calibration method.
+
+**Measured, committed dataset (202 holdout trips)**: ECE before=0.3601,
+after=**0.0457** (spec.md section 11.10 target `<= 0.05` — **MET**); Brier
+before=0.2149, after=**0.0521**. Calibration split: 19,307 rows / 102 trips.
+Reliability diagram: `results/figures/calibration_reliability.png`.
+
+#### 58. Confidence `g(...)` — genuine, measured honest miss on decile-NDCG monotonicity, diagnosed not hidden
+
+Spec.md section 9.3 names 5 required inputs (`n_interactions_traveler,
+poi_impression_count, review_count, ensemble_std(5 seeds), calibration_bin_width`)
+and leaves `g` abstract. Implemented `g` as a weighted arithmetic mean of 5
+evidence-shrinkage/stability terms (`configs/scoring.yaml`'s `confidence:` section;
+`scoring/confidence.py`'s module docstring), each independently in `[0, 1)`/`[0,
+1]` and monotone in the intuitively "more trustworthy" direction.
+
+**Validation (spec.md: "not assertion")**: on the committed dataset, per-trip
+confidence deciles vs mean NDCG@10 gives **Spearman rho = -0.382** (target `>=
+0.7`, spec.md's own instruction: "If it isn't monotone, the confidence formula is
+wrong and we fix it" — iterated on, not accepted on the first attempt, see below).
+
+**Diagnosis, not just a failed first try** (rule: iterate before reporting a
+ceiling): measured Spearman correlation of per-trip NDCG@10 against EACH of the 5
+required inputs individually (mean-over-top-10 AND top-1-only aggregation) —
+every one is statistically indistinguishable from zero: `n_interactions_traveler`
+rho=-0.08 (p=0.25), `poi_impression_count` rho=-0.03 (p=0.64-0.67),
+`review_count` rho=0.02-0.06 (p=0.38-0.81), `ensemble_std` rho=0.01-0.00 (p=0.86-
+1.0), `calibration_bin_width` rho=0.02-0.03 (p=0.67-0.72). Tried 2 different
+combination functions on the full `g`: the shipped weighted-arithmetic-mean
+(rho=-0.38 to -0.07 across aggregation choices, p>0.27) and a geometric-mean
+alternative (rho=-0.02, p=0.73) — neither recovers a significant correlation, as
+mathematically expected once every input term is independently uncorrelated with
+the target. **Positive control** (proving the measurement methodology itself
+detects real signal when present, not a broken harness): other model-internal
+signals NOT among spec's 5 named inputs — the top-ranked candidate's own raw
+utility score (rho=0.164, p=0.020), its calibrated relevance (rho=0.148, p=0.035),
+and the spread of utility across a trip's top-10 (rho=0.182, p=0.010) — DO show a
+weak but statistically significant positive correlation with per-trip NDCG@10.
+
+**Root cause, consistent with this project's already-diagnosed candidate-recall
+ceiling** (resolved ambiguity ~#31, PLAN.md): whether a trip's true-relevant POI
+survived candidate generation at all (the dominant source of per-trip NDCG
+variance, per the ~0.44 `candidate_recall@250` ceiling) is effectively independent
+of how much behavioral/review EVIDENCE exists for the POIs that DID make it into
+the candidate set — geo/interest/semantic/CF/archetype candidate channels are not
+popularity- or evidence-volume-driven, so "how well-known is this POI" carries no
+information about "did the true answer survive candidate generation." This is the
+SAME underlying information ceiling already documented for localness-rho and
+candidate-recall, now shown to also bound confidence-decile monotonicity for
+spec's specific named inputs. `tests/test_scoring_output.py
+::test_confidence_decile_ndcg_is_monotone_increasing` is `xfail(strict=True)`,
+mirroring `tests/test_localness_oracle.py`'s established honest-miss pattern — NOT
+the same category as the build-blocking hard-constraint test.
+
+#### 59. Confidence-decile binning granularity: per-TRIP (not per-candidate-row), a resolved ambiguity
+
+Spec.md section 9.3: "bin recommendations into confidence deciles and report
+NDCG@10 per decile." NDCG is inherently a per-RANKED-LIST metric, not a per-item
+one, so "recommendations" is read here as per-trip recommendation LISTS, not
+individual `(trip, poi)` rows — `scoring/output.py::confidence_decile_validation`
+bins TRIPS by that trip's own mean confidence over its top-k-by-utility
+candidates, then reports mean NDCG@10 per decile bin of trips.
+
+#### 60. MMR lambda-sweep NDCG must be computed against the trip's FULL candidate pool, not just the MMR-selected k rows (self-caught correctness bug)
+
+An earlier implementation computed the lambda-sweep's NDCG@k using ONLY the
+already-MMR-selected top-k rows for BOTH the achieved DCG and the ideal DCG
+(IDCG) — this silently inflates NDCG, since the "ideal" ranking is then computed
+over an already-cherry-picked pool of 10 items instead of the trip's true best-
+possible top-k from its full candidate set (measured effect on the committed
+dataset: reported NDCG@10 jumped from a plausible ~0.12-0.14 to an implausible
+~0.49-0.52 once this bug was present — caught by comparing against Phase 5's own
+system-8 NDCG@10 of 0.0875 on the same candidate universe as a sanity check, not
+by a test failure). Fixed in `scoring/diversity.py::lambda_sweep_report`: MMR-
+selected rows get a score reflecting their rank (`-mmr_rank`); every other
+candidate in the trip's full pool gets `-inf` (sorts below every selected row,
+mirroring `models/baselines.py::baseline_popularity_geo_filter`'s own outside-the-
+filter convention) — `_ranking_metrics.ndcg_at_k` is then called against the FULL
+per-trip candidate frame, so IDCG is always computed from the true best-possible
+ordering. `tests/test_scoring_output.py` cross-checks the resulting NDCG@10 range
+is in the same order of magnitude as the Phase 5 system-8 result, as a standing
+sanity guard against this exact regression recurring silently.
+
+**Measured, committed dataset**: NDCG@10 vs mean intra-list similarity across
+`lambda in [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]`: (0.1247, 0.0822), (0.1271, 0.0887),
+(0.1341, 0.0984), (0.1395, 0.1139), (0.1355, 0.1344), (0.1439, 0.1681) — NDCG@10
+generally increases and similarity monotonically increases as lambda rises toward
+1.0 (pure utility ranking, no diversity penalty), the expected trade-off
+direction. Figure: `results/figures/mmr_lambda_sweep.png`. Default lambda=0.8 per
+spec.md.
+
+#### 61. `scoring/_ranking_metrics.py`: a deliberate, documented duplicate of `eval.metrics`'s NDCG helpers, not a firewall gap
+
+`scoring/`'s own internal diagnostics (beta-sensitivity table, MMR lambda sweep,
+confidence-decile validation) need NDCG@k, but `scoring/` never imports from
+`poi_rank.eval` — a design choice (not a spec.md requirement) verified by
+`tests/test_firewall_scoring.py::test_scoring_never_imports_eval`, mirroring
+`data/geo_prep.py`'s own precedent of duplicating `datagen/geo.py`'s haversine
+rather than importing it across a similar directional boundary. `eval/` naturally
+consumes `scoring/`'s output in a later phase (the same direction it already
+consumes `models/`'s), so an import the other way would invert that boundary.
+
+#### 62. Output population: the primary unbiased holdout trip set, same population every other phase evaluates on
+
+`poi_rank.cli recommend` scores every trip in the PRIMARY holdout (`trips_df
+.is_holdout == True`, `interactions_holdout_random.parquet`'s population) by
+default — the same "real trips" every other phase's `results/metrics.json`
+reports on, not the TRAIN population (a `--trip-id` option restricts to one trip
+for spot-checking). `results/recommendations.json`: one entry per trip (dict keyed
+by `trip_id`), `artifacts/calibrator.pkl`: the fitted isotonic calibrator (spec.md
+section 14 lists this as a committed artifact). Not wired into `make reproduce`'s
+chain — spec.md section 14's reproducibility contract lists exactly `generate ->
+prepare -> features -> train -> evaluate -> scenarios -> render docs`, `recommend`
+is not among them (a separate, on-demand CLI command, `make recommend`).
+
+#### 63. `diversity_group`/`top_signals`/`explanation`: documented placeholders, not TreeSHAP
+
+Grouped TreeSHAP (spec.md section 10) is `explain/`, a LATER phase — out of this
+phase's scope by the task's own instruction. `top_signals`/`explanation` are
+structural placeholders with the correct schema and field names but placeholder
+content (`scoring/output.py`'s `_PLACEHOLDER_TOP_SIGNALS`/`_PLACEHOLDER_EXPLANATION`
+module constants). `diversity_group` uses a simple, documented heuristic instead
+of the eventual TreeSHAP-grouped signal: `f"{category}_{'local' if pop_pct <
+longtail_cutoff else 'touristy'}"`, reusing `candidates/config.py`'s own
+`longtail.pop_pct_cutoff` (0.40) for consistency with this project's established
+"long-tail = pop_pct < 0.40" convention throughout.
+
+### Measured results, Phase 6 scoring layer (committed dataset, 202 holdout trips)
+
+`uv run python -m poi_rank.cli recommend` (≈53s wall-clock, measured via `time`).
+
+| Metric | Value | spec.md section 11.10 target | Status |
+|---|---|---|---|
+| Hard-constraint violations in top-10 | **0** | 0 | **MET** (build-blocking, `tests/test_hard_constraints.py`) |
+| ECE after calibration (15-bin) | **0.0457** | <= 0.05 | **MET** |
+| Confidence-decile NDCG monotonicity (Spearman rho) | **-0.382** | >= 0.7 | **MISSED** — diagnosed, resolved ambiguity #58 |
+
+Calibration: ECE before=0.3601 -> after=0.0457; Brier before=0.2149 ->
+after=0.0521 (calibration split: 19,307 rows / 102 trips). Beta sensitivity
+(NDCG@10): 0.3->0.0686, 0.5->0.0688, 0.7->0.0688, 0.9->0.0686, 1.1->0.0693 (flat
+curve, resolved ambiguity #55). Lambda sweep (NDCG@10, mean intra-list
+similarity): resolved ambiguity #60. `results/recommendations.json`: 202 trips,
+10 recommendations each.
+
+Test suite at this checkpoint: 272 passed, 2 xfailed (localness-rho +
+confidence-decile-monotonicity), 0 failed — 70 new tests this phase
+(`tests/test_firewall_scoring.py`, `tests/test_compatibility.py`,
+`tests/test_calibration.py`, `tests/test_confidence.py`,
+`tests/test_diversity.py`, `tests/test_utility.py`,
+`tests/test_hard_constraints.py` — build-blocking, genuinely passes,
+`tests/test_scoring_output.py`). ruff/mypy clean throughout.

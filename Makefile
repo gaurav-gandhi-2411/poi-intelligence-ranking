@@ -1,4 +1,4 @@
-.PHONY: reproduce generate prepare features candidates train evaluate scenarios docs test lint
+.PHONY: reproduce generate prepare features candidates train evaluate recommend scenarios docs test lint
 
 PY := uv run python
 export PYTHONHASHSEED := 0
@@ -22,6 +22,9 @@ train:
 
 evaluate:
 	$(PY) -m poi_rank.cli evaluate
+
+recommend:
+	$(PY) -m poi_rank.cli recommend
 
 scenarios:
 	$(PY) -m poi_rank.cli scenarios

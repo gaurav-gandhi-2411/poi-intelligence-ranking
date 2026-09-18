@@ -16,10 +16,17 @@ from poi_rank.datagen.config import DatagenConfig
 from poi_rank.datagen.pipeline import run_generate
 from poi_rank.features.build import run_features
 from poi_rank.features.config import FeatureBuildConfig
+from poi_rank.models.config import LambdaMartConfig, ModelConfig
+from poi_rank.models.lambdamart import save_boosters, train_lambdamart_systems
+from poi_rank.models.ranking_data import load_train_ranking_frame
+from poi_rank.scoring.config import ScoringConfig
+from poi_rank.scoring.output import run_scoring_pipeline
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = REPO_ROOT / "configs" / "datagen.yaml"
 FEATURES_CONFIG_PATH = REPO_ROOT / "configs" / "features.yaml"
+MODEL_CONFIG_PATH = REPO_ROOT / "configs" / "model.yaml"
+SCORING_CONFIG_PATH = REPO_ROOT / "configs" / "scoring.yaml"
 
 
 @pytest.fixture(scope="session")
@@ -141,3 +148,93 @@ def evaluate_ready_data_dir(generated_candidates: dict[str, Any]) -> Path:
     if not candidates_path.exists():
         generated_candidates["candidates"].to_parquet(candidates_path, index=False)
     return output_dir
+
+
+# -----------------------------------------------------------------------------------
+# Phase 6 (scoring/): a real, fast-config-trained artifacts dir + one full scoring-
+# pipeline run, shared (session-scoped) across every `scoring/` test that needs real
+# data -- mirrors `test_lambdamart.py`'s own `fast_lambdamart_cfg` convention (few
+# boosting rounds, same recipe otherwise) so the ensemble-of-5 confidence step stays
+# fast; NEVER reuses the repo's own committed `artifacts/*.txt` (tests must pass
+# against a freshly-generated dataset, not depend on committed-artifact content).
+# -----------------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def fast_model_cfg() -> ModelConfig:
+    real = ModelConfig.from_yaml(MODEL_CONFIG_PATH)
+    fast_lambdamart = LambdaMartConfig(
+        num_leaves=15,
+        learning_rate=0.1,
+        n_estimators=30,
+        early_stopping_rounds=10,
+        lambdarank_truncation_level=20,
+        eval_ndcg_at=(10,),
+        label_gain=(0, 1, 3, 7),
+        min_data_in_leaf=5,
+        feature_fraction=0.8,
+        bagging_fraction=0.8,
+        bagging_freq=1,
+        num_threads=1,
+        val_fraction=0.15,
+        val_split_seed=43,
+        ips_clip_low=1.0,
+        ips_clip_high=20.0,
+        behavioral_dropout_rate=0.15,
+        behavioral_dropout_seed=44,
+    )
+    return ModelConfig(seed=real.seed, baselines=real.baselines, lambdamart=fast_lambdamart)
+
+
+@pytest.fixture(scope="session")
+def scoring_cfg() -> ScoringConfig:
+    return ScoringConfig.from_yaml(SCORING_CONFIG_PATH)
+
+
+@pytest.fixture(scope="session")
+def trained_scoring_artifacts_dir(
+    evaluate_ready_data_dir: Path,
+    feature_build_cfg: FeatureBuildConfig,
+    fast_model_cfg: ModelConfig,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Path:
+    """Train systems 7/8 (+ the dropout-ablation booster) with `fast_model_cfg` on
+    the real fixture-chain data, once per test session, and persist them exactly as
+    `poi_rank.cli train` would -- `scoring/output.py`'s `run_scoring_pipeline`
+    LOADS boosters from disk, never trains them itself, so a real artifacts dir is
+    required."""
+    train_frame = load_train_ranking_frame(
+        evaluate_ready_data_dir, feature_build_cfg.traveler_features.budget_target_price_level
+    )
+    interactions_train = pd.read_parquet(evaluate_ready_data_dir / "interactions_train.parquet")
+    pois_df = pd.read_parquet(evaluate_ready_data_dir / "pois_prepared.parquet")
+    artifacts = train_lambdamart_systems(
+        train_frame, interactions_train, pois_df, fast_model_cfg.lambdamart, fast_model_cfg.seed
+    )
+    artifacts_dir = tmp_path_factory.mktemp("scoring_artifacts")
+    save_boosters(artifacts, artifacts_dir)
+    return artifacts_dir
+
+
+@pytest.fixture(scope="session")
+def scoring_pipeline_result(
+    evaluate_ready_data_dir: Path,
+    trained_scoring_artifacts_dir: Path,
+    feature_build_cfg: FeatureBuildConfig,
+    fast_model_cfg: ModelConfig,
+    scoring_cfg: ScoringConfig,
+    candidates_cfg: CandidatesConfig,
+) -> dict[str, Any]:
+    """One full `run_scoring_pipeline` run (spec.md section 9) over the real
+    fixture-chain data's holdout trips, shared read-only across every test that
+    needs real scoring output -- mirrors `evaluate_ready_data_dir`'s own
+    session-scope sharing convention."""
+    return run_scoring_pipeline(
+        evaluate_ready_data_dir,
+        trained_scoring_artifacts_dir,
+        feature_build_cfg,
+        fast_model_cfg,
+        scoring_cfg,
+        candidates_cfg.geo,
+        candidates_cfg.longtail.pop_pct_cutoff,
+    )

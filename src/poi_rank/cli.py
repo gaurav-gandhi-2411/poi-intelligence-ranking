@@ -27,6 +27,8 @@ from poi_rank.features.build import run_features
 from poi_rank.features.config import FeatureBuildConfig
 from poi_rank.models.config import ModelConfig
 from poi_rank.models.lambdamart import run_train_lambdamart
+from poi_rank.scoring.config import ScoringConfig
+from poi_rank.scoring.output import run_recommend
 
 app = typer.Typer(add_completion=False)
 
@@ -35,6 +37,7 @@ DEFAULT_CONFIG_PATH = REPO_ROOT / "configs" / "datagen.yaml"
 DEFAULT_FEATURES_CONFIG_PATH = REPO_ROOT / "configs" / "features.yaml"
 DEFAULT_MODEL_CONFIG_PATH = REPO_ROOT / "configs" / "model.yaml"
 DEFAULT_EVAL_CONFIG_PATH = REPO_ROOT / "configs" / "eval.yaml"
+DEFAULT_SCORING_CONFIG_PATH = REPO_ROOT / "configs" / "scoring.yaml"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "data" / "synthetic"
 DEFAULT_ARTIFACTS_DIR = REPO_ROOT / "artifacts"
 DEFAULT_RESULTS_DIR = REPO_ROOT / "results"
@@ -312,6 +315,88 @@ def evaluate(
     typer.echo(f"  wilcoxon with vs without dropout: p={dropout_w['p_value']:.4g}")
 
     typer.echo(f"\n  {payload['meta']['note']}")
+
+
+@app.command()
+def recommend(
+    features_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_FEATURES_CONFIG_PATH, help="Path to features.yaml"
+    ),
+    model_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_MODEL_CONFIG_PATH, help="Path to model.yaml"
+    ),
+    scoring_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_SCORING_CONFIG_PATH, help="Path to scoring.yaml"
+    ),
+    data_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_OUTPUT_DIR, help="Directory containing data/synthetic/*.parquet"
+    ),
+    artifacts_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_ARTIFACTS_DIR, help="Directory containing artifacts/model.txt (run `train` first)"
+    ),
+    results_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_RESULTS_DIR, help="Directory to write results/recommendations.json + figures/"
+    ),
+    trip_id: str | None = typer.Option(  # noqa: B008
+        None, help="Restrict to a single trip_id (default: every primary-holdout trip)"
+    ),
+) -> None:
+    """Run the full scoring pipeline (spec.md section 9: compatibility + hard gates,
+    isotonic calibration, confidence, MMR diversity) over the primary unbiased
+    holdout trips, and write `results/recommendations.json` + `artifacts/
+    calibrator.pkl` + `results/figures/{calibration_reliability,mmr_lambda_sweep}
+    .png`. Requires `poi_rank.cli train` to have already written `artifacts/
+    model.txt` (system 8, LOADED here, never retrained)."""
+    feature_cfg = FeatureBuildConfig.from_yaml(features_config_path)
+    model_cfg = ModelConfig.from_yaml(model_config_path)
+    scoring_cfg = ScoringConfig.from_yaml(scoring_config_path)
+    candidates_cfg = CandidatesConfig.from_yaml(features_config_path)
+
+    trip_id_filter = {trip_id} if trip_id else None
+    summary = run_recommend(
+        data_dir,
+        artifacts_dir,
+        results_dir,
+        feature_cfg,
+        model_cfg,
+        scoring_cfg,
+        candidates_cfg.geo,
+        candidates_cfg.longtail.pop_pct_cutoff,
+        trip_id_filter=trip_id_filter,
+    )
+
+    typer.echo("=== poi-rank recommend: summary ===")
+    typer.echo(f"  recommendations: {summary['recommendations_path']}")
+    typer.echo(f"  calibrator: {summary['calibrator_path']}")
+    typer.echo(
+        f"  n_holdout_trips={summary['n_holdout_trips']} n_trips_output={summary['n_trips_output']}"
+    )
+
+    c = summary["calibration"]
+    typer.echo("\n=== calibration (ECE 15-bin / Brier, before vs after isotonic) ===")
+    typer.echo(f"  ECE:   before={c['ece_before']:.4f}  after={c['ece_after']:.4f}")
+    typer.echo(f"  Brier: before={c['brier_before']:.4f}  after={c['brier_after']:.4f}")
+    typer.echo(
+        f"  calibration split: n_rows={c['n_calibration_rows']} n_trips={c['n_calibration_trips']}"
+    )
+
+    typer.echo("\n=== utility beta sensitivity (NDCG@10) ===")
+    for row in summary["beta_sensitivity"]:
+        typer.echo(f"  beta={row['beta']:.2f}: ndcg@10={row['ndcg@10_mean']:.4f}")
+
+    dv = summary["confidence_decile_validation"]
+    typer.echo("\n=== confidence-decile validation ===")
+    typer.echo(
+        f"  spearman_rho={dv['spearman_rho']} target_met(>=0.7)={dv['target_met']} "
+        f"n_trips_included={dv['n_trips_included']}"
+    )
+
+    typer.echo("\n=== MMR lambda sweep (NDCG@10 vs mean intra-list similarity) ===")
+    for row in summary["lambda_sweep"]:
+        typer.echo(
+            f"  lambda={row['lambda']:.2f}: ndcg@10={row['ndcg@10_mean']:.4f} "
+            f"mean_intra_list_similarity={row['mean_intra_list_similarity']:.4f}"
+        )
 
 
 if __name__ == "__main__":

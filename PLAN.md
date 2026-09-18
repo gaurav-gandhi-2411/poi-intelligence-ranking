@@ -62,6 +62,12 @@ clean throughout. Determinism byte-identical, verified at every phase.**
   tuned to hit either number.
 - Logistic regression baseline underperforms popularity — `docs/DATA_CARD.md`
   Phase 4b section.
+- Confidence-decile NDCG monotonicity Spearman ρ = -0.382 (target ≥0.7) —
+  `docs/DATA_CARD.md` #58. Root-caused to the same candidate-recall ceiling above:
+  every one of spec's 5 named confidence inputs is individually uncorrelated with
+  per-trip NDCG on this dataset (measured, not assumed); a positive control using
+  other model-internal signals confirms the measurement methodology itself is
+  sound. `xfail(strict=True)`, not tuned to hide.
 
 ## Done (Day 2 P0, Phase 5, spec.md §16 item 7 — committed, independently verified)
 
@@ -105,6 +111,72 @@ clean throughout. Determinism byte-identical, verified at every phase.**
    test_new_poi_cohort.py` new: cohort identification against real data, NDCG@10
    evaluation helper on hand-built frames). ruff/mypy clean throughout.
 
+## Done (Day 2 P0, Phase 6, spec.md §16 item 8 — committed, independently verified)
+
+8. **Scoring layer** (`scoring/compatibility.py`, `utility.py`, `calibration.py`,
+   `confidence.py`, `diversity.py`, `output.py`, `configs/scoring.yaml`) —
+   multiplicative `utility = hard_gate * relevance^alpha * compatibility^beta`
+   (α=1.0, β=0.7 default, swept {0.3,0.5,0.7,0.9,1.1}, deviation from the brief's
+   additive §11 example justified per `docs/DATA_CARD.md` #54); hard gate
+   (`closed_entire_trip` / `accessibility_need unmet` / `unreachable by mobility`,
+   reusing `candidates/channels.py`'s/`models/baselines.py`'s own geo radius
+   logic); 6-term geometric-mean compatibility (`budget_fit` asymmetric ~2x
+   over-budget penalty, `mobility_fit` exponential half-life decay, `hours_fit`
+   fraction-of-trip-days-in-plausible-window, `reservation_fit` steep decay past
+   an assumed 21-day planning lead time, `party_fit` independent observable
+   kid/accessibility computation, `duration_fit` pace-conditioned per-POI time
+   budget — each documented in `docs/DATA_CARD.md` #48-53); isotonic calibration
+   on a calibration split carved from LightGBM's own `fit_frame` (disjoint from
+   both val and holdout by construction, #56); confidence `g(...)` over spec's 5
+   named inputs incl. a genuine 5-seed LightGBM ensemble std (#58); MMR diversity
+   re-rank (`argmax[λ·utility − (1−λ)·max_sim]`, similarity =
+   0.6·cosine+0.4·same-category, λ swept {0.5..1.0}, default 0.8, #60); full
+   spec.md §9.5 output JSON schema (`top_signals`/`explanation`/`diversity_group`
+   are documented placeholders pending the `explain/` phase, #63).
+   `poi_rank.cli recommend` (+ `make recommend`) is the entry point — scores the
+   primary unbiased holdout trip set (202 trips), NOT wired into `make reproduce`
+   (spec.md §14's reproducibility contract does not list `recommend`).
+
+   **Hard-constraint violation rate in top-10 = 0** (spec.md §11.5, build-blocking
+   — `tests/test_hard_constraints.py`, genuinely passes, never `xfail`): hard-gate
+   filtering happens BEFORE ranking (not just relying on `utility==0`), plus a
+   defensive runtime assertion in `scoring/output.py::assemble_output_payload`
+   before any row is ever serialized.
+
+   **Results** (`docs/DATA_CARD.md` "Measured results, Phase 6", real committed
+   dataset, 202 holdout trips, `uv run python -m poi_rank.cli recommend` ≈53s):
+   ECE after calibration = **0.0457** (target ≤0.05, **MET**; before=0.3601,
+   Brier before=0.2149→after=0.0521). Confidence-decile monotonicity Spearman
+   rho = **-0.382** (target ≥0.7, **MISSED** — genuine, measured honest miss:
+   every one of spec's 5 named confidence inputs individually shows no
+   significant correlation with per-trip NDCG@10 on this dataset, |rho|<0.09,
+   p>0.24; 2 different combination functions tried; a positive control using
+   other model-internal signals (not among spec's 5 inputs) DOES show weak
+   significant correlation, proving the measurement methodology detects real
+   signal when present — root-caused to the same already-documented
+   candidate-recall ceiling, `docs/DATA_CARD.md` #58, `xfail(strict=True)`).
+   β-sensitivity: flat curve, 0.0686-0.0693 across the sweep (#55). λ-sweep:
+   NDCG@10 rises 0.1247→0.1439 and mean intra-list similarity rises
+   0.0822→0.1681 as λ rises 0.5→1.0, the expected trade-off direction (#60,
+   figure `results/figures/mmr_lambda_sweep.png`).
+
+   Test suite at this checkpoint: 272 passed, 2 xfailed (localness-ρ +
+   confidence-decile-monotonicity), 0 failed. 70 new tests this phase across
+   `tests/test_firewall_scoring.py` (5), `tests/test_compatibility.py` (26, every
+   sub-score + hard gate hand-computed), `tests/test_calibration.py` (9, incl. a
+   synthetic isotonic-improves-ECE-vs-naive proof), `tests/test_confidence.py`
+   (7), `tests/test_diversity.py` (7, incl. MMR similarity hand-checked pair +
+   λ=1.0 degenerate-case proof), `tests/test_utility.py` (5),
+   `tests/test_hard_constraints.py` (2, build-blocking), and
+   `tests/test_scoring_output.py` (9, full output-schema validation against
+   spec.md §9.5's exact field set + the confidence-decile xfail). ruff/mypy
+   clean throughout. Self-caught and fixed one real correctness bug during
+   development (`docs/DATA_CARD.md` #60): the MMR λ-sweep's NDCG@k was initially
+   computed with IDCG derived from only the already-MMR-selected top-k rows
+   rather than the trip's full candidate pool, silently inflating NDCG
+   ~4-6x — caught by sanity-checking against Phase 5's own system-8 NDCG@10
+   before it ever reached a committed test assertion.
+
 ## Next (Day 2 P0, spec.md §16)
 
 7. ~~**LambdaMART + IPS** (`models/lambdamart.py`) — `lightgbm` `lambdarank`,
@@ -115,11 +187,12 @@ clean throughout. Determinism byte-identical, verified at every phase.**
    (LambdaMART) + 8 (LambdaMART+IPS, primary) in `results/metrics.json`, which
    is already structured to accept them without rework (`eval/run.py`).~~
    **DONE — see "Done (Day 2 P0, Phase 5)" above.**
-8. **Scoring layer** (`scoring/`) — multiplicative utility (deviation from
+8. ~~**Scoring layer** (`scoring/`) — multiplicative utility (deviation from
    brief's additive formula, justify in TECHNICAL.md), hard gates, 6-term
    geometric-mean compatibility, isotonic calibration (ECE/Brier/reliability),
    confidence (validate monotonicity via Spearman, §9.3), MMR diversity (λ
-   sweep). Output JSON schema per §9.5.
+   sweep). Output JSON schema per §9.5.~~
+   **DONE — see "Done (Day 2 P0, Phase 6)" below.**
 9. **Explainability** (`explain/`) — grouped TreeSHAP, template layer, no LLM.
 10. **Full eval suite** (`eval/`) — personalization (Jaccard within/cross
     archetype), coverage (Gini/entropy), long-tail precision, constraint
