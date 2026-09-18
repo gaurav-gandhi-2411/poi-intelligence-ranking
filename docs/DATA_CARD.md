@@ -886,3 +886,145 @@ comes from content_cosine and the oracle itself — logistic_regression and item
 show a positive but not-yet-significant direction. This is reported as-is, not tuned
 or cherry-picked: no baseline hyperparameter in `configs/model.yaml` was adjusted
 after seeing this table.
+
+## Phase 5 resolved ambiguities (systems 7/8, `models/lambdamart.py`)
+
+#### 41. IPS weight for a TRAIN candidate with no logged impression: neutral weight 1.0, not zero/dropped
+
+73.5% of TRAIN ranking-frame rows (measured: 94,664 fit-split rows total, 25,207 with
+a logged `p_expose` — 26.6% exposure rate) have no matching row in
+`interactions_train.parquet` at all — the popularity-biased slate policy only ever
+shows a small fraction of each trip's ~186 candidates. IPS reweights the RELATIVE
+contribution of rows we actually observed under a biased sampling process; it cannot
+synthesize a correction for a sampling event that never happened. These rows get the
+neutral raw weight 1.0 (before group normalization) — the same "no logged impression
+⇒ assumed label 0" treatment `models/ranking_data.py` already documents for the
+label itself, extended consistently to the weight. Zero-weighting or dropping them
+was considered and rejected: it would remove nearly 3/4 of the negative training
+signal LambdaMART's listwise objective needs to discriminate real negatives from
+real positives across a trip's FULL candidate set — the same (not exposure-
+restricted) set it is scored against at eval time.
+
+#### 42. IPS "normalized per group" reading: per-trip weights rescaled to sum to the group's own row count
+
+spec.md section 8 says "normalized per group" without a formula. Read as: raw weight
+`clip(1/p_expose, 1, 20)` (or 1.0 per #41) rescaled within each `trip_id` group via
+`raw * group_size / group_sum`, so every group's weights sum to exactly its own row
+count (equivalently: every group's MEAN weight is 1.0). Chosen specifically so
+system 8's (IPS) total per-group loss magnitude is directly comparable to system 7's
+(uniform weight 1.0, whose per-group sum is trivially `group_size` too) — the IPS
+ablation (#44) then isolates "which rows within a group matter more", not also
+"which groups get more total gradient weight", which a different normalization
+(e.g. global weight-sum-to-1) would have confounded. Unit-tested on a hand-computed
+2-group synthetic example (`tests/test_lambdamart.py`).
+
+#### 43. New-POI cohort identification recomputes the timeline split from `configs/datagen.yaml`, in `eval/`, not `models/`
+
+A "new POI" is `created_at >= split` (the same global train/holdout boundary every
+trip's `is_holdout` flag already derives from, `datagen/timeline.py::build_timeline`).
+This boundary and `created_at` are both PUBLIC, already-observable quantities (every
+phase's `is_holdout` split already depends on it; `pois_prepared.parquet` already
+exports `created_at`) — not latent DGP/oracle information, so reading
+`datagen.timeline`/`datagen.config` here does not violate the `models/` firewall's
+purpose (spec.md section 1.1: stop the ranking model from cheating on TRUE utility,
+not from knowing the public train/holdout boundary every downstream phase already
+uses). Placed in a new `eval/new_poi_cohort.py`, not `models/lambdamart.py`, so
+`tests/test_firewall_models.py`'s per-file scan never has to reason about this
+distinction — `eval/run.py` already reads `datagen.oracle_export` for the same class
+of documented, non-cheating reason. Measured cohort: 68/1446 catalog POIs (4.7%,
+consistent with the configured `new_poi_rate: 0.05`), appearing in 1,634 holdout
+candidate rows across all 202 holdout trips, with 44/202 trips having at least one
+`label >= 1` new-POI candidate (the population NDCG@10 is actually computed over).
+
+#### 44. Behavioral dropout applied identically to systems 7 and 8 (fit-split only); a third ablation-only booster isolates the dropout effect from the IPS effect
+
+Both systems 7 (no IPS) and 8 (IPS) are trained with the SAME 15%
+behavioral-block dropout — applying it to only one would confound the IPS ablation
+(the system 7 vs 8 comparison) with a second, uncontrolled variable. A third
+booster (`lambdamart_ips_no_dropout`, IPS on, dropout off, never exposed in the main
+9-system table) is trained purely to isolate the dropout effect: compared against
+system 8 (dropout on) on the new-POI cohort (#43), with IPS held constant at "on" for
+both sides. Dropout is applied to the FIT split only, never the carved validation
+split (`train_val_split_by_trip`) — validation is meant to reflect genuine
+serving-time NDCG on ordinary (non-cold-start) trips for early-stopping purposes, not
+a dropout-augmented objective.
+
+#### 45. `artifacts/model.txt` (spec.md section 14, singular) is reserved for the PRIMARY system (8); two more boosters are a documented deviation
+
+Two systems (7, 8) plus one ablation-only booster (#44) are built, not one, so 3
+files are persisted: `model.txt` (system 8, LambdaMART+IPS — spec.md's own framing
+of it as "primary"), `model_no_ips.txt` (system 7), and
+`model_ips_no_dropout.txt` (ablation-only). `poi_rank.cli train` fits and persists
+all 3; `poi_rank.cli evaluate` only ever LOADS them (never retrains), so the
+project's byte-identical-rerun contract applies to `train`'s output directly, not
+indirectly through `evaluate`'s own determinism.
+
+#### 46. LightGBM CPU determinism: `deterministic=True` + `force_row_wise=True` + `num_threads=1`, verified byte-identical across 2 full `train`+`evaluate` runs
+
+LightGBM's histogram-building order is not perfectly associative across threads by
+default (LightGBM's own documented caveat) — `deterministic: true` requires
+`force_row_wise`/`force_col_wise` to be set, and `num_threads: 1` removes any
+thread-order variance outright. All 4 explicit RNG seeds (`seed`, `bagging_seed`,
+`feature_fraction_seed`, `data_random_seed`) are pinned to `model_cfg.seed`.
+Verified empirically, not just configured: two full, independent
+`poi_rank.cli train` + `poi_rank.cli evaluate` runs on the committed dataset produced
+byte-identical `artifacts/model.txt`, `artifacts/model_no_ips.txt`,
+`artifacts/model_ips_no_dropout.txt`, AND `results/metrics.json` (`diff -q`,
+zero differences on all 4 files) — also covered by
+`tests/test_lambdamart.py::test_run_train_lambdamart_is_deterministic` and
+`tests/test_evaluate.py::test_run_evaluate_is_deterministic` on the fast-config
+fixture chain.
+
+#### 47. Success criteria (spec.md section 11.10): NDCG@10-vs-popularity target MET, % of oracle ceiling MISSED — tied to the already-documented candidate-recall ceiling
+
+Measured on the committed dataset (`results/metrics.json`, 202 holdout trips):
+lambdamart_ips NDCG@10 = 0.0875 [0.0715, 0.1042] vs popularity's 0.0622 — a **+40.6%
+relative uplift, Wilcoxon p=0.0042** (both the ≥+40% and p<0.01 legs of the target
+are MET). % of oracle ceiling = **66.2%** (target ≥70%) — a **MISSED** target, by a
+margin of 3.8 points. Root cause, tying back to the already-documented (PLAN.md,
+resolved ambiguity #32) candidate_recall@250 ceiling: the oracle itself only reaches
+NDCG@10=0.1322 on this same candidate-recall-capped candidate set (resolved
+ambiguity #32's "Honest diagnosis" — an oracle ranking by TRUE noise-free latent
+utility still cannot recover a true-relevant POI Phase 4a's candidate generation
+never included in the first place). lambdamart_ips closing 66.2% of that already-
+capped ceiling, rather than the full 70%, is consistent with — not contradictory to
+— the ~0.44 candidate-recall ceiling already identified as the dominant constraint on
+every ranking metric in this project: there is a hard information ceiling on HOW MUCH
+of the oracle's own already-capped NDCG@10 any observable-features-only ranker can
+close, and this system closes nearly two-thirds of it. No hyperparameter in
+`configs/model.yaml`'s `lambdamart:` section was tuned against this specific number
+after first seeing it — the reported config is the first one trained.
+
+### Measured results, systems 7/8 (committed dataset, 202 holdout trips)
+
+`uv run python -m poi_rank.cli train` (≈23 s) then `uv run python -m poi_rank.cli
+evaluate` (≈10 s). Two independent full `train`+`evaluate` runs produced
+byte-identical output on every file (resolved ambiguity #46):
+`artifacts/model.txt sha256=562ed7dfb295c201c00b506d46f6d675bb5c4670666cd16f1a3b3d52ce8671ef`,
+`artifacts/model_no_ips.txt sha256=eb04d89ec6fe276df8fb6ca35e0aea14388028ae1c70801de441ea25574bf04a`,
+`artifacts/model_ips_no_dropout.txt sha256=f7b212a453659fbd4937e9b9327bb52562e7de81cc85b3005a185399950eb97c`,
+`results/metrics.json sha256=d61c414ae3e45c004186600dbb69ef2ffac068befbb31348fbb8c0bb121874cc`.
+
+| System | NDCG@10 | 95% CI | % of oracle ceiling |
+|---|---|---|---|
+| LambdaMART (system 7, no IPS) | 0.0545 | [0.0423, 0.0668] | 41.3% |
+| **LambdaMART+IPS (system 8, primary)** | **0.0875** | [0.0715, 0.1042] | **66.2%** |
+
+Paired Wilcoxon (`ndcg@10`, n=202 pairs): lambdamart_ips vs popularity **p=0.0042**
+(significant, +40.6% relative — spec.md section 11.10's target MET, see #47);
+lambdamart_ips vs content_cosine (best baseline) p=0.812 (numerically higher —
+0.0875 vs 0.0807 — but NOT a statistically distinguishable improvement at n=202);
+**lambdamart (no IPS) vs lambdamart_ips: p=1.80e-05** — IPS correction is a highly
+significant, large improvement (system 7 without IPS actually underperforms
+popularity, 0.0545 vs 0.0622 — consistent with a pointwise-shaped ranker, even
+under a listwise objective, partially reproducing the popularity-biased LOGGING
+policy's own bias when trained on its output uncorrected).
+
+**New-POI cohort** (68 catalog POIs, 1,634 holdout candidate rows, 44/202 trips with
+a relevant cohort candidate — resolved ambiguity #43): NDCG@10 with 15% behavioral
+dropout = 0.5208 [0.4568, 0.5888]; without dropout = 0.5075 [0.4506, 0.5713];
+paired Wilcoxon p=0.994 (n=44 pairs) — **not a statistically significant
+difference at this cohort size**. Reported honestly: the direction is consistent
+with the intended robustness effect (dropout-trained model scores marginally
+higher), but 44 trips is too small a sample to distinguish this from noise, and no
+hyperparameter was adjusted to try to manufacture significance.

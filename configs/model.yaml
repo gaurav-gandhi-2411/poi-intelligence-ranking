@@ -32,3 +32,41 @@ baselines:
     # than sklearn's default 100 lbfgs iterations to converge cleanly).
     max_iter: 2000
     C: 1.0
+
+lambdamart:
+  # Systems 7/8 (spec.md section 8): LightGBM `objective="lambdarank"`, grouped by
+  # trip_id. Reasonable, standard hyperparameters for ~95k fit-split rows / ~250
+  # features -- not tuned against the holdout metric (see docs/DATA_CARD.md; tuning
+  # to inflate NDCG past what candidate_recall@250's ~0.44 ceiling supports is
+  # explicitly out of scope).
+  num_leaves: 31
+  learning_rate: 0.05
+  # Upper bound on boosting rounds -- early stopping on the train-carved validation
+  # split (below) almost always halts well before this.
+  n_estimators: 1000
+  early_stopping_rounds: 50
+  lambdarank_truncation_level: 20 # spec.md section 8, verbatim
+  eval_ndcg_at: [10] # early-stopping metric: NDCG@10, the same k the whole harness reports on
+  # (2^label - 1) exponential gain for labels 0-3, matching dcg_at_k
+  # (eval/metrics.py, resolved ambiguity #39) exactly, so training objective and
+  # reported metric use the identical gain function.
+  label_gain: [0, 1, 3, 7]
+  min_data_in_leaf: 20
+  feature_fraction: 0.8
+  bagging_fraction: 0.8
+  bagging_freq: 1
+  # CPU determinism (LightGBM docs: `deterministic: true` requires single-threaded
+  # or `force_row_wise`/`force_col_wise` -- hardcoded alongside `deterministic` in
+  # lambdamart.py, not duplicated here). See docs/DATA_CARD.md.
+  num_threads: 1
+  # Validation split carved from TRAIN ONLY (never the holdout being reported on --
+  # that would be leakage into the reported metric), by trip_id, for early stopping.
+  val_fraction: 0.15
+  val_split_seed: 43 # distinct from the top-level seed: an independent RNG stream, not reused
+  # IPS training-weight clipping (spec.md section 8, system 8): w_i = clip(1/p_expose_i, 1, 20)
+  ips_clip_low: 1.0
+  ips_clip_high: 20.0
+  # New-POI robustness (spec.md section 8): fraction of TRAINING rows whose entire
+  # behav_* feature block is masked to NaN, independently per row.
+  behavioral_dropout_rate: 0.15
+  behavioral_dropout_seed: 44 # distinct from val_split_seed: an independent RNG stream

@@ -54,21 +54,67 @@ clean throughout. Determinism byte-identical, verified at every phase.**
 - Localness Spearman ρ = 0.4757 (target 0.6) — `docs/DATA_CARD.md` #13.
 - candidate_recall@250 = 0.4413 overall / 0.3936 long-tail (targets 0.90/0.80) —
   `docs/DATA_CARD.md` ~#31, `results/metrics.json` meta.note. **This bounds every
-  ranking metric downstream — expect LambdaMART's NDCG@10 vs popularity and %-of-
-  ceiling targets in §11.10 to likely miss too. Report honestly with the same
-  root-cause discipline, do not tune candidate generation post-hoc to inflate it.**
+  ranking metric downstream.** UPDATE (Phase 5, `docs/DATA_CARD.md` #47): measured
+  outcome was a partial miss, not the full miss originally expected — lambdamart_ips
+  MET the NDCG@10-vs-popularity target (+40.6% relative, Wilcoxon p=0.0042, both legs
+  of "≥+40%, p<0.01" satisfied) but MISSED the ≥70%-of-oracle-ceiling target (66.2%
+  measured), root-caused to this same candidate-recall ceiling as predicted. Not
+  tuned to hit either number.
 - Logistic regression baseline underperforms popularity — `docs/DATA_CARD.md`
   Phase 4b section.
 
+## Done (Day 2 P0, Phase 5, spec.md §16 item 7 — committed, independently verified)
+
+7. **LambdaMART + IPS** (`models/lambdamart.py`, `eval/new_poi_cohort.py`) —
+   LightGBM `lambdarank`, grouped by `trip_id`, `lambdarank_truncation_level=20`,
+   `label_gain=[0,1,3,7]` (matches `dcg_at_k`'s exponential gain exactly), native
+   `category`-dtype categoricals, native NaN (no imputation). Train/val split
+   carved from TRAIN by trip_id (never the holdout being reported on) for early
+   stopping. `poi_rank.cli train` fits + persists 3 boosters to `artifacts/*.txt`
+   (system 7 `model_no_ips.txt`, system 8/primary `model.txt`, and a
+   dropout-ablation-only `model_ips_no_dropout.txt`); `poi_rank.cli evaluate`
+   only ever LOADS them. **IPS**: `clip(1/p_expose, 1, 20)`, unexposed train rows
+   (73.5% of train candidates, measured) get neutral weight 1.0 (docs/DATA_CARD.md
+   #41), normalized per trip-group to sum to the group's own row count (#42).
+   **Behavioral dropout**: 15% of FIT-split rows, `behav_*` block → NaN,
+   independent per row, applied identically to systems 7/8 (#44). **New-POI
+   cohort**: 68/1446 catalog POIs (#43), 44/202 holdout trips with a relevant
+   cohort candidate. **Determinism**: `deterministic=True` + `force_row_wise=True`
+   + `num_threads=1`, verified byte-identical across 2 full `train`+`evaluate`
+   runs on every artifact (#46).
+
+   **Results** (`results/metrics.json`, `docs/DATA_CARD.md` "Measured results,
+   systems 7/8"): lambdamart_ips (system 8, primary) NDCG@10 = **0.0875**
+   [0.0715, 0.1042], **66.2% of oracle ceiling**, **+40.6% relative vs popularity,
+   Wilcoxon p=0.0042** — the §11.10 NDCG-vs-popularity target (≥+40%, p<0.01) is
+   **MET**; the ≥70%-of-ceiling target is **MISSED** (66.2%), root-caused to the
+   same already-documented ~0.44 `candidate_recall@250` ceiling (#47) — the
+   oracle itself only reaches 0.1322 NDCG@10 on this same candidate-recall-capped
+   set, so 66.2% of an already-capped ceiling is consistent with, not
+   contradictory to, that known constraint. IPS ablation: lambdamart (no IPS) =
+   0.0545 (UNDERPERFORMS popularity, 0.0622) vs lambdamart_ips = 0.0875 — IPS
+   correction is a highly significant, large improvement (p=1.80e-05). New-POI
+   dropout ablation: 0.5208 with dropout vs 0.5075 without (n=44 trips,
+   p=0.994) — directionally consistent with the intended robustness effect but
+   NOT statistically significant at this cohort size, reported honestly as such.
+
+   Test suite at this checkpoint: 203 passed, 1 xfailed, 0 failed (`tests/
+   test_lambdamart.py` new: IPS-weight clip/normalization on a hand-computed
+   example, behavioral-dropout masking correctness/seeding, real-fixture-chain
+   training + no-NaN scoring, booster-level determinism; `tests/
+   test_new_poi_cohort.py` new: cohort identification against real data, NDCG@10
+   evaluation helper on hand-built frames). ruff/mypy clean throughout.
+
 ## Next (Day 2 P0, spec.md §16)
 
-7. **LambdaMART + IPS** (`models/lambdamart.py`) — `lightgbm` `lambdarank`,
+7. ~~**LambdaMART + IPS** (`models/lambdamart.py`) — `lightgbm` `lambdarank`,
    grouped by `trip_id`, `lambdarank_truncation_level=20`, graded labels 0-3.
    IPS weights `clip(1/p_expose, 1, 20)` normalized per group — report NDCG
    with/without IPS as an ablation. 15% behavioral-feature-block dropout for
    new-POI robustness (measure on the new-POI cohort). This becomes systems 7
    (LambdaMART) + 8 (LambdaMART+IPS, primary) in `results/metrics.json`, which
-   is already structured to accept them without rework (`eval/run.py`).
+   is already structured to accept them without rework (`eval/run.py`).~~
+   **DONE — see "Done (Day 2 P0, Phase 5)" above.**
 8. **Scoring layer** (`scoring/`) — multiplicative utility (deviation from
    brief's additive formula, justify in TECHNICAL.md), hard gates, 6-term
    geometric-mean compatibility, isotonic calibration (ECE/Brier/reliability),

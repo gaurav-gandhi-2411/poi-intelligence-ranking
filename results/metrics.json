@@ -6,8 +6,34 @@
     "model_seed": 42,
     "n_holdout_trips": 202,
     "note": "All metrics in this table are bounded by candidate_recall@250 (overall 0.4413, long-tail-stratum 0.3936 -- see candidates/recall_metrics.py output and docs/DATA_CARD.md): a candidate set missing a trip's true-relevant POIs caps every ranking metric computed over it (NDCG/Recall/MAP/MRR), regardless of ranking quality within the candidate set that IS present. This is a known, already-diagnosed property of Phase 4a's candidate generation, not a bug in this phase's baselines or metrics.",
-    "phase": "4b",
+    "phase": "5",
     "wilcoxon_metric": "ndcg@10"
+  },
+  "new_poi_cohort": {
+    "n_holdout_rows_in_cohort": 1634,
+    "n_holdout_trips_with_cohort_candidate": 202,
+    "n_holdout_trips_with_relevant_cohort_candidate": 44,
+    "n_new_pois_in_catalog": 68,
+    "ndcg@10_lambdamart_ips_no_dropout": {
+      "ci_high": 0.5713335386376256,
+      "ci_low": 0.45057996937673733,
+      "mean": 0.5074563366865289,
+      "n_excluded": 158,
+      "n_included": 44
+    },
+    "ndcg@10_lambdamart_ips_with_dropout": {
+      "ci_high": 0.5887546960758152,
+      "ci_low": 0.45676177712146443,
+      "mean": 0.5208132075647433,
+      "n_excluded": 158,
+      "n_included": 44
+    },
+    "wilcoxon_with_vs_without_dropout": {
+      "metric": "ndcg@10",
+      "n_pairs": 44,
+      "p_value": 0.9939808148460756,
+      "statistic": 351.0
+    }
   },
   "systems": {
     "content_cosine": {
@@ -149,6 +175,144 @@
         }
       },
       "pct_of_ceiling_ndcg10": 0.4108946375005887
+    },
+    "lambdamart": {
+      "diagnostics": {},
+      "metrics": {
+        "map": {
+          "ci_high": 0.09242543376004939,
+          "ci_low": 0.07588898806010715,
+          "mean": 0.08396966506463648,
+          "n_excluded": 0,
+          "n_included": 202
+        },
+        "mrr": {
+          "ci_high": 0.2201651055714934,
+          "ci_low": 0.15193836775616093,
+          "mean": 0.18500319106599172,
+          "n_excluded": 0,
+          "n_included": 202
+        },
+        "ndcg@10": {
+          "ci_high": 0.06683044756491753,
+          "ci_low": 0.04226832825192874,
+          "mean": 0.0545451358651884,
+          "n_excluded": 0,
+          "n_included": 202
+        },
+        "ndcg@20": {
+          "ci_high": 0.09403845427280519,
+          "ci_low": 0.06736223293202417,
+          "mean": 0.08047673556273009,
+          "n_excluded": 0,
+          "n_included": 202
+        },
+        "ndcg@5": {
+          "ci_high": 0.05548667967631829,
+          "ci_low": 0.03117198858910763,
+          "mean": 0.042886136739835594,
+          "n_excluded": 0,
+          "n_included": 202
+        },
+        "precision@10": {
+          "ci_high": 0.07673267326732673,
+          "ci_low": 0.05297029702970297,
+          "mean": 0.06485148514851485,
+          "n_excluded": 0,
+          "n_included": 202
+        },
+        "precision@5": {
+          "ci_high": 0.08415841584158416,
+          "ci_low": 0.053440594059405946,
+          "mean": 0.06831683168316832,
+          "n_excluded": 0,
+          "n_included": 202
+        },
+        "recall@10": {
+          "ci_high": 0.08219593659047801,
+          "ci_low": 0.05503190819796435,
+          "mean": 0.0684062751017047,
+          "n_excluded": 0,
+          "n_included": 202
+        },
+        "recall@20": {
+          "ci_high": 0.15356325053987555,
+          "ci_low": 0.11632795272901562,
+          "mean": 0.1346633762226289,
+          "n_excluded": 0,
+          "n_included": 202
+        }
+      },
+      "pct_of_ceiling_ndcg10": 0.4125112928395328
+    },
+    "lambdamart_ips": {
+      "diagnostics": {},
+      "metrics": {
+        "map": {
+          "ci_high": 0.11521552712141435,
+          "ci_low": 0.09505133256993734,
+          "mean": 0.10500226683698513,
+          "n_excluded": 0,
+          "n_included": 202
+        },
+        "mrr": {
+          "ci_high": 0.2987671941173515,
+          "ci_low": 0.21443213809233477,
+          "mean": 0.2552455951644888,
+          "n_excluded": 0,
+          "n_included": 202
+        },
+        "ndcg@10": {
+          "ci_high": 0.10422444095532098,
+          "ci_low": 0.07153074782496736,
+          "mean": 0.08748981917940593,
+          "n_excluded": 0,
+          "n_included": 202
+        },
+        "ndcg@20": {
+          "ci_high": 0.1354199097743696,
+          "ci_low": 0.10189988886554707,
+          "mean": 0.11809339976254152,
+          "n_excluded": 0,
+          "n_included": 202
+        },
+        "ndcg@5": {
+          "ci_high": 0.09169521118507797,
+          "ci_low": 0.05629356434527219,
+          "mean": 0.07331563184730333,
+          "n_excluded": 0,
+          "n_included": 202
+        },
+        "precision@10": {
+          "ci_high": 0.09653465346534654,
+          "ci_low": 0.07176980198019801,
+          "mean": 0.08415841584158416,
+          "n_excluded": 0,
+          "n_included": 202
+        },
+        "precision@5": {
+          "ci_high": 0.11089108910891088,
+          "ci_low": 0.07524752475247524,
+          "mean": 0.09306930693069307,
+          "n_excluded": 0,
+          "n_included": 202
+        },
+        "recall@10": {
+          "ci_high": 0.11382093423700378,
+          "ci_low": 0.08146520363749198,
+          "mean": 0.09694697338614207,
+          "n_excluded": 0,
+          "n_included": 202
+        },
+        "recall@20": {
+          "ci_high": 0.19143152220186638,
+          "ci_low": 0.1531764452897166,
+          "mean": 0.17263468760035602,
+          "n_excluded": 0,
+          "n_included": 202
+        }
+      },
+      "pct_of_ceiling_ndcg10": 0.6616637367847729
     },
     "logistic_regression": {
       "diagnostics": {
@@ -512,6 +676,30 @@
       "n_pairs": 202,
       "p_value": 0.07417385620752512,
       "statistic": 342.0
+    },
+    "lambdamart_ips_vs_content_cosine": {
+      "metric": "ndcg@10",
+      "n_pairs": 202,
+      "p_value": 0.8120480428211941,
+      "statistic": 5610.0
+    },
+    "lambdamart_ips_vs_popularity": {
+      "metric": "ndcg@10",
+      "n_pairs": 202,
+      "p_value": 0.004197499173584163,
+      "statistic": 3340.0
+    },
+    "lambdamart_vs_lambdamart_ips": {
+      "metric": "ndcg@10",
+      "n_pairs": 202,
+      "p_value": 1.7990703396388758e-05,
+      "statistic": 2197.0
+    },
+    "lambdamart_vs_popularity": {
+      "metric": "ndcg@10",
+      "n_pairs": 202,
+      "p_value": 0.09145752555027356,
+      "statistic": 3038.0
     },
     "logistic_regression_vs_popularity": {
       "metric": "ndcg@10",

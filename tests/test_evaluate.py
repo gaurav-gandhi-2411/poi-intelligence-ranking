@@ -17,18 +17,22 @@ from typing import Any
 import pytest
 
 from poi_rank.candidates.config import CandidatesConfig
+from poi_rank.datagen.config import DatagenConfig
 from poi_rank.eval.config import BootstrapConfig, EvalConfig, MetricsConfig
 from poi_rank.eval.run import ALL_SYSTEM_NAMES, run_evaluate
 from poi_rank.models.config import (
     BaselinesConfig,
     ContentCosineConfig,
     ItemKnnCfConfig,
+    LambdaMartConfig,
     LogisticRegressionConfig,
     ModelConfig,
 )
+from poi_rank.models.lambdamart import run_train_lambdamart
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FEATURES_CONFIG_PATH = REPO_ROOT / "configs" / "features.yaml"
+DATAGEN_CONFIG_PATH = REPO_ROOT / "configs" / "datagen.yaml"
 
 
 @pytest.fixture(scope="module")
@@ -53,7 +57,49 @@ def fast_model_cfg() -> ModelConfig:
             item_knn_cf=ItemKnnCfConfig(cf_score_missing_fallback="popularity"),
             logistic_regression=LogisticRegressionConfig(max_iter=300, C=1.0),
         ),
+        # Small/fast LightGBM settings -- exercises the SAME code path
+        # (`models.lambdamart`) real `poi_rank.cli train` runs, just cheaper.
+        lambdamart=LambdaMartConfig(
+            num_leaves=15,
+            learning_rate=0.1,
+            n_estimators=30,
+            early_stopping_rounds=10,
+            lambdarank_truncation_level=20,
+            eval_ndcg_at=(10,),
+            label_gain=(0, 1, 3, 7),
+            min_data_in_leaf=5,
+            feature_fraction=0.8,
+            bagging_fraction=0.8,
+            bagging_freq=1,
+            num_threads=1,
+            val_fraction=0.15,
+            val_split_seed=43,
+            ips_clip_low=1.0,
+            ips_clip_high=20.0,
+            behavioral_dropout_rate=0.15,
+            behavioral_dropout_seed=44,
+        ),
     )
+
+
+@pytest.fixture(scope="module")
+def datagen_cfg_module() -> DatagenConfig:
+    return DatagenConfig.from_yaml(DATAGEN_CONFIG_PATH)
+
+
+@pytest.fixture(scope="module")
+def trained_artifacts_dir(
+    evaluate_ready_data_dir: Path,
+    feature_build_cfg: Any,
+    fast_model_cfg: ModelConfig,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Path:
+    """Fits systems 7/8 + the dropout-ablation booster once per module (mirrors
+    `poi_rank.cli train`) into a shared tmp `artifacts/` dir every test in this
+    module reads from -- `run_evaluate` only ever LOADS boosters, never retrains."""
+    artifacts_dir = tmp_path_factory.mktemp("artifacts")
+    run_train_lambdamart(evaluate_ready_data_dir, artifacts_dir, fast_model_cfg, feature_build_cfg)
+    return artifacts_dir
 
 
 def test_run_evaluate_payload_structure(
@@ -61,6 +107,8 @@ def test_run_evaluate_payload_structure(
     feature_build_cfg: Any,
     fast_model_cfg: ModelConfig,
     fast_eval_cfg: EvalConfig,
+    trained_artifacts_dir: Path,
+    datagen_cfg_module: DatagenConfig,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
     geo_cfg = CandidatesConfig.from_yaml(FEATURES_CONFIG_PATH).geo
@@ -69,10 +117,12 @@ def test_run_evaluate_payload_structure(
     summary = run_evaluate(
         evaluate_ready_data_dir,
         results_dir,
+        trained_artifacts_dir,
         fast_model_cfg,
         fast_eval_cfg,
         feature_build_cfg,
         geo_cfg,
+        datagen_cfg_module,
     )
     payload = summary["payload"]
 
@@ -95,7 +145,11 @@ def test_run_evaluate_payload_structure(
         "content_cosine_vs_popularity",
         "item_knn_cf_vs_popularity",
         "logistic_regression_vs_popularity",
+        "lambdamart_vs_popularity",
+        "lambdamart_ips_vs_popularity",
         "oracle_vs_popularity",
+        "lambdamart_ips_vs_content_cosine",
+        "lambdamart_vs_lambdamart_ips",
     }
     assert set(payload["wilcoxon"]) == expected_wilcoxon_keys
     for w in payload["wilcoxon"].values():
@@ -103,6 +157,13 @@ def test_run_evaluate_payload_structure(
 
     assert payload["meta"]["n_holdout_trips"] > 0
     assert "candidate_recall@250" in payload["meta"]["note"] or "0.44" in payload["meta"]["note"]
+
+    cohort = payload["new_poi_cohort"]
+    assert cohort["n_new_pois_in_catalog"] > 0
+    assert "ndcg@10_lambdamart_ips_with_dropout" in cohort
+    assert "ndcg@10_lambdamart_ips_no_dropout" in cohort
+    assert "wilcoxon_with_vs_without_dropout" in cohort
+    assert 0.0 <= cohort["wilcoxon_with_vs_without_dropout"]["p_value"] <= 1.0
 
     assert summary["output_path"].exists()
     written = json.loads(summary["output_path"].read_text(encoding="utf-8"))
@@ -114,6 +175,8 @@ def test_run_evaluate_is_deterministic(
     feature_build_cfg: Any,
     fast_model_cfg: ModelConfig,
     fast_eval_cfg: EvalConfig,
+    trained_artifacts_dir: Path,
+    datagen_cfg_module: DatagenConfig,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
     geo_cfg = CandidatesConfig.from_yaml(FEATURES_CONFIG_PATH).geo
@@ -123,18 +186,22 @@ def test_run_evaluate_is_deterministic(
     summary1 = run_evaluate(
         evaluate_ready_data_dir,
         results_dir1,
+        trained_artifacts_dir,
         fast_model_cfg,
         fast_eval_cfg,
         feature_build_cfg,
         geo_cfg,
+        datagen_cfg_module,
     )
     summary2 = run_evaluate(
         evaluate_ready_data_dir,
         results_dir2,
+        trained_artifacts_dir,
         fast_model_cfg,
         fast_eval_cfg,
         feature_build_cfg,
         geo_cfg,
+        datagen_cfg_module,
     )
 
     bytes1 = summary1["output_path"].read_bytes()

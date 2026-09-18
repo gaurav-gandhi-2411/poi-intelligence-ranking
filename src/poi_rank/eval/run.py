@@ -2,19 +2,23 @@
 entry point.
 
 Builds the PRIMARY (unbiased holdout) and train-side ranking frames
-(`models.ranking_data`), runs baselines 1-6 (`models.baselines`) plus the oracle
+(`models.ranking_data`), runs baselines 1-6 (`models.baselines`) plus systems 7/8
+(`models.lambdamart` -- LOADED from `artifacts/`, never retrained here; `poi_rank.cli
+train` is the only place systems 7/8 are fit, spec.md section 14) and the oracle
 ceiling (`eval.oracle`), computes the full metric table (`eval.metrics`) with
 bootstrap 95% CIs, runs the paired-Wilcoxon comparisons spec.md section 8 asks for
-(this phase: baselines 4/5/6 and the oracle ceiling vs the popularity baseline --
-LambdaMART/LambdaMART+IPS comparisons are a later phase's addition, not a rework of
-this harness), and writes `results/metrics.json` under a top-level `"systems"` dict
-keyed by system name so later phases can add entries without breaking this phase's
-keys.
+(every system vs popularity, plus lambdamart_ips vs content_cosine -- the best
+baseline -- and lambdamart vs lambdamart_ips, the IPS ablation itself), evaluates the
+new-POI cohort (`eval.new_poi_cohort`: dropout-on system 8 vs the dedicated
+dropout-off ablation booster), and writes `results/metrics.json` under a top-level
+`"systems"` dict keyed by system name so later phases can add entries without
+breaking this phase's keys.
 
 Determinism: every stochastic step (baseline 1's per-trip RNG, the logistic
 regression fit, the bootstrap resampling) is seeded from `configs/model.yaml`'s /
-`configs/eval.yaml`'s own `seed`; two runs of `poi_rank.cli evaluate` produce a
-byte-identical `results/metrics.json` (`tests/test_determinism.py`).
+`configs/eval.yaml`'s own `seed`; two runs of `poi_rank.cli evaluate` (given the same
+already-trained `artifacts/*.txt`) produce a byte-identical `results/metrics.json`
+(`tests/test_determinism.py`).
 """
 
 from __future__ import annotations
@@ -26,12 +30,15 @@ from typing import Any
 import pandas as pd
 
 from poi_rank.candidates.config import GeoChannelConfig
+from poi_rank.datagen.config import DatagenConfig
 from poi_rank.datagen.oracle_export import oracle_dir_from_output
+from poi_rank.eval import new_poi_cohort
 from poi_rank.eval import oracle as oracle_reader
 from poi_rank.eval.config import EvalConfig
 from poi_rank.eval.metrics import SystemMetrics, WilcoxonResult, evaluate_system, paired_wilcoxon
 from poi_rank.features.config import FeatureBuildConfig
 from poi_rank.models import baselines as bl
+from poi_rank.models import lambdamart as lm
 from poi_rank.models.config import ModelConfig
 from poi_rank.models.ranking_data import load_holdout_evaluation_frame, load_train_ranking_frame
 
@@ -45,17 +52,24 @@ BASELINE_SYSTEM_NAMES: tuple[str, ...] = (
     "item_knn_cf",
     "logistic_regression",
 )
+LAMBDAMART_SYSTEM_NAMES: tuple[str, ...] = ("lambdamart", "lambdamart_ips")
 ORACLE_SYSTEM_NAME = "oracle"
-ALL_SYSTEM_NAMES: tuple[str, ...] = (*BASELINE_SYSTEM_NAMES, ORACLE_SYSTEM_NAME)
+ALL_SYSTEM_NAMES: tuple[str, ...] = (
+    *BASELINE_SYSTEM_NAMES,
+    *LAMBDAMART_SYSTEM_NAMES,
+    ORACLE_SYSTEM_NAME,
+)
 
 WILCOXON_METRIC = "ndcg@10"
 # spec.md section 8: paired Wilcoxon of (8) vs (2) and (8) vs (4) -- (8) is
-# LambdaMART+IPS, a later phase. This phase proves the harness out on every system
-# that already exists: baselines 4/5/6 and the oracle ceiling, all vs popularity (2).
+# LambdaMART+IPS. Every system also gets a vs-popularity comparison (this harness's
+# existing pattern from Phase 4b, kept for every system rather than special-cased).
 POPULARITY_COMPARISON_SYSTEMS: tuple[str, ...] = (
     "content_cosine",
     "item_knn_cf",
     "logistic_regression",
+    "lambdamart",
+    "lambdamart_ips",
     "oracle",
 )
 
@@ -107,8 +121,11 @@ def _evaluate_all_systems(
     oracle_score: pd.Series,
     eval_cfg: EvalConfig,
 ) -> dict[str, SystemMetrics]:
+    """`scores` covers every non-oracle system (baselines 1-6 AND lambdamart/
+    lambdamart_ips, wrapped as `BaselineResult` -- see `run_evaluate`) -- the oracle
+    ceiling is evaluated separately since it has no `BaselineResult`/diagnostics."""
     system_metrics: dict[str, SystemMetrics] = {}
-    for name in BASELINE_SYSTEM_NAMES:
+    for name in (*BASELINE_SYSTEM_NAMES, *LAMBDAMART_SYSTEM_NAMES):
         result = scores[name]
         system_metrics[name] = evaluate_system(
             holdout_frame,
@@ -143,6 +160,7 @@ def _build_payload(
     model_cfg: ModelConfig,
     eval_cfg: EvalConfig,
     n_holdout_trips: int,
+    new_poi_cohort_payload: dict[str, Any],
 ) -> dict[str, Any]:
     oracle_ndcg10 = system_metrics[ORACLE_SYSTEM_NAME].metrics[WILCOXON_METRIC].mean
     systems_payload: dict[str, Any] = {}
@@ -168,8 +186,9 @@ def _build_payload(
     return {
         "systems": systems_payload,
         "wilcoxon": wilcoxon_payload,
+        "new_poi_cohort": new_poi_cohort_payload,
         "meta": {
-            "phase": "4b",
+            "phase": "5",
             "n_holdout_trips": n_holdout_trips,
             "model_seed": model_cfg.seed,
             "eval_seed": eval_cfg.seed,
@@ -181,22 +200,91 @@ def _build_payload(
     }
 
 
+def _new_poi_cohort_payload(
+    data_dir: Path,
+    artifacts_dir: Path,
+    holdout_frame: pd.DataFrame,
+    lambdamart_scores: dict[str, pd.Series],
+    datagen_cfg: DatagenConfig,
+    eval_cfg: EvalConfig,
+) -> dict[str, Any]:
+    """New-POI robustness (spec.md section 8): NDCG@10 on the new-POI cohort for
+    system 8 (dropout ON, the primary system's own recipe) vs the dedicated
+    dropout-OFF ablation booster (`lambdamart_ips_no_dropout.txt`, `models
+    .lambdamart.save_boosters`) -- same `eval.metrics` harness, restricted to the
+    cohort's own candidate rows (`eval.new_poi_cohort`)."""
+    pois_df = pd.read_parquet(data_dir / "pois_prepared.parquet")
+    cohort_ids = new_poi_cohort.new_poi_ids(pois_df, datagen_cfg)
+    cohort = new_poi_cohort.cohort_frame(holdout_frame, cohort_ids)
+    summary = new_poi_cohort.cohort_summary(pois_df, holdout_frame, datagen_cfg)
+
+    boosters = lm.load_boosters(artifacts_dir)
+    numeric_columns = bl.numeric_feature_columns(cohort)
+    categorical_columns = bl.categorical_feature_columns(cohort)
+    score_no_dropout = lm.score_booster(
+        boosters["lambdamart_ips_no_dropout"], cohort, numeric_columns, categorical_columns
+    )
+    score_with_dropout = lambdamart_scores["lambdamart_ips"].loc[cohort.index]
+
+    ndcg_with_dropout = new_poi_cohort.evaluate_cohort_ndcg10(
+        cohort,
+        score_with_dropout,
+        eval_cfg.bootstrap.n_resamples,
+        eval_cfg.seed,
+        eval_cfg.bootstrap.ci_low_pct,
+        eval_cfg.bootstrap.ci_high_pct,
+    )
+    ndcg_without_dropout = new_poi_cohort.evaluate_cohort_ndcg10(
+        cohort,
+        score_no_dropout,
+        eval_cfg.bootstrap.n_resamples,
+        eval_cfg.seed,
+        eval_cfg.bootstrap.ci_low_pct,
+        eval_cfg.bootstrap.ci_high_pct,
+    )
+    per_trip_with = new_poi_cohort.evaluate_cohort_ndcg10_per_trip(cohort, score_with_dropout)
+    per_trip_without = new_poi_cohort.evaluate_cohort_ndcg10_per_trip(cohort, score_no_dropout)
+    dropout_wilcoxon = paired_wilcoxon(per_trip_with, per_trip_without)
+    return {
+        **summary,
+        "ndcg@10_lambdamart_ips_with_dropout": ndcg_with_dropout.to_dict(),
+        "ndcg@10_lambdamart_ips_no_dropout": ndcg_without_dropout.to_dict(),
+        "wilcoxon_with_vs_without_dropout": {
+            "metric": "ndcg@10",
+            "statistic": dropout_wilcoxon.statistic,
+            "p_value": dropout_wilcoxon.p_value,
+            "n_pairs": dropout_wilcoxon.n_pairs,
+        },
+    }
+
+
 def run_evaluate(
     data_dir: Path,
     results_dir: Path,
+    artifacts_dir: Path,
     model_cfg: ModelConfig,
     eval_cfg: EvalConfig,
     feature_cfg: FeatureBuildConfig,
     geo_cfg: GeoChannelConfig,
+    datagen_cfg: DatagenConfig,
 ) -> dict[str, Any]:
-    """Run the full Phase 4b evaluation and write `results/<results_dir>/metrics.json`.
+    """Run the full evaluation harness and write `results/<results_dir>/metrics.json`.
     Returns a summary dict (`output_path`, `payload`) for the CLI report and tests.
+    Requires `poi_rank.cli train` to have already written `artifacts/*.txt` --
+    systems 7/8 are LOADED here, never retrained (module docstring).
     """
     budget_target_price_level = feature_cfg.traveler_features.budget_target_price_level
     holdout_frame = load_holdout_evaluation_frame(data_dir, budget_target_price_level)
     train_frame = load_train_ranking_frame(data_dir, budget_target_price_level)
 
-    scores = _compute_all_baseline_scores(holdout_frame, train_frame, data_dir, model_cfg, geo_cfg)
+    baseline_scores = _compute_all_baseline_scores(
+        holdout_frame, train_frame, data_dir, model_cfg, geo_cfg
+    )
+    lambdamart_scores = lm.load_and_score_holdout(artifacts_dir, holdout_frame)
+    scores: dict[str, bl.BaselineResult] = {
+        **baseline_scores,
+        **{name: bl.BaselineResult(score=series) for name, series in lambdamart_scores.items()},
+    }
 
     oracle_dir = oracle_dir_from_output(data_dir)
     oracle_score = oracle_reader.oracle_ceiling_scores(
@@ -210,9 +298,27 @@ def run_evaluate(
     for name in POPULARITY_COMPARISON_SYSTEMS:
         other_per_trip = system_metrics[name].per_trip[WILCOXON_METRIC]
         wilcoxon[f"{name}_vs_popularity"] = paired_wilcoxon(other_per_trip, popularity_per_trip)
+    # Best-performing baseline (Phase 4b): lambdamart_ips (the primary proposed
+    # system) vs content_cosine.
+    wilcoxon["lambdamart_ips_vs_content_cosine"] = paired_wilcoxon(
+        system_metrics["lambdamart_ips"].per_trip[WILCOXON_METRIC],
+        system_metrics["content_cosine"].per_trip[WILCOXON_METRIC],
+    )
+    # The IPS ablation itself (spec.md section 8: "Report NDCG on the unbiased
+    # holdout with and without IPS as a measured ablation").
+    wilcoxon["lambdamart_vs_lambdamart_ips"] = paired_wilcoxon(
+        system_metrics["lambdamart"].per_trip[WILCOXON_METRIC],
+        system_metrics["lambdamart_ips"].per_trip[WILCOXON_METRIC],
+    )
+
+    new_poi_payload = _new_poi_cohort_payload(
+        data_dir, artifacts_dir, holdout_frame, lambdamart_scores, datagen_cfg, eval_cfg
+    )
 
     n_holdout_trips = int(holdout_frame["trip_id"].nunique())
-    payload = _build_payload(system_metrics, wilcoxon, model_cfg, eval_cfg, n_holdout_trips)
+    payload = _build_payload(
+        system_metrics, wilcoxon, model_cfg, eval_cfg, n_holdout_trips, new_poi_payload
+    )
 
     results_dir.mkdir(parents=True, exist_ok=True)
     output_path = results_dir / METRICS_FILENAME

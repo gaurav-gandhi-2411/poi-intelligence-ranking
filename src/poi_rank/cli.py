@@ -26,6 +26,7 @@ from poi_rank.eval.run import ALL_SYSTEM_NAMES, WILCOXON_METRIC, run_evaluate
 from poi_rank.features.build import run_features
 from poi_rank.features.config import FeatureBuildConfig
 from poi_rank.models.config import ModelConfig
+from poi_rank.models.lambdamart import run_train_lambdamart
 
 app = typer.Typer(add_completion=False)
 
@@ -171,6 +172,58 @@ def candidates(
 
 
 @app.command()
+def train(
+    features_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_FEATURES_CONFIG_PATH, help="Path to features.yaml"
+    ),
+    model_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_MODEL_CONFIG_PATH, help="Path to model.yaml"
+    ),
+    data_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_OUTPUT_DIR, help="Directory containing data/synthetic/*.parquet"
+    ),
+    artifacts_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_ARTIFACTS_DIR, help="Directory to write artifacts/*.txt LightGBM boosters"
+    ),
+) -> None:
+    """Fit systems 7 (LambdaMART) and 8 (LambdaMART+IPS, primary) plus the
+    dropout-ablation-only booster (`models.lambdamart`) on the TRAIN ranking frame,
+    and persist all 3 as LightGBM native `.txt` boosters under `artifacts/`
+    (spec.md section 14). `poi_rank.cli evaluate` loads these, never retrains."""
+    feature_cfg = FeatureBuildConfig.from_yaml(features_config_path)
+    model_cfg = ModelConfig.from_yaml(model_config_path)
+
+    summary = run_train_lambdamart(data_dir, artifacts_dir, model_cfg, feature_cfg)
+    diagnostics = summary["diagnostics"]
+
+    typer.echo("=== poi-rank train: lambdamart / lambdamart_ips ===")
+    for name, path in summary["paths"].items():
+        typer.echo(f"  {name}: {path}")
+    typer.echo(
+        f"  n_fit_rows={diagnostics['n_fit_rows']} n_val_rows={diagnostics['n_val_rows']} "
+        f"n_fit_trips={diagnostics['n_fit_trips']} n_val_trips={diagnostics['n_val_trips']}"
+    )
+    typer.echo(
+        f"  behavioral_dropout: n_rows={diagnostics['n_dropout_rows']} "
+        f"actual_rate={diagnostics['dropout_rate_actual']:.4f}"
+    )
+    typer.echo(
+        f"  ips: n_exposed_rows={diagnostics['n_ips_exposed_rows']} "
+        f"exposure_rate={diagnostics['ips_exposure_rate']:.4f} "
+        f"mean_weight={diagnostics['mean_ips_weight']:.4f}"
+    )
+    typer.echo(
+        f"  best_iteration: lambdamart={diagnostics['best_iteration_lambdamart']} "
+        f"lambdamart_ips={diagnostics['best_iteration_lambdamart_ips']} "
+        f"lambdamart_ips_no_dropout={diagnostics['best_iteration_lambdamart_ips_no_dropout']}"
+    )
+    typer.echo(
+        f"  val ndcg@10: lambdamart={diagnostics['best_score_ndcg10_lambdamart']:.4f} "
+        f"lambdamart_ips={diagnostics['best_score_ndcg10_lambdamart_ips']:.4f}"
+    )
+
+
+@app.command()
 def evaluate(
     features_config_path: Path = typer.Option(  # noqa: B008
         DEFAULT_FEATURES_CONFIG_PATH, help="Path to features.yaml"
@@ -181,23 +234,39 @@ def evaluate(
     eval_config_path: Path = typer.Option(  # noqa: B008
         DEFAULT_EVAL_CONFIG_PATH, help="Path to eval.yaml"
     ),
+    datagen_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_CONFIG_PATH, help="Path to datagen.yaml"
+    ),
     data_dir: Path = typer.Option(  # noqa: B008
         DEFAULT_OUTPUT_DIR, help="Directory containing data/synthetic/*.parquet"
+    ),
+    artifacts_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_ARTIFACTS_DIR, help="Directory containing artifacts/*.txt LightGBM boosters"
     ),
     results_dir: Path = typer.Option(  # noqa: B008
         DEFAULT_RESULTS_DIR, help="Directory to write results/metrics.json"
     ),
 ) -> None:
-    """Run the Phase 4b evaluation harness (baselines 1-6 + oracle ceiling, full
-    metric table with bootstrap 95% CIs, paired Wilcoxon vs popularity) on the
-    PRIMARY unbiased holdout, and write `results/metrics.json`."""
+    """Run the full evaluation harness (baselines 1-6 + LambdaMART systems 7/8,
+    loaded from `artifacts/` -- run `poi_rank.cli train` first -- + oracle ceiling,
+    full metric table with bootstrap 95% CIs, paired Wilcoxon comparisons, new-POI
+    cohort robustness) on the PRIMARY unbiased holdout, and write
+    `results/metrics.json`."""
     feature_cfg = FeatureBuildConfig.from_yaml(features_config_path)
     model_cfg = ModelConfig.from_yaml(model_config_path)
     eval_cfg = EvalConfig.from_yaml(eval_config_path)
     candidates_cfg = CandidatesConfig.from_yaml(features_config_path)
+    datagen_cfg = DatagenConfig.from_yaml(datagen_config_path)
 
     summary = run_evaluate(
-        data_dir, results_dir, model_cfg, eval_cfg, feature_cfg, candidates_cfg.geo
+        data_dir,
+        results_dir,
+        artifacts_dir,
+        model_cfg,
+        eval_cfg,
+        feature_cfg,
+        candidates_cfg.geo,
+        datagen_cfg,
     )
     payload = summary["payload"]
 
@@ -215,9 +284,32 @@ def evaluate(
             f"({pct * 100:.1f}% of ceiling, n_excluded={m['n_excluded']})"
         )
 
-    typer.echo(f"\n=== paired Wilcoxon vs popularity ({WILCOXON_METRIC}) ===")
+    typer.echo(f"\n=== paired Wilcoxon ({WILCOXON_METRIC}) ===")
     for key, w in payload["wilcoxon"].items():
         typer.echo(f"  {key}: p={w['p_value']:.4g} (n_pairs={w['n_pairs']})")
+
+    cohort = payload["new_poi_cohort"]
+    typer.echo("\n=== new-POI cohort (spec.md section 8: new-POI robustness) ===")
+    typer.echo(
+        f"  n_new_pois_in_catalog={cohort['n_new_pois_in_catalog']} "
+        f"n_holdout_rows_in_cohort={cohort['n_holdout_rows_in_cohort']} "
+        f"n_trips_with_relevant_cohort_candidate="
+        f"{cohort['n_holdout_trips_with_relevant_cohort_candidate']}"
+    )
+    with_dropout = cohort["ndcg@10_lambdamart_ips_with_dropout"]
+    without_dropout = cohort["ndcg@10_lambdamart_ips_no_dropout"]
+    typer.echo(
+        f"  ndcg@10 with dropout:    {with_dropout['mean']:.4f} "
+        f"[{with_dropout['ci_low']:.4f}, {with_dropout['ci_high']:.4f}] "
+        f"(n_included={with_dropout['n_included']})"
+    )
+    typer.echo(
+        f"  ndcg@10 without dropout: {without_dropout['mean']:.4f} "
+        f"[{without_dropout['ci_low']:.4f}, {without_dropout['ci_high']:.4f}] "
+        f"(n_included={without_dropout['n_included']})"
+    )
+    dropout_w = cohort["wilcoxon_with_vs_without_dropout"]
+    typer.echo(f"  wilcoxon with vs without dropout: p={dropout_w['p_value']:.4g}")
 
     typer.echo(f"\n  {payload['meta']['note']}")
 
