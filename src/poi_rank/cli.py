@@ -14,6 +14,8 @@ from poi_rank.data.config import FeaturesConfig
 from poi_rank.data.prepare import run_prepare
 from poi_rank.datagen.config import DatagenConfig
 from poi_rank.datagen.pipeline import run_generate
+from poi_rank.features.build import run_features
+from poi_rank.features.config import FeatureBuildConfig
 
 app = typer.Typer(add_completion=False)
 
@@ -21,6 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = REPO_ROOT / "configs" / "datagen.yaml"
 DEFAULT_FEATURES_CONFIG_PATH = REPO_ROOT / "configs" / "features.yaml"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "data" / "synthetic"
+DEFAULT_ARTIFACTS_DIR = REPO_ROOT / "artifacts"
 
 
 @app.callback()
@@ -76,6 +79,35 @@ def prepare(
     typer.echo(
         f"  n_other_category: {summary['n_other_category']} "
         f"(other_category_rate={summary['other_category_rate']:.4f})"
+    )
+
+
+@app.command()
+def features(
+    config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_FEATURES_CONFIG_PATH, help="Path to features.yaml"
+    ),
+    data_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_OUTPUT_DIR, help="Directory containing data/synthetic/*.parquet"
+    ),
+    artifacts_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_ARTIFACTS_DIR, help="Directory for the committed artifacts/poi_emb.npy cache"
+    ),
+) -> None:
+    """Run the Phase 3 feature-build pipeline (POI text embedding, POI feature
+    table, traveler feature table) and write both feature parquet files."""
+    cfg = FeatureBuildConfig.from_yaml(config_path)
+    summary = run_features(cfg, data_dir, artifacts_dir)
+
+    typer.echo("=== poi-rank features: summary ===")
+    typer.echo(f"  text_embedding_method: {summary['text_embedding_method']}")
+    typer.echo(f"  text_embedding_cache: {summary['text_embedding_cache']}")
+    typer.echo(f"  poi_features: {summary['poi_features_path']}")
+    typer.echo(f"    n_pois={summary['n_pois']}, n_columns={summary['n_poi_feature_columns']}")
+    typer.echo(f"  traveler_features: {summary['traveler_features_path']}")
+    typer.echo(
+        f"    n_traveler_trip_rows={summary['n_traveler_trip_rows']}, "
+        f"n_columns={summary['n_traveler_feature_columns']}"
     )
 
 

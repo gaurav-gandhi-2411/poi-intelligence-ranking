@@ -37,3 +37,65 @@ geo:
   # actual POI centroid -- see docs/DATA_CARD.md for why this is synthesized at the
   # prep stage rather than in datagen/.
   transit_node_spread_deg: 0.05
+
+# --- Phase 3 (src/poi_rank/features/**) -------------------------------------------
+# Feature-engineering hyperparameters: POI text representation, POI feature-table
+# knobs, and traveler feature-table knobs (spec.md sections 5-6). Reuses the
+# top-level `seed` above for every stochastic step in features/ (TF-IDF/SVD,
+# traveler-segment K-Means) -- a separate `poi_rank.features.config.FeatureBuildConfig`
+# loader reads this file independently of Phase 2's `data.config.FeaturesConfig`
+# (see docs/DATA_CARD.md), mirroring the codebase's one-typed-config-per-phase
+# convention rather than coupling phases' config classes to each other.
+
+text_embedding:
+  # Canonical default for `make reproduce`: TF-IDF -> SVD-64 (deterministic, no
+  # model download, sub-second on 1.5k POIs). "sentence_transformers" is an optional,
+  # explicit opt-in (`uv sync --extra text`) -- never a silent runtime fallback. See
+  # docs/DATA_CARD.md "Text embedding: TF-IDF is the canonical default path".
+  method: tfidf
+  svd_dim: 64
+  tfidf_max_features: 20000
+  tfidf_ngram_max: 2
+  sentence_transformer_model: all-MiniLM-L6-v2
+  # Committed cache of the FINAL L2-normalized (post-SVD) embedding matrix -- see
+  # docs/DATA_CARD.md for why this caches post-SVD rather than the spec's literal
+  # "384d pre-SVD" description.
+  cache_path: artifacts/poi_emb.npy
+
+poi_features:
+  # Bayesian/Laplace smoothing pseudo-count for CTR: smoothed = (n_pos + alpha *
+  # global_ctr) / (n_impressions + alpha) -- same empirical-Bayes shape as Phase 2's
+  # rating shrinkage (data/shrinkage.py), pulling low-impression POIs' CTR toward the
+  # catalog-wide mean rather than letting a 1-impression/1-click POI show CTR=1.0.
+  ctr_smoothing_alpha: 5.0
+  density_radius_km: 0.5
+  # K for the observable traveler-segment K-Means proxy used by the "archetype
+  # affinity profile" behavioral feature -- set to 8 to mirror the DGP's 8-archetype
+  # count as a structurally reasonable K, NOT because it reads the DGP's archetype
+  # definitions or latent assignments (it doesn't -- see docs/DATA_CARD.md).
+  traveler_segment_clusters: 8
+
+traveler_features:
+  # spec.md section 6 writes `tau = 180 days half-life` then `exp(-delta_t/tau)`.
+  # Taken as a literal mathematical half-life (decay = 0.5 at delta_t=180 days), so
+  # the exponential's actual decay constant is `180 / ln(2) ~= 259.7` days, not 180 --
+  # see docs/DATA_CARD.md for the resolved ambiguity.
+  taste_halflife_days: 180.0
+  taste_weights:
+    booking: 1.0
+    visit: 1.0
+    navigate: 0.7
+    save: 0.6
+    share: 0.5
+    click: 0.2
+    view: 0.05
+    dismiss: -0.8
+  confidence_shrinkage_k: 5.0
+  # Independently authored, NOT imported from `datagen/utility.py`'s latent
+  # `BUDGET_TARGET_PRICE_LEVEL` -- same-purpose constant, deliberately separate code,
+  # per docs/DATA_CARD.md resolved ambiguity #2 (party_fit/price_fit/novelty_t are
+  # latent-only and never shared with observable code).
+  budget_target_price_level:
+    low: 1.5
+    medium: 2.5
+    high: 3.5

@@ -148,6 +148,8 @@ data/synthetic/
 ├── destinations.parquet
 ├── pois.parquet                        # exported (dirty) catalog -- datagen output, Phase 1
 ├── pois_prepared.parquet               # cleaned/enriched catalog -- data prep output, Phase 2
+├── poi_features.parquet                # POI feature table -- features output, Phase 3
+├── traveler_features.parquet           # traveler feature table (per traveler x trip) -- Phase 3
 ├── travelers.parquet
 ├── trips.parquet
 ├── interactions_train.parquet          # biased policy, train window
@@ -157,6 +159,9 @@ data/synthetic/
     ├── traveler_taste.parquet          # true latent taste vectors
     ├── poi_latent.parquet              # true latent_quality, latent_localness, poi_semantic
     └── holdout_utility_true.parquet    # noise-free u(t,p) for every (holdout trip, eligible POI) pair
+
+artifacts/
+└── poi_emb.npy                         # committed cache: final L2-normalized 64d POI text embedding
 ```
 
 `opening_hours` in `pois.parquet` is a JSON-encoded string (or null) rather than a
@@ -294,3 +299,222 @@ config carries the tuned weights.
 the 0.6 target. `tests/test_localness_oracle.py::test_localness_spearman_rho_against_oracle`
 asserts the literal target and is **expected to fail** — the miss is surfaced, not
 hidden, per spec.md's explicit instruction not to silently lower a missed bar.
+
+---
+
+## Phase 3 — features (`src/poi_rank/features/`)
+
+Reads `data/synthetic/pois_prepared.parquet`, `travelers.parquet`, `trips.parquet`,
+`interactions_train.parquet` (never holdout logs, never `_oracle/`) and writes
+`data/synthetic/poi_features.parquet` (one row per POI) and
+`data/synthetic/traveler_features.parquet` (one row per `(traveler_id, trip_id)`).
+Config additions live in the same `configs/features.yaml` (new `text_embedding`,
+`poi_features`, `traveler_features` sections, read by a separate
+`features.config.FeatureBuildConfig` loader — see resolved ambiguity #20). CLI:
+`python -m poi_rank.cli features` / `make features`.
+
+### Resolved ambiguities / design choices
+
+#### 14. Text embedding: TF-IDF is the canonical default path, not sentence-transformers
+
+spec.md section 5 describes `all-MiniLM-L6-v2` (384d) → SVD-64 as the primary path
+with a TF-IDF fallback "if `sentence-transformers` unavailable or offline." In this
+environment `sentence-transformers` is genuinely not installed (it is an optional
+extra, `pyproject.toml` `[project.optional-dependencies] text`) and downloading a
+~90MB model on a fresh clone would risk both the `<5min` CPU-only reproducibility
+budget and the "no paid APIs, minimal deps" spirit of the assignment for a one-time
+grading run. **Decision:** `configs/features.yaml`'s `text_embedding.method: tfidf`
+is the actual default `make reproduce` exercises; `sentence_transformers` is a
+genuine opt-in a reviewer can select (`method: sentence_transformers` + `uv sync
+--extra text`), never a silent runtime fallback — `build_poi_text_embeddings` raises
+an actionable `ImportError` if that method is selected but the package is missing,
+rather than quietly downgrading to TF-IDF. This is spec-anticipated, not corner-
+cutting: spec.md itself requires the TF-IDF path be "tested in CI," which only makes
+sense if it is a real, exercised path, not merely a defensive branch.
+
+#### 15. What gets cached to `artifacts/poi_emb.npy`: the final 64d (post-SVD) matrix, not a raw pre-SVD embedding
+
+spec.md's literal text is "Cached to `artifacts/poi_emb.npy` ... (~1.5k x 384 fp16 ≈
+1.1 MB)" — a size citation anchored specifically to the sentence-transformer path's
+fixed-width 384d raw output. TF-IDF has no equivalent fixed-width raw form (its
+dimensionality is vocabulary-sized, capped by `tfidf_max_features`, not model-fixed),
+and fitting TF-IDF + SVD on 1,446 POIs is sub-second — there is no recompute-cost
+justification for caching anything pre-SVD when TF-IDF is canonical. **Decision:**
+`artifacts/poi_emb.npy` holds the FINAL, L2-normalized 64d embedding matrix
+(`float32`, ~370 KB on the committed catalog — smaller than spec's own 1.1 MB
+citation, well inside the `data/`+`artifacts/` size budget), giving every downstream
+phase (semantic candidate channel, traveler taste vectors, `models/`) a byte-
+identical embedding source without re-fitting SVD each run — the actual property
+spec.md's caching requirement protects. If a reviewer opts into the
+`sentence_transformers` path, the SAME cache slot holds that path's 64d SVD output
+instead (the cache is keyed by shape `(n_pois, svd_dim)`, not by method) — there is
+deliberately no separate raw-384d cache artifact, since nothing downstream ever needs
+the un-reduced sentence-transformer output.
+
+#### 16. `tau = 180 days half-life` is honored as a literal mathematical half-life
+
+spec.md section 6 writes `tau = 180 days half-life` then the formula
+`exp(-delta_t_i / tau)`. Taken as a literal variable substitution (`tau = 180`
+plugged directly into the exponent), the decay at `delta_t = 180` days would be
+`exp(-1) ≈ 0.368`, not the `0.5` a "180-day half-life" implies. **Decision:** `tau`
+in the implemented formula is the derived decay constant `180 / ln(2) ≈ 259.66`
+days (`traveler_features.half_life_to_decay_constant`), so `exp(-delta_t/tau)`
+genuinely equals `0.5` at `delta_t = 180` days — honoring the precise mathematical
+meaning of "half-life" over the literal variable-name substitution. Verified by
+`tests/test_traveler_features.py::test_half_life_to_decay_constant_gives_half_decay_at_halflife`.
+
+#### 17. Explicit interests multi-hot is 31-dimensional, not spec's literal "14d"
+
+spec.md section 6 states "interests multi-hot (14d)." The actual stated-interest
+vocabulary (`datagen/taxonomy.py::INTEREST_LABELS = CATEGORIES + TAGS`) has 32 list
+entries but only **31 distinct strings** — `CATEGORIES` and `TAGS` both separately
+contain the literal string `"shopping"` (a category and, independently, a tag),
+collapsing to one column. Neither the 32-entry literal sum nor spec's "14d" figure
+matches. `features/traveler_features.py::build_interest_vocabulary` derives the
+vocabulary empirically from `travelers.parquet['interests']` (every distinct label
+actually stated by at least one of the 600 travelers) rather than importing
+`datagen`'s internal taxonomy — mirroring `data/categories.py`'s established
+precedent of hand-deriving vocabulary from what the data actually contains, since a
+real production feature pipeline would not have access to its data generator's
+internals either. Measured on the committed dataset: 31 of the possible 31 unique
+labels are observed (full coverage from 600 travelers), so the explicit-block
+`interest_*` column count is 31. `tests/test_traveler_features.py` asserts vocabulary
+determinism directly; the 14d figure is treated as a nominal spec placeholder, not an
+authoritative target, since no vocabulary construction in the codebase produces it.
+
+#### 18. POI id reconciliation: interaction logs reference the PRE-dedup catalog
+
+Discovered by direct inspection while building this phase, not called out in
+spec.md's Phase 3 task description. `datagen/pipeline.py` samples exposure slates
+from the full, un-deduped POI array (`build_catalog_arrays` over `poi_true_df`,
+before `apply_catalog_dirtiness`/Phase 2's dedup ever runs), so
+`interactions_train.parquet` (and both holdout logs) reference raw `poi_id`s from
+the pre-dedup catalog. Phase 2's dedup (`data/dedup.py`) merges near-duplicate rows
+into one surviving record per cluster keyed by the highest-review-count member's
+`poi_id`, recording every original member id in that row's `merged_poi_ids` list.
+**Measured**: 40 of 1,386 distinct `poi_id`s referenced in `interactions_train.parquet`
+(~2.9%) no longer exist as standalone rows in `pois_prepared.parquet` — they were
+merged into a *different* row's `poi_id`. Every join between interaction logs and
+`pois_prepared.parquet` (the behavioral block, the implicit taste vector's
+`emb(poi_i)` lookups) goes through `features/reconcile.py::build_poi_id_canonical_map`
++ `remap_interaction_poi_ids` first, or those 40 POIs' interactions would silently
+vanish (counted as if they never happened) instead of correctly rolling up onto the
+surviving canonical row.
+
+#### 19. `price_level` appears in both spec.md's Numeric and Categorical feature rows — resolved as two different representations, not a literal duplicate
+
+spec.md section 5's feature table literally lists `price_level` under BOTH the
+Numeric row and the Categorical row. **Decision:** the numeric block
+(`num_price_level`) uses Phase 2's `price_level_imputed` column (always-present,
+median-by-destination-category filled — appropriate for a numeric feature that
+LightGBM/non-tree baselines can consume directly); the categorical block
+(`cat_price_level`) uses the RAW `price_level` column cast to pandas `category`
+dtype, preserving real missingness as a genuine NaN category (appropriate for
+LightGBM's native categorical + missing-value handling, spec.md section 8). Two
+different representations for two different downstream consumers, not one field
+duplicated verbatim.
+
+**Sub-finding, a real `pyarrow` round-trip bug caught while building this:** a
+`category` dtype backed by pandas-nullable `Int64` category *labels* (e.g.
+`price_level.astype("Int64").astype("category")`) silently degrades to plain
+`float64` on a `to_parquet` → `read_parquet` round trip — verified directly (in-memory
+the dtype is correctly `category`; after a real parquet write+read it is not). This
+would have silently undone the LightGBM-native-categorical intent the moment the
+feature table hit disk, with no error anywhere. Fixed by stringifying
+`price_level`'s category labels (`"1"`..`"4"`) before casting to `category` — string-
+labeled categories round-trip correctly. Regression-tested directly against a real
+parquet round trip in `tests/test_poi_features.py::test_categorical_block_price_level_survives_parquet_round_trip`
+(not just an in-memory dtype check, which would not have caught this).
+
+#### 20. "Archetype affinity profile" is an observable K-Means proxy — zero oracle information
+
+spec.md section 5 lists a POI behavioral feature "archetype affinity profile (8d:
+normalized engagement share by traveler archetype)." The DGP's 8 archetypes
+(`datagen/archetypes.py`) are latent, soft Dirichlet-mixture weights per traveler —
+`travelers.parquet` does not export them (verified: `travelers.parquet`'s columns are
+exactly `traveler_id, home_market, home_destination, party_type, budget, mobility,
+interests, touristiness_pref, pace, accessibility_needs, explicit_preferences,
+dietary` — no archetype/mixture field), and reading them from `_oracle/` would be a
+hard firewall violation. **Decision:** `features/traveler_features.py::assign_traveler_segments`
+builds a genuinely observable proxy instead — K-Means (`k=8`, seeded, `n_init=10`)
+over a feature matrix built ONLY from stated traveler attributes (interests
+multi-hot, budget ordinal, party_type one-hot, `touristiness_pref`, all
+`StandardScaler`-normalized). `k=8` mirrors the DGP's archetype count as a
+structurally reasonable choice, NOT because any archetype definition or per-traveler
+assignment is read — this module never imports from `datagen/archetypes.py` and
+never references `_oracle` (enforced by `tests/test_firewall_features.py`). The
+resulting per-POI `behav_archetype_affinity_NN` columns are the normalized share of
+that POI's ENGAGED (label ≥ 1) train-window interactions attributable to travelers in
+each of the 8 observable clusters — a real, measurable, leakage-free behavioral
+signal, structurally similar in spirit to spec's request but built entirely from
+information a production system would actually have.
+
+#### 21. Implicit preference-summary stats use ENGAGED interactions only, never raw impressions
+
+`implicit_category_distribution`, `implicit_mean_price_level`,
+`implicit_mean_localness`, and `implicit_mean_pop_pct` (spec.md section 6) are
+computed only from as-of-safe history rows with `label >= 1` (a genuine positive
+engagement), never from raw impressions (`view`-only rows included). Computing these
+from raw impressions would just reproduce the shape of the popularity-biased
+**exposure** policy (`p(expose) ∝ popularity^1.5 × geo_prox`, spec.md section 1.3) —
+i.e. "what POIs was this traveler shown," which is a property of the logging policy,
+not the traveler's actual taste — silently contaminating a feature meant to
+represent implicit preference with exposure-policy bias. The taste VECTOR itself
+(`compute_taste_vector`) correctly uses the FULL history including `view` (weight
+0.05) and `dismiss` (weight −0.8), per spec.md's literal weight table — those low/
+negative weights are precisely how the taste vector already down-weights
+impression-only exposure without needing a hard `label >= 1` filter; the summary
+STATS use the harder filter because they have no analogous per-row weighting
+mechanism of their own.
+
+#### 22. `explicit_days_remaining` and `implicit_days_since_last_interaction` are computed identically
+
+spec.md section 6 lists `days_remaining` in the explicit block and (separately)
+"days since last interaction" in the implicit block, without defining either
+relative to a concrete reference point. For an OFFLINE, per-`(traveler_id, trip_id)`
+feature table (no live "request time" exists in a historical dataset — spec.md
+section 13 itself classifies "days-until-trip" as an *online*, request-time feature),
+the only leakage-safe reference point already established by this module's as-of
+discipline (resolved ambiguity below) is the traveler's own most recent as-of-safe
+interaction. Since the dataset provides no separate "trip booking" event distinct
+from browsing-interaction timestamps, both quantities reduce to the same number in
+this implementation: `(trip.start_date − most_recent_active_interaction_timestamp)`,
+computed once and emitted under both spec-mandated column names. A real production
+system would compute `days_remaining` from genuine request time at serving time
+(a true online feature, not derivable at offline feature-build time at all) — this
+static column is a best-effort table-completeness stand-in, not the production-
+correct implementation of that feature.
+
+#### 23. Traveler implicit-block as-of cutoff: per-trip, not per-impression
+
+The load-bearing temporal-leakage decision of this phase, spelled out in full in
+`traveler_features.py`'s module docstring: every implicit-block/behavioral-adjacent
+quantity for a `(traveler_id, trip_id)` row uses ONLY `interactions_train.parquet`
+rows with `timestamp < trip.start_date` AND `trip_id != <this trip>` — i.e. only the
+traveler's own EARLIER trips, mirroring `datagen/pipeline.py`'s own "novelty computed
+from earlier trips only" convention. This is a deliberately coarser approximation
+than a true per-impression as-of cutoff (which would require the not-yet-built
+`models/`-phase training-row assembly to join at individual-impression grain); a
+trip-level cutoff is safe by construction because every one of a trip's own
+train-window interactions has `timestamp <= trip.start_date` (datagen's
+`session_base_ts = trip.start_date`, `lead_days >= 0` — see `datagen/pipeline.py`),
+so the timestamp filter alone already excludes the current trip's own sessions.
+Verified directly (not just asserted) by
+`tests/test_traveler_features.py::test_taste_vector_unaffected_by_interactions_after_as_of`
+and `test_traveler_history_before_excludes_current_trip_and_future_timestamps`. A
+traveler's first trip (`trip_sequence == 1`, 600 of 800 committed trips) correctly
+gets an all-zero taste vector and `n_interactions=0` by construction; measured on the
+committed dataset, 635 of 800 trips (600 first-trips + 35 second-trips whose own
+first trip fell inside the holdout window and so logged zero train interactions) have
+this cold-start signature — a fully-explained, non-bug count, cross-checked directly
+against `trips.parquet`'s `trip_sequence`/`is_holdout` columns.
+
+#### 24. Per-phase config class, not a shared one
+
+`FeatureBuildConfig` (`features/config.py`) is its own typed loader for
+`configs/features.yaml`'s new `text_embedding`/`poi_features`/`traveler_features`
+sections, independent of `data/config.py::FeaturesConfig` (Phase 2's
+`dedup`/`localness`/`geo` sections) even though both read the same physical YAML
+file — mirrors the codebase's established one-typed-config-class-per-phase
+convention (`datagen/config.py::DatagenConfig`, `data/config.py::FeaturesConfig`)
+rather than coupling one phase's config class to another's.

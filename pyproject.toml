@@ -46,13 +46,28 @@ ignore = ["N802", "N803", "N806"]
 strict = true
 files = ["src/poi_rank"]
 
-# pandas/yaml/h3/scipy ship no inline type stubs (or none we already depend on) and
-# we're not adding types-PyYAML / pandas-stubs / scipy-stubs as new dependencies for
-# a stub-only gain (rule: don't install new deps without asking); ignore_missing_imports
-# scopes the exemption to exactly these untyped third-party libs, not to poi_rank's
-# own code.
+# pandas/yaml/h3/scipy/scikit-learn ship no inline type stubs (or none we already
+# depend on) and we're not adding types-PyYAML / pandas-stubs / scipy-stubs /
+# sklearn-stubs as new dependencies for a stub-only gain (rule: don't install new
+# deps without asking); ignore_missing_imports scopes the exemption to exactly these
+# untyped third-party libs, not to poi_rank's own code. `sentence_transformers` is
+# the optional text-embedding extra (`pyproject.toml`
+# `[project.optional-dependencies] text`) -- not installed in the base env, so mypy
+# cannot resolve it either; its only import site (`features/text_embed.py`) is
+# inside a guarded `try/except ImportError`, never a hard runtime dependency.
 [[tool.mypy.overrides]]
-module = ["yaml", "pandas", "pandas.*", "h3", "scipy", "scipy.*"]
+module = [
+    "yaml",
+    "pandas",
+    "pandas.*",
+    "h3",
+    "scipy",
+    "scipy.*",
+    "sklearn",
+    "sklearn.*",
+    "sentence_transformers",
+    "sentence_transformers.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
