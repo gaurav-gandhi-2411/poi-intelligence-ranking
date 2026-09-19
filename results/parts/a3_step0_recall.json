@@ -1,0 +1,41 @@
+{
+  "recall_by_stratum": {
+    "q1_least_popular": {
+      "recall": 0.5596712468366007,
+      "chance_recall": 0.39700499168053244,
+      "lift_abs": 0.1626662551560683,
+      "n_trips": 601.0
+    },
+    "q2": {
+      "recall": 0.5149213153619113,
+      "chance_recall": 0.3580296143250689,
+      "lift_abs": 0.1568917010368424,
+      "n_trips": 600.0
+    },
+    "q3": {
+      "recall": 0.49989662320030775,
+      "chance_recall": 0.31542756831087904,
+      "lift_abs": 0.18446905488942872,
+      "n_trips": 603.0
+    },
+    "q4_most_popular": {
+      "recall": 0.7260814363913239,
+      "chance_recall": 0.5030940509528038,
+      "lift_abs": 0.22298738543852015,
+      "n_trips": 605.0
+    },
+    "long_tail": {
+      "recall": 0.5402764613727343,
+      "chance_recall": 0.377458363339163,
+      "lift_abs": 0.16281809803357133,
+      "n_trips": 605.0
+    },
+    "overall": {
+      "recall": 0.596424711925548,
+      "chance_recall": 0.3935085905958259,
+      "lift_abs": 0.20291612132972214,
+      "n_trips": 605.0
+    }
+  },
+  "oracle_topK_recall_ceiling_diagnostic": 0.9905628482954684
+}

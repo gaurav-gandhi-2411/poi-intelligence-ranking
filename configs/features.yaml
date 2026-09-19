@@ -112,8 +112,13 @@ traveler_features:
 # Python's built-in `hash()`, which is only deterministic across runs when
 # PYTHONHASHSEED is externally fixed. See docs/DATA_CARD.md.
 candidates:
+  # A3 (results/parts/a3_retriever_grid.json): with the learned retriever below, the union
+  # of {learned, longtail, interest} was the best oracle-free-validation lift among the
+  # subsets tried; geo/semantic/cf/archetype quotas are set to 0 (channel disabled, its
+  # membership column stays all-False). Spec.md section 7's own rule: a channel with ~0
+  # marginal recall gets deleted -- measured marginals in the grid, not asserted.
   geo:
-    quota: 60
+    quota: 0
     # MUST match `dedup.h3_resolution` above -- `pois_prepared.parquet`'s `h3_cell`
     # column (consumed here) is built at that resolution; k-ring cell-id comparisons
     # are only meaningful when both sides use the same resolution.
@@ -129,9 +134,9 @@ candidates:
   interest:
     quota: 50
   semantic:
-    quota: 50
+    quota: 0
   collaborative:
-    quota: 40
+    quota: 0
     # Per-seed-POI neighbor-list size for the item-item kNN lookup (spec.md section
     # 7's "item-item kNN"), not the final channel quota -- see docs/DATA_CARD.md.
     top_k_neighbors: 100
@@ -151,4 +156,14 @@ candidates:
     # (exploitation). Documented choice -- see docs/DATA_CARD.md.
     epsilon: 0.30
   archetype:
-    quota: 30
+    quota: 0
+  learned:
+    # Learned first-stage retriever over the FULL destination catalog (candidates/retriever.py):
+    # IPS-weighted LightGBM on observable pair features, cross-fitted by trip for train trips.
+    quota: 180
+    n_estimators: 300
+    learning_rate: 0.05
+    num_leaves: 31
+    n_folds: 5
+    ips_clip_min: 0.05
+    num_threads: 8

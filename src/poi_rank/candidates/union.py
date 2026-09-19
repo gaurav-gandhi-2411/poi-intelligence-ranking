@@ -44,6 +44,8 @@ from poi_rank.candidates.channels import (
     trip_seed,
 )
 from poi_rank.candidates.config import CandidatesConfig
+from poi_rank.candidates.retriever import RetrieverInputs, crossfit_retriever_scores, top_k_by_trip
+from poi_rank.features.config import BudgetTargetPriceLevel
 from poi_rank.features.reconcile import build_poi_id_canonical_map, remap_interaction_poi_ids
 from poi_rank.features.traveler_features import (
     assign_traveler_segments,
@@ -100,6 +102,7 @@ def generate_candidates(
     interactions_train: pd.DataFrame,
     cfg: CandidatesConfig,
     segments_override: pd.Series | None = None,
+    learned_top_k: dict[str, list[str]] | None = None,
 ) -> pd.DataFrame:
     """Run all 6 candidate channels for every trip in `trips_df` and return the
     union membership table (see module docstring).
@@ -113,7 +116,13 @@ def generate_candidates(
     columns were originally fit against, rather than silently relabeling clusters
     by refitting K-Means jointly over real+synthetic travelers. `None` (the
     default) preserves this function's original behavior exactly for every
-    existing caller (`poi_rank.cli candidates`, this module's own tests)."""
+    existing caller (`poi_rank.cli candidates`, this module's own tests).
+
+    `learned_top_k` (`candidates.retriever.top_k_by_trip`): per-trip top-K poi_ids of the
+    learned retriever. Required when `cfg.learned` is set with quota > 0; a channel whose
+    quota is 0 is skipped entirely (its membership column stays all-False)."""
+    if cfg.learned is not None and cfg.learned.quota > 0 and learned_top_k is None:
+        raise ValueError("cfg.learned.quota > 0 requires learned_top_k (retriever scores)")
     dest_indices = build_destination_indices(
         pois_df, poi_features_df, cfg.traveler_segment_clusters
     )
@@ -154,14 +163,25 @@ def generate_candidates(
         segment = int(seg_val) if seg_val is not None else 0
         rng = np.random.default_rng(trip_seed(cfg.seed, trip_id))
 
-        selections: dict[str, list[str]] = {
-            "channel_geo": channel_geo(idx, row.stay_lat, row.stay_lon, row.mobility, cfg.geo),
-            "channel_interest": channel_interest(idx, interests, cfg.interest.quota),
-            "channel_semantic": channel_semantic(idx, sims, cfg.semantic.quota),
-            "channel_cf": channel_cf(idx, cf, seed_poi_ids, cfg.collaborative),
-            "channel_longtail": channel_longtail(idx, sims, is_cold_start, cfg.longtail, rng),
-            "channel_archetype": channel_archetype(idx, segment, cfg.archetype.quota),
-        }
+        selections: dict[str, list[str]] = {name: [] for name in CHANNEL_NAMES}
+        if cfg.geo.quota > 0:
+            selections["channel_geo"] = channel_geo(
+                idx, row.stay_lat, row.stay_lon, row.mobility, cfg.geo
+            )
+        if cfg.interest.quota > 0:
+            selections["channel_interest"] = channel_interest(idx, interests, cfg.interest.quota)
+        if cfg.semantic.quota > 0:
+            selections["channel_semantic"] = channel_semantic(idx, sims, cfg.semantic.quota)
+        if cfg.collaborative.quota > 0:
+            selections["channel_cf"] = channel_cf(idx, cf, seed_poi_ids, cfg.collaborative)
+        if cfg.longtail.quota > 0:
+            selections["channel_longtail"] = channel_longtail(
+                idx, sims, is_cold_start, cfg.longtail, rng
+            )
+        if cfg.archetype.quota > 0:
+            selections["channel_archetype"] = channel_archetype(idx, segment, cfg.archetype.quota)
+        if learned_top_k is not None and cfg.learned is not None and cfg.learned.quota > 0:
+            selections["channel_learned"] = learned_top_k[trip_id][: cfg.learned.quota]
 
         membership: dict[str, set[str]] = {ch: set(ids) for ch, ids in selections.items()}
         union_ids = sorted(set().union(*membership.values()))
@@ -176,7 +196,9 @@ def generate_candidates(
     return result
 
 
-def run_candidates(cfg: CandidatesConfig, data_dir: Path) -> dict[str, Any]:
+def run_candidates(
+    cfg: CandidatesConfig, data_dir: Path, budget_target_price_level: BudgetTargetPriceLevel
+) -> dict[str, Any]:
     """Load Phase 2/3 parquet outputs, run `generate_candidates`, write
     `data/synthetic/candidates.parquet`, and return a CLI/test summary dict."""
     pois_df = pd.read_parquet(data_dir / "pois_prepared.parquet")
@@ -186,6 +208,20 @@ def run_candidates(cfg: CandidatesConfig, data_dir: Path) -> dict[str, Any]:
     traveler_features_df = pd.read_parquet(data_dir / "traveler_features.parquet")
     interactions_train = pd.read_parquet(data_dir / "interactions_train.parquet")
 
+    learned_top_k = None
+    if cfg.learned is not None and cfg.learned.quota > 0:
+        inputs = RetrieverInputs(
+            pois_df,
+            travelers_df,
+            trips_df,
+            poi_features_df,
+            traveler_features_df,
+            interactions_train,
+            budget_target_price_level,
+        )
+        scores = crossfit_retriever_scores(inputs, cfg.learned, cfg.seed, cfg.learned.num_threads)
+        learned_top_k = top_k_by_trip(scores, cfg.learned.quota)
+
     candidates_df = generate_candidates(
         pois_df,
         travelers_df,
@@ -194,6 +230,7 @@ def run_candidates(cfg: CandidatesConfig, data_dir: Path) -> dict[str, Any]:
         traveler_features_df,
         interactions_train,
         cfg,
+        learned_top_k=learned_top_k,
     )
 
     output_path = data_dir / CANDIDATES_FILENAME

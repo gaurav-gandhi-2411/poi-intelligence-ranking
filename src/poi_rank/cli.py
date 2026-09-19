@@ -311,7 +311,8 @@ def candidates(
     print candidate-set-size + candidate-recall@250 (overall, long-tail-stratum,
     per-channel marginal) summaries."""
     cfg = CandidatesConfig.from_yaml(config_path)
-    summary = run_candidates(cfg, data_dir)
+    budget = FeatureBuildConfig.from_yaml(config_path).traveler_features.budget_target_price_level
+    summary = run_candidates(cfg, data_dir, budget)
 
     typer.echo("=== poi-rank candidates: summary ===")
     typer.echo(f"  output: {summary['output_path']}")

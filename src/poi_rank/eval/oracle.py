@@ -175,3 +175,9 @@ def oracle_ceiling_scores(frame_keys: pd.DataFrame, oracle_dir: Path) -> pd.Seri
         dtype=np.float64,
     )
     return pd.Series(scores, index=frame_keys.index, name="score_oracle")
+
+
+def oracle_dir_for(data_dir: Path) -> Path:
+    """The oracle export directory of a dataset directory -- the single place its name is
+    spelled outside the writer, so other `eval/` modules resolve it through this reader."""
+    return data_dir / "_oracle"

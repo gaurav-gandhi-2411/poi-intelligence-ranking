@@ -1,0 +1,293 @@
+{
+  "selection_rule": "max val lift s.t. val overall recall >= 0.90 (val = 20% train trips vs logged positives; holdout column reporting-only, not used to select)",
+  "grid": [
+    {
+      "channels": "none",
+      "learned_K": 120,
+      "val_oracle_free": {
+        "recall": 0.788,
+        "lt": 0.702,
+        "size": 120.0,
+        "lift": 0.539
+      },
+      "holdout_reporting_only": {
+        "recall": 0.663,
+        "lt": 0.592,
+        "size": 120.0,
+        "lift": 0.414
+      }
+    },
+    {
+      "channels": "none",
+      "learned_K": 150,
+      "val_oracle_free": {
+        "recall": 0.84,
+        "lt": 0.774,
+        "size": 150.0,
+        "lift": 0.529
+      },
+      "holdout_reporting_only": {
+        "recall": 0.739,
+        "lt": 0.675,
+        "size": 150.0,
+        "lift": 0.428
+      }
+    },
+    {
+      "channels": "none",
+      "learned_K": 180,
+      "val_oracle_free": {
+        "recall": 0.884,
+        "lt": 0.828,
+        "size": 180.0,
+        "lift": 0.511
+      },
+      "holdout_reporting_only": {
+        "recall": 0.799,
+        "lt": 0.738,
+        "size": 180.0,
+        "lift": 0.425
+      }
+    },
+    {
+      "channels": "longtail",
+      "learned_K": 120,
+      "val_oracle_free": {
+        "recall": 0.802,
+        "lt": 0.764,
+        "size": 148.0,
+        "lift": 0.495
+      },
+      "holdout_reporting_only": {
+        "recall": 0.688,
+        "lt": 0.656,
+        "size": 149.0,
+        "lift": 0.379
+      }
+    },
+    {
+      "channels": "longtail",
+      "learned_K": 150,
+      "val_oracle_free": {
+        "recall": 0.85,
+        "lt": 0.815,
+        "size": 174.0,
+        "lift": 0.489
+      },
+      "holdout_reporting_only": {
+        "recall": 0.758,
+        "lt": 0.722,
+        "size": 175.0,
+        "lift": 0.394
+      }
+    },
+    {
+      "channels": "longtail",
+      "learned_K": 180,
+      "val_oracle_free": {
+        "recall": 0.891,
+        "lt": 0.855,
+        "size": 201.0,
+        "lift": 0.474
+      },
+      "holdout_reporting_only": {
+        "recall": 0.812,
+        "lt": 0.771,
+        "size": 202.0,
+        "lift": 0.393
+      }
+    },
+    {
+      "channels": "longtail+interest",
+      "learned_K": 120,
+      "val_oracle_free": {
+        "recall": 0.824,
+        "lt": 0.765,
+        "size": 169.0,
+        "lift": 0.473
+      },
+      "holdout_reporting_only": {
+        "recall": 0.734,
+        "lt": 0.66,
+        "size": 171.0,
+        "lift": 0.38
+      }
+    },
+    {
+      "channels": "longtail+interest",
+      "learned_K": 150,
+      "val_oracle_free": {
+        "recall": 0.866,
+        "lt": 0.815,
+        "size": 191.0,
+        "lift": 0.469
+      },
+      "holdout_reporting_only": {
+        "recall": 0.789,
+        "lt": 0.724,
+        "size": 193.0,
+        "lift": 0.389
+      }
+    },
+    {
+      "channels": "longtail+interest",
+      "learned_K": 180,
+      "val_oracle_free": {
+        "recall": 0.9,
+        "lt": 0.855,
+        "size": 214.0,
+        "lift": 0.456
+      },
+      "holdout_reporting_only": {
+        "recall": 0.832,
+        "lt": 0.773,
+        "size": 216.0,
+        "lift": 0.385
+      }
+    },
+    {
+      "channels": "longtail+interest+geo",
+      "learned_K": 120,
+      "val_oracle_free": {
+        "recall": 0.856,
+        "lt": 0.802,
+        "size": 204.0,
+        "lift": 0.433
+      },
+      "holdout_reporting_only": {
+        "recall": 0.762,
+        "lt": 0.692,
+        "size": 206.0,
+        "lift": 0.334
+      }
+    },
+    {
+      "channels": "longtail+interest+geo",
+      "learned_K": 150,
+      "val_oracle_free": {
+        "recall": 0.889,
+        "lt": 0.844,
+        "size": 223.0,
+        "lift": 0.426
+      },
+      "holdout_reporting_only": {
+        "recall": 0.812,
+        "lt": 0.75,
+        "size": 226.0,
+        "lift": 0.344
+      }
+    },
+    {
+      "channels": "longtail+interest+geo",
+      "learned_K": 180,
+      "val_oracle_free": {
+        "recall": 0.917,
+        "lt": 0.876,
+        "size": 244.0,
+        "lift": 0.411
+      },
+      "holdout_reporting_only": {
+        "recall": 0.85,
+        "lt": 0.794,
+        "size": 246.0,
+        "lift": 0.339
+      }
+    },
+    {
+      "channels": "all_but_cf",
+      "learned_K": 120,
+      "val_oracle_free": {
+        "recall": 0.87,
+        "lt": 0.827,
+        "size": 224.0,
+        "lift": 0.405
+      },
+      "holdout_reporting_only": {
+        "recall": 0.78,
+        "lt": 0.716,
+        "size": 227.0,
+        "lift": 0.308
+      }
+    },
+    {
+      "channels": "all_but_cf",
+      "learned_K": 150,
+      "val_oracle_free": {
+        "recall": 0.9,
+        "lt": 0.866,
+        "size": 241.0,
+        "lift": 0.4
+      },
+      "holdout_reporting_only": {
+        "recall": 0.825,
+        "lt": 0.77,
+        "size": 245.0,
+        "lift": 0.318
+      }
+    },
+    {
+      "channels": "all_but_cf",
+      "learned_K": 180,
+      "val_oracle_free": {
+        "recall": 0.924,
+        "lt": 0.892,
+        "size": 259.0,
+        "lift": 0.386
+      },
+      "holdout_reporting_only": {
+        "recall": 0.861,
+        "lt": 0.809,
+        "size": 263.0,
+        "lift": 0.315
+      }
+    },
+    {
+      "channels": "all",
+      "learned_K": 120,
+      "val_oracle_free": {
+        "recall": 0.871,
+        "lt": 0.83,
+        "size": 239.0,
+        "lift": 0.376
+      },
+      "holdout_reporting_only": {
+        "recall": 0.783,
+        "lt": 0.719,
+        "size": 230.0,
+        "lift": 0.305
+      }
+    },
+    {
+      "channels": "all",
+      "learned_K": 150,
+      "val_oracle_free": {
+        "recall": 0.901,
+        "lt": 0.867,
+        "size": 254.0,
+        "lift": 0.374
+      },
+      "holdout_reporting_only": {
+        "recall": 0.827,
+        "lt": 0.772,
+        "size": 247.0,
+        "lift": 0.314
+      }
+    },
+    {
+      "channels": "all",
+      "learned_K": 180,
+      "val_oracle_free": {
+        "recall": 0.925,
+        "lt": 0.894,
+        "size": 270.0,
+        "lift": 0.365
+      },
+      "holdout_reporting_only": {
+        "recall": 0.862,
+        "lt": 0.81,
+        "size": 265.0,
+        "lift": 0.312
+      }
+    }
+  ]
+}

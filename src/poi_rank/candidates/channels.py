@@ -47,6 +47,7 @@ CHANNEL_NAMES: tuple[str, ...] = (
     "channel_cf",
     "channel_longtail",
     "channel_archetype",
+    "channel_learned",
 )
 
 # A generous +1-ring safety margin on top of the literal `ceil(radius/edge_length)`

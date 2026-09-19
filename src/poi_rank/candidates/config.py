@@ -79,6 +79,20 @@ class ArchetypeChannelConfig:
 
 
 @dataclass(frozen=True)
+class LearnedChannelConfig:
+    """Learned first-stage retriever (`candidates/retriever.py`). `quota` is the per-trip
+    top-K taken from its full-catalog scores; the rest fit the IPS-weighted LightGBM scorer."""
+
+    quota: int
+    n_estimators: int
+    learning_rate: float
+    num_leaves: int
+    n_folds: int
+    ips_clip_min: float
+    num_threads: int
+
+
+@dataclass(frozen=True)
 class CandidatesConfig:
     """Full, typed view of `configs/features.yaml`'s `candidates` section, plus the
     two upstream knobs candidate generation must stay consistent with:
@@ -94,6 +108,9 @@ class CandidatesConfig:
     collaborative: CollaborativeChannelConfig
     longtail: LongtailChannelConfig
     archetype: ArchetypeChannelConfig
+    # None = legacy 6-channel behaviour (kept so hand-built configs in unit tests and the
+    # pre-A3 union stay valid).
+    learned: LearnedChannelConfig | None = None
 
     @classmethod
     def from_yaml(cls, path: Path) -> CandidatesConfig:
@@ -109,4 +126,5 @@ class CandidatesConfig:
             collaborative=CollaborativeChannelConfig(**c["collaborative"]),
             longtail=LongtailChannelConfig(**c["longtail"]),
             archetype=ArchetypeChannelConfig(**c["archetype"]),
+            learned=LearnedChannelConfig(**c["learned"]) if "learned" in c else None,
         )

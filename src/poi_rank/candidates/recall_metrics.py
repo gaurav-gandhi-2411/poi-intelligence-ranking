@@ -156,3 +156,64 @@ def marginal_recall_per_channel(
             "marginal_recall": full - without,
         }
     return out
+
+
+# Popularity strata for the per-stratum chance-lift table (within-destination `pop_pct`).
+# "long_tail" is the bottom-50% stratum used by the gate; the quartiles show where recall
+# is lost. Cut-points are fixed constants, not tuned.
+POPULARITY_STRATA: dict[str, tuple[float, float]] = {
+    "q1_least_popular": (0.0, 0.25),
+    "q2": (0.25, 0.5),
+    "q3": (0.5, 0.75),
+    "q4_most_popular": (0.75, 1.0000001),
+    "long_tail": (0.0, 0.5),
+    "overall": (0.0, 1.0000001),
+}
+
+
+def recall_with_chance_lift(
+    pois_df: pd.DataFrame,
+    candidates_df: pd.DataFrame,
+    holdout_random: pd.DataFrame,
+) -> dict[str, dict[str, float]]:
+    """Per-stratum candidate recall against EXPOSED holdout positives (uniform-random
+    exposure, so `label >= 1` is an unbiased positive draw), each with its OWN chance
+    baseline: for a trip, the chance recall of a stratum is the share of that stratum's
+    destination POIs that the candidate set contains -- what a random candidate set of the
+    same size would recall. `lift = recall - chance` (absolute), per-stratum, because a
+    pooled chance baseline hides strata where the channels are near chance (the failure mode
+    that survived four phases unnoticed).
+    """
+    holdout = _canonical_holdout(pois_df, holdout_random)
+    positives = holdout.loc[holdout["label"] >= 1]
+    pop = dict(zip(pois_df["poi_id"], pois_df["pop_pct"], strict=True))
+    dest = dict(zip(pois_df["poi_id"], pois_df["destination"], strict=True))
+    poi_ids = pois_df["poi_id"].to_numpy()
+    poi_pop = pois_df["pop_pct"].to_numpy(dtype=float)
+    poi_dest = pois_df["destination"].to_numpy()
+    cand_sets = _candidate_set_by_trip(candidates_df)
+    pos_by_trip = {str(t): set(g["poi_id"]) for t, g in positives.groupby("trip_id")}
+
+    out: dict[str, dict[str, float]] = {}
+    for name, (lo, hi) in POPULARITY_STRATA.items():
+        recalls: list[float] = []
+        chances: list[float] = []
+        for trip_id, relevant in pos_by_trip.items():
+            cands = cand_sets.get(trip_id, set())
+            rel = {p for p in relevant if lo <= pop[p] < hi}
+            if not rel:
+                continue
+            trip_dest = dest[next(iter(rel))]
+            in_stratum = poi_ids[(poi_dest == trip_dest) & (poi_pop >= lo) & (poi_pop < hi)]
+            chance = sum(1 for p in in_stratum if p in cands) / len(in_stratum)
+            recalls.append(len(rel & cands) / len(rel))
+            chances.append(chance)
+        recall = float(np.mean(recalls))
+        chance_mean = float(np.mean(chances))
+        out[name] = {
+            "recall": recall,
+            "chance_recall": chance_mean,
+            "lift_abs": recall - chance_mean,
+            "n_trips": float(len(recalls)),
+        }
+    return out
