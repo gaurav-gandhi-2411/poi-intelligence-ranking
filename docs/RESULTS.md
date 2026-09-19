@@ -166,7 +166,7 @@ Spearman rho (decile rank, decile mean NDCG@k): **-0.382** (target &ge; 0.7, **M
 
 ### Leave-one-destination-out (LODO)
 
-Wall-clock: **36.4s** for 3 destination-held-out retrains.
+Wall-clock: **21.2s** for 3 destination-held-out retrains.
 
 | Destination | NDCG@10 (LODO) | NDCG@10 (full training) | Wilcoxon p |
 |---|---|---|---|
@@ -211,4 +211,119 @@ Notes:
 | 0.70 | 0.0688 |
 | 0.90 | 0.0686 |
 | 1.10 | 0.0693 |
+
+## Scenarios (spec.md section 15)
+
+### Scenario 1: Local Experience
+
+- Destination: **seoul**; interests: local, foodie, authentic; touristiness_pref: **-0.80**
+- Budget: medium; mobility: public_transport; party: solo; pace: moderate; accessibility needs: none
+- 'local food' -> {local, foodie}; 'neighborhoods' -> {authentic} (shares the 'local' tag with the food interest -- an authentic-local-neighborhood preference is naturally the same underlying taste). `pace` is not specified by spec.md section 15 for this scenario -- defaulted to 'moderate' (the middle of the 3-value PACE_ORDER scale).
+
+#### Top-10 recommendations
+
+| Rank | POI ID | Name | Category | Utility | Preference | Compatibility | Confidence | Pop. %ile | Localness |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | PSEO0095 | Vibrant Gangnam Exhibition Hall | museum | 0.8674 | 1.0000 | 0.8161 | 0.4470 | 30.9129% | 1.0336 |
+| 2 | PSEO0301 | Hidden Seongsu Adventure Park | family_activity | 0.7656 | 1.0000 | 0.6828 | 0.4828 | 81.9502% | -0.1978 |
+| 3 | PSEO0052 | Lively Insadong Noodle House | restaurant | 0.5892 | 0.6316 | 0.9055 | 0.4425 | 65.5602% | 0.0368 |
+| 4 | PSEO0030 | Hidden Seongsu Bazaar | shopping | 0.5964 | 0.6316 | 0.9214 | 0.4567 | 97.5104% | -1.3217 |
+| 5 | PSEO0075 | Serene Myeongdong Diner | restaurant | 0.5752 | 0.6316 | 0.8750 | 0.3942 | 94.1909% | 0.1812 |
+| 6 | PSEO0473 | Scenic Gangnam Kitchen | restaurant | 0.3950 | 0.4320 | 0.8802 | 0.4616 | 75.1037% | 0.0421 |
+| 7 | PSEO0380 | Quiet Bukchon Market | shopping | 0.4058 | 0.4320 | 0.9147 | 0.5364 | 95.4357% | -1.6549 |
+| 8 | PSEO0089 | Iconic Seongsu Bistro | restaurant | 0.3984 | 0.4320 | 0.8908 | 0.5177 | 89.8340% | -0.5093 |
+| 9 | PSEO0459 | Vibrant Myeongdong Playland | family_activity | 0.2034 | 0.2193 | 0.8979 | 0.5464 | 9.2324% | 0.3568 |
+| 10 | PSEO0386 | Scenic Myeongdong Playhouse | entertainment | 0.1178 | 0.1338 | 0.8341 | 0.5554 | 85.8921% | -0.4040 |
+
+**Top signals (rank 1, PSEO0095):** implicit_taste (1.160), interest_match (0.664), price_fit (0.045)
+
+**Explanation (rank 1):** Popular with travelers who share your interests Strong match with your stated interest in authentic Matches your stated medium budget Only open 54% of your trip's plausible visiting hours
+
+### Scenario 2: History & Architecture
+
+- Destination: **seoul**; interests: historic_site, historic, cultural, museum; touristiness_pref: **0.40**
+- Budget: high; mobility: public_transport; party: couple; pace: moderate; accessibility needs: none
+- 'history' -> {historic_site, historic}; 'architecture' -> {cultural} (no literal 'architecture' tag exists in CATEGORIES+TAGS); 'museums' -> {museum} (exact match). `pace` defaulted to 'moderate' (not specified).
+
+#### Top-10 recommendations
+
+| Rank | POI ID | Name | Category | Utility | Preference | Compatibility | Confidence | Pop. %ile | Localness |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | PSEO0380 | Quiet Bukchon Market | shopping | 0.4165 | 0.4320 | 0.9494 | 0.5336 | 95.4357% | -1.6549 |
+| 2 | PSEO0052 | Lively Insadong Noodle House | restaurant | 0.2354 | 0.2458 | 0.9398 | 0.5472 | 65.5602% | 0.0368 |
+| 3 | PSEO0095 | Vibrant Gangnam Exhibition Hall | museum | 0.1495 | 0.1829 | 0.7495 | 0.4238 | 30.9129% | 1.0336 |
+| 4 | PSEO0250 | Beloved Seongsu Palace | historic_site | 0.1577 | 0.1829 | 0.8090 | 0.5344 | 96.0581% | -1.3355 |
+| 5 | PSEO0194 | Beloved Itaewon Retreat | wellness_spa | 0.1143 | 0.1204 | 0.9287 | 0.4364 | 77.8008% | 0.3134 |
+| 6 | PSEO0041 | Modern Hongdae Temple | historic_site | 0.2015 | 0.2458 | 0.7526 | 0.5009 | 92.5311% | -0.8596 |
+| 7 | PSEO0183 | Local Seongsu Riverside Walk | nature_park | 0.1183 | 0.1241 | 0.9336 | 0.5619 | 63.6929% | 0.2700 |
+| 8 | PSEO0118 | Beloved Gangnam Arcade | shopping | 0.1726 | 0.1829 | 0.9202 | 0.5181 | 86.9295% | -0.5847 |
+| 9 | PSEO0031 | Scenic Insadong Fun Zone | family_activity | 0.0939 | 0.1318 | 0.6154 | 0.5227 | 84.8548% | -1.8105 |
+| 10 | PSEO0074 | Bustling Gangnam Cafe | cafe | 0.0864 | 0.0985 | 0.8293 | 0.3533 | 76.9710% | 0.4521 |
+
+**Top signals (rank 1, PSEO0380):** implicit_taste (1.073), interest_match (0.177), popularity (0.100)
+
+**Explanation (rank 1):** Popular with travelers who share your interests Strong match with your stated interest in cultural Popular choice -- busier than 95% of comparable POIs in Seoul More budget-friendly than typical for your high budget
+
+### Scenario 3: Family with young children
+
+- Destination: **seoul**; interests: family_activity, nature_park, family-friendly; touristiness_pref: **0.00**
+- Budget: medium; mobility: car; party: family_young_kids; pace: relaxed; accessibility needs: stroller
+- 'activities' -> {family_activity}; 'parks' -> {nature_park}; 'interactive experiences' -> {family-friendly} (no literal 'interactive' tag exists). `touristiness_pref` and `mobility` are not specified by spec.md section 15 for this scenario -- defaulted to 0.0 (neutral) and 'car' (a common real choice for a family with young children traveling with a stroller) respectively; `party_type`/accessibility (`stroller`)/`pace` (`relaxed`)/`budget` (`medium`) are exactly as spec.md states.
+
+#### Top-10 recommendations
+
+| Rank | POI ID | Name | Category | Utility | Preference | Compatibility | Confidence | Pop. %ile | Localness |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | PSEO0001 | Bustling Seongsu Playland | family_activity | 0.8714 | 1.0000 | 0.8215 | 0.4653 | 1.8672% | -0.4403 |
+| 2 | PSEO0301 | Hidden Seongsu Adventure Park | family_activity | 0.8428 | 1.0000 | 0.7832 | 0.4769 | 81.9502% | -0.1978 |
+| 3 | PSEO0127 | Elegant Hongdae Exhibition Hall | museum | 0.3788 | 0.4320 | 0.8289 | 0.4805 | 11.2033% | 0.1362 |
+| 4 | PSEO0031 | Scenic Insadong Fun Zone | family_activity | 0.5478 | 0.6316 | 0.8161 | 0.4608 | 84.8548% | -1.8105 |
+| 5 | PSEO0335 | Cozy Insadong Bistro | restaurant | 0.3085 | 0.3971 | 0.6974 | 0.4516 | 17.6349% | 0.0107 |
+| 6 | PSEO0375 | Vibrant Itaewon Table | restaurant | 0.3631 | 0.3971 | 0.8802 | 0.4890 | 69.5021% | -0.1271 |
+| 7 | PSEO0443 | Charming Seongsu Fun Zone | family_activity | 0.4014 | 0.4320 | 0.9004 | 0.5106 | 71.9917% | -0.8475 |
+| 8 | PSEO0273 | Authentic Insadong Eatery | restaurant | 0.3652 | 0.4320 | 0.7869 | 0.5235 | 88.1743% | -0.7909 |
+| 9 | PSEO0061 | Scenic Gangnam Emporium | shopping | 0.1616 | 0.1829 | 0.8377 | 0.3838 | 11.4108% | 0.6831 |
+| 10 | PSEO0089 | Iconic Seongsu Bistro | restaurant | 0.2314 | 0.2458 | 0.9170 | 0.5456 | 89.8340% | -0.5093 |
+
+**Top signals (rank 1, PSEO0001):** implicit_taste (1.172), interest_match (0.517), price_fit (0.063)
+
+**Explanation (rank 1):** Popular with travelers who share your interests Strong match with your stated interest in family-friendly Matches your stated medium budget 27 min from your stay by car -- a bit of a trek
+
+### Scenario 4: Diagnostic (Scenario 1 profile, touristiness_pref flipped to the opposite extreme)
+
+- Destination: **seoul**; interests: local, foodie, authentic; touristiness_pref: **0.80**
+- Budget: medium; mobility: public_transport; party: solo; pace: moderate; accessibility needs: none
+- Base scenario: 1 (Local Experience). Every field held identical to that scenario's profile except `touristiness_pref`, flipped from -0.8 to +0.8 (opposite sign, same extreme magnitude).
+
+#### Top-10 recommendations
+
+| Rank | POI ID | Name | Category | Utility | Preference | Compatibility | Confidence | Pop. %ile | Localness |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | PSEO0380 | Quiet Bukchon Market | shopping | 0.4871 | 0.5185 | 0.9147 | 0.5907 | 95.4357% | -1.6549 |
+| 2 | PSEO0095 | Vibrant Gangnam Exhibition Hall | museum | 0.4497 | 0.5185 | 0.8161 | 0.4796 | 30.9129% | 1.0336 |
+| 3 | PSEO0301 | Hidden Seongsu Adventure Park | family_activity | 0.3040 | 0.3971 | 0.6828 | 0.4749 | 81.9502% | -0.1978 |
+| 4 | PSEO0250 | Beloved Seongsu Palace | historic_site | 0.2738 | 0.2993 | 0.8809 | 0.5719 | 96.0581% | -1.3355 |
+| 5 | PSEO0052 | Lively Insadong Noodle House | restaurant | 0.2293 | 0.2458 | 0.9055 | 0.5177 | 65.5602% | 0.0368 |
+| 6 | PSEO0473 | Scenic Gangnam Kitchen | restaurant | 0.2248 | 0.2458 | 0.8802 | 0.4675 | 75.1037% | 0.0421 |
+| 7 | PSEO0163 | Scenic Myeongdong Tea Room | cafe | 0.1203 | 0.1318 | 0.8776 | 0.4677 | 9.5436% | -0.9455 |
+| 8 | PSEO0030 | Hidden Seongsu Bazaar | shopping | 0.2321 | 0.2458 | 0.9214 | 0.5416 | 97.5104% | -1.3217 |
+| 9 | PSEO0386 | Scenic Myeongdong Playhouse | entertainment | 0.1060 | 0.1204 | 0.8341 | 0.4368 | 85.8921% | -0.4040 |
+| 10 | PSEO0183 | Local Seongsu Riverside Walk | nature_park | 0.1118 | 0.1204 | 0.8995 | 0.4318 | 63.6929% | 0.2700 |
+
+**Top signals (rank 1, PSEO0380):** implicit_taste (1.088), interest_match (0.252), popularity (0.119)
+
+**Explanation (rank 1):** Popular with travelers who share your interests Strong match with your stated interest in local Popular choice -- busier than 95% of comparable POIs in Seoul Priced above what's typical for your medium budget
+
+### Pairwise top-10 Jaccard overlap across scenarios
+
+| | Scenario 1 | Scenario 2 | Scenario 3 | Scenario 4 |
+|---|---|---|---|---|
+| Scenario 1 | 1.000 | 0.176 | 0.111 | 0.538 |
+| Scenario 2 | 0.176 | 1.000 | 0.053 | 0.333 |
+| Scenario 3 | 0.111 | 0.053 | 1.000 | 0.053 |
+| Scenario 4 | 0.538 | 0.333 | 0.053 | 1.000 |
+
+**Diagnostic scenario 4 vs base scenario 1** (touristiness_pref flipped to the opposite extreme, everything else held constant): top-10 Jaccard overlap = **0.538** (spec.md section 15 expects this to be low, i.e. &le; 0.25, **MISSED**).
+
+**Honest miss, root-caused, not hidden**: overlap is higher than spec.md section 15 expects. Diagnosis -- `touristiness_pref` is only ONE of ~38 standardized dimensions feeding the observable K-Means archetype-segment channel (spec.md section 12's cold-start path), and does not gate the geo/interest/semantic/CF channels at all; both scenarios' cold-start (zero taste-vector) travelers land in the SAME K-Means segment here, so their PRE-RANKING candidate pools are **89.8%** Jaccard-identical (measured directly from `candidates.union.generate_candidates`'s own output, not inferred). From a nearly-identical candidate pool, touristiness_pref can only reorder the final top-10 through 2 of the >230 real feature columns feeding the LambdaMART score (`explicit_touristiness_pref`, `interact_localness_gap`) -- `scoring.compatibility`'s 6 hard-gate/compatibility sub-scores carry no localness/touristiness term at all (spec.md section 9.1). The measured overlap is real evidence the preference signal DOES move the ranking (it is not 1.0), just not enough to dominate a candidate pool this similar -- consistent with, not contradictory to, this project's already-documented ~0.44 candidate-recall ceiling and modest measured feature-block ablation effects (`docs/RESULTS.md`'s own Ablations section).
 

@@ -1,0 +1,469 @@
+{
+  "generated_at": "2026-09-18T23:53:09.900329+00:00",
+  "model_version": "lambdamart-ips-v1",
+  "profile": {
+    "accessibility_needs": [
+      "stroller"
+    ],
+    "budget": "medium",
+    "destination": "seoul",
+    "interests": [
+      "family_activity",
+      "nature_park",
+      "family-friendly"
+    ],
+    "mobility": "car",
+    "notes": "'activities' -> {family_activity}; 'parks' -> {nature_park}; 'interactive experiences' -> {family-friendly} (no literal 'interactive' tag exists). `touristiness_pref` and `mobility` are not specified by spec.md section 15 for this scenario -- defaulted to 0.0 (neutral) and 'car' (a common real choice for a family with young children traveling with a stroller) respectively; `party_type`/accessibility (`stroller`)/`pace` (`relaxed`)/`budget` (`medium`) are exactly as spec.md states.",
+    "pace": "relaxed",
+    "party_type": "family_young_kids",
+    "start_date": "2026-01-27T00:00:00",
+    "stay_lat": 37.56334200129879,
+    "stay_lon": 126.97816459209018,
+    "touristiness_pref": 0.0,
+    "traveler_id": "SCENARIO_3_TRAVELER",
+    "trip_duration_days": 4,
+    "trip_id": "SCENARIO_3_TRIP"
+  },
+  "recommendations": [
+    {
+      "category": "family_activity",
+      "compatibility_breakdown": {
+        "budget_fit": 0.8333333333333334,
+        "duration_fit": 1.0,
+        "hours_fit": 0.7708333333333334,
+        "mobility_fit": 0.4785706896647419,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.46534982944489567,
+      "context_compatibility": 0.8215251994564203,
+      "diversity_group": "family_activity_local",
+      "expected_duration_min": 179.8386869161385,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in family-friendly",
+        "Matches your stated medium budget",
+        "27 min from your stay by car -- a bit of a trek"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -0.440307102801173,
+      "name": "Bustling Seongsu Playland",
+      "planner_weight": 0.1948607727764891,
+      "poi_id": "PSEO0001",
+      "popularity_percentile": 1.8672199170124482,
+      "preference_score": 1.0,
+      "rank": 1,
+      "top_signals": [
+        {
+          "contribution": 1.171901,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.517012,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.06324,
+          "feature_group": "price_fit"
+        }
+      ],
+      "utility": 0.8714342452710356
+    },
+    {
+      "category": "family_activity",
+      "compatibility_breakdown": {
+        "budget_fit": 0.6666666666666667,
+        "duration_fit": 0.6267642061532949,
+        "hours_fit": 0.7916666666666667,
+        "mobility_fit": 0.6978650450428363,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.4769487839745594,
+      "context_compatibility": 0.78322724948488,
+      "diversity_group": "family_activity_touristy",
+      "expected_duration_min": 264.0932776478166,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in family-friendly",
+        "Matches your stated medium budget",
+        "Weaker fit on visit-length fit than most of your other options"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -0.19778684010898895,
+      "name": "Hidden Seongsu Adventure Park",
+      "planner_weight": 0.18845655589369464,
+      "poi_id": "PSEO0301",
+      "popularity_percentile": 81.95020746887967,
+      "preference_score": 1.0,
+      "rank": 2,
+      "top_signals": [
+        {
+          "contribution": 1.195091,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.468597,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.088929,
+          "feature_group": "price_fit"
+        }
+      ],
+      "utility": 0.8427940329476892
+    },
+    {
+      "category": "museum",
+      "compatibility_breakdown": {
+        "budget_fit": 0.8333333333333334,
+        "duration_fit": 1.0,
+        "hours_fit": 0.75,
+        "mobility_fit": 0.8949312324419203,
+        "party_fit": 0.5800000000000001,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.48053168869510365,
+      "context_compatibility": 0.8289269875860474,
+      "diversity_group": "museum_local",
+      "expected_duration_min": 62.51057496537176,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Matches your stated medium budget",
+        "Weaker fit on party/accessibility fit than most of your other options",
+        "Would rank #4 instead of #5 if it better accommodated your travel party"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": 0.13620704238863207,
+      "name": "Elegant Hongdae Exhibition Hall",
+      "planner_weight": 0.08470076813676296,
+      "poi_id": "PSEO0127",
+      "popularity_percentile": 11.20331950207469,
+      "preference_score": 0.4319526627218935,
+      "rank": 3,
+      "top_signals": [
+        {
+          "contribution": 1.157405,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.222253,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.09439,
+          "feature_group": "price_fit"
+        }
+      ],
+      "utility": 0.37878916779110033
+    },
+    {
+      "category": "family_activity",
+      "compatibility_breakdown": {
+        "budget_fit": 0.5,
+        "duration_fit": 0.938935530486411,
+        "hours_fit": 0.8125,
+        "mobility_fit": 0.7745574839966805,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.4607781747368891,
+      "context_compatibility": 0.8161070577785865,
+      "diversity_group": "family_activity_touristy",
+      "expected_duration_min": 191.341522756777,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in family-friendly",
+        "Popular choice -- busier than 85% of comparable POIs in Seoul",
+        "More budget-friendly than typical for your medium budget"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -1.8104628260747717,
+      "name": "Scenic Insadong Fun Zone",
+      "planner_weight": 0.12250122639090351,
+      "poi_id": "PSEO0031",
+      "popularity_percentile": 84.85477178423237,
+      "preference_score": 0.6315789473684209,
+      "rank": 4,
+      "top_signals": [
+        {
+          "contribution": 1.011229,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.436915,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.087185,
+          "feature_group": "popularity"
+        }
+      ],
+      "utility": 0.5478360895508744
+    },
+    {
+      "category": "restaurant",
+      "compatibility_breakdown": {
+        "budget_fit": 0.6666666666666667,
+        "duration_fit": 1.0,
+        "hours_fit": 0.625,
+        "mobility_fit": 0.4762322328605336,
+        "party_fit": 0.5800000000000001,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.45159601299432106,
+      "context_compatibility": 0.6974385087109809,
+      "diversity_group": "restaurant_local",
+      "expected_duration_min": 115.42960352899588,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Matches your stated medium budget",
+        "27 min from your stay by car -- a bit of a trek"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": 0.010729114793457922,
+      "name": "Cozy Insadong Bistro",
+      "planner_weight": 0.06899200963102328,
+      "poi_id": "PSEO0335",
+      "popularity_percentile": 17.634854771784234,
+      "preference_score": 0.39705882352941174,
+      "rank": 5,
+      "top_signals": [
+        {
+          "contribution": 1.134094,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.22907,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.071083,
+          "feature_group": "price_fit"
+        }
+      ],
+      "utility": 0.3085382398206152
+    },
+    {
+      "category": "restaurant",
+      "compatibility_breakdown": {
+        "budget_fit": 0.6666666666666667,
+        "duration_fit": 1.0,
+        "hours_fit": 0.8333333333333334,
+        "mobility_fit": 0.8370540815843753,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.48898909824625375,
+      "context_compatibility": 0.8801975773628782,
+      "diversity_group": "restaurant_touristy",
+      "expected_duration_min": 55.707501791412135,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in family-friendly",
+        "Matches your stated medium budget",
+        "Priced above what's typical for your medium budget",
+        "Would rank #5 instead of #7 if it fit your budget exactly"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -0.12714801962307026,
+      "name": "Vibrant Itaewon Table",
+      "planner_weight": 0.08119901622719011,
+      "poi_id": "PSEO0375",
+      "popularity_percentile": 69.50207468879668,
+      "preference_score": 0.39705882352941174,
+      "rank": 6,
+      "top_signals": [
+        {
+          "contribution": 1.009355,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.360898,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.04437,
+          "feature_group": "price_fit"
+        }
+      ],
+      "utility": 0.3631290300991225
+    },
+    {
+      "category": "family_activity",
+      "compatibility_breakdown": {
+        "budget_fit": 0.8333333333333334,
+        "duration_fit": 1.0,
+        "hours_fit": 0.7916666666666667,
+        "mobility_fit": 0.8075287428198855,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5106156371547311,
+      "context_compatibility": 0.9003675834863233,
+      "diversity_group": "family_activity_touristy",
+      "expected_duration_min": 175.079006948249,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in family-friendly",
+        "Popular choice -- busier than 72% of comparable POIs in Seoul",
+        "Only open 79% of your trip's plausible visiting hours"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -0.847474746084615,
+      "name": "Charming Seongsu Fun Zone",
+      "planner_weight": 0.08974698108683135,
+      "poi_id": "PSEO0443",
+      "popularity_percentile": 71.99170124481327,
+      "preference_score": 0.4319526627218935,
+      "rank": 7,
+      "top_signals": [
+        {
+          "contribution": 1.048394,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.380206,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.059919,
+          "feature_group": "popularity"
+        }
+      ],
+      "utility": 0.40135626896268284
+    },
+    {
+      "category": "restaurant",
+      "compatibility_breakdown": {
+        "budget_fit": 0.8333333333333334,
+        "duration_fit": 1.0,
+        "hours_fit": 0.8541666666666667,
+        "mobility_fit": 0.5750762044700116,
+        "party_fit": 0.5800000000000001,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5235450802675358,
+      "context_compatibility": 0.786899242839283,
+      "diversity_group": "restaurant_touristy",
+      "expected_duration_min": 45.84361234146005,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in family-friendly",
+        "Popular choice -- busier than 88% of comparable POIs in Seoul",
+        "20 min from your stay by car -- a bit of a trek"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -0.7909010172580686,
+      "name": "Authentic Insadong Eatery",
+      "planner_weight": 0.08167127631806216,
+      "poi_id": "PSEO0273",
+      "popularity_percentile": 88.17427385892115,
+      "preference_score": 0.4319526627218935,
+      "rank": 8,
+      "top_signals": [
+        {
+          "contribution": 1.10346,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.274634,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.065131,
+          "feature_group": "popularity"
+        }
+      ],
+      "utility": 0.36524101810982784
+    },
+    {
+      "category": "shopping",
+      "compatibility_breakdown": {
+        "budget_fit": 0.6666666666666667,
+        "duration_fit": 1.0,
+        "hours_fit": 0.9166666666666666,
+        "mobility_fit": 0.565568328702389,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.38379435651596816,
+      "context_compatibility": 0.8377238440652315,
+      "diversity_group": "shopping_local",
+      "expected_duration_min": 79.9325326235069,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Matches your stated medium budget",
+        "21 min from your stay by car -- a bit of a trek"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": 0.6830901154787767,
+      "name": "Scenic Gangnam Emporium",
+      "planner_weight": 0.03613581202317366,
+      "poi_id": "PSEO0061",
+      "popularity_percentile": 11.410788381742739,
+      "preference_score": 0.18292682926829268,
+      "rank": 9,
+      "top_signals": [
+        {
+          "contribution": 1.014682,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.08967,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.04324,
+          "feature_group": "price_fit"
+        }
+      ],
+      "utility": 0.16160247970375374
+    },
+    {
+      "category": "restaurant",
+      "compatibility_breakdown": {
+        "budget_fit": 0.8333333333333334,
+        "duration_fit": 1.0,
+        "hours_fit": 0.8541666666666667,
+        "mobility_fit": 0.8353272153170497,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5456359521009126,
+      "context_compatibility": 0.9170007004497397,
+      "diversity_group": "restaurant_touristy",
+      "expected_duration_min": 135.45440689008453,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Less touristy than 10% of comparable POIs in Seoul",
+        "More budget-friendly than typical for your medium budget"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -0.5093201490866883,
+      "name": "Iconic Seongsu Bistro",
+      "planner_weight": 0.05173558151586925,
+      "poi_id": "PSEO0089",
+      "popularity_percentile": 89.83402489626556,
+      "preference_score": 0.24583333333333338,
+      "rank": 10,
+      "top_signals": [
+        {
+          "contribution": 1.050476,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.090365,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.071653,
+          "feature_group": "localness_fit"
+        }
+      ],
+      "utility": 0.23136599937254934
+    }
+  ],
+  "scenario_name": "Family with young children",
+  "scenario_number": 3
+}

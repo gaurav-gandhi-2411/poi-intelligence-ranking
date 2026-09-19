@@ -25,6 +25,7 @@ from poi_rank.datagen.pipeline import run_generate
 from poi_rank.eval.cold_start import run_lodo
 from poi_rank.eval.config import EvalConfig
 from poi_rank.eval.run import ALL_SYSTEM_NAMES, METRICS_FILENAME, WILCOXON_METRIC, run_evaluate
+from poi_rank.eval.scenarios import run_scenarios
 from poi_rank.explain.output_enrichment import build_payload_enricher
 from poi_rank.features.build import run_features
 from poi_rank.features.config import FeatureBuildConfig
@@ -522,6 +523,59 @@ def recommend(
             f"  lambda={row['lambda']:.2f}: ndcg@10={row['ndcg@10_mean']:.4f} "
             f"mean_intra_list_similarity={row['mean_intra_list_similarity']:.4f}"
         )
+
+
+@app.command()
+def scenarios(
+    features_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_FEATURES_CONFIG_PATH, help="Path to features.yaml"
+    ),
+    model_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_MODEL_CONFIG_PATH, help="Path to model.yaml"
+    ),
+    scoring_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_SCORING_CONFIG_PATH, help="Path to scoring.yaml"
+    ),
+    data_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_OUTPUT_DIR, help="Directory containing data/synthetic/*.parquet"
+    ),
+    artifacts_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_ARTIFACTS_DIR, help="Directory containing artifacts/model.txt (run `train` first)"
+    ),
+    results_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_RESULTS_DIR, help="Directory to write results/scenarios/*.json"
+    ),
+) -> None:
+    """Run the 3+1 required scenarios (spec.md section 15): 4 hand-specified,
+    synthetic traveler/trip profiles run through the exact same live pipeline
+    `recommend` runs for real holdout trips, writing `results/scenarios/{1,2,3,4}
+    .json` + `results/scenarios/overlap_matrix.json`. Requires `poi_rank.cli
+    train` to have already written `artifacts/model.txt` (LOADED here, never
+    retrained)."""
+    feature_cfg = FeatureBuildConfig.from_yaml(features_config_path)
+    model_cfg = ModelConfig.from_yaml(model_config_path)
+    scoring_cfg = ScoringConfig.from_yaml(scoring_config_path)
+    candidates_cfg = CandidatesConfig.from_yaml(features_config_path)
+
+    summary = run_scenarios(
+        data_dir, artifacts_dir, results_dir, feature_cfg, model_cfg, scoring_cfg, candidates_cfg
+    )
+
+    typer.echo("=== poi-rank scenarios: summary ===")
+    for number, path in sorted(summary["scenario_paths"].items()):
+        top10 = summary["top10_by_scenario"][number]
+        typer.echo(f"  scenario {number}: {path} ({len(top10)} recommendations)")
+
+    overlap = summary["overlap_matrix"]
+    typer.echo("\n=== pairwise top-10 Jaccard overlap ===")
+    for key, value in sorted(overlap["pairwise_jaccard_top10"].items()):
+        typer.echo(f"  {key}: {value:.4f}")
+    typer.echo(
+        f"\n  scenario {overlap['diagnostic_scenario']} vs base "
+        f"{overlap['diagnostic_base_scenario']} (touristiness_pref flip): "
+        f"{overlap['diagnostic_vs_base_jaccard']:.4f}"
+    )
+    typer.echo(f"  overlap matrix: {summary['overlap_matrix_path']}")
 
 
 if __name__ == "__main__":

@@ -141,6 +141,42 @@ def assign_traveler_segments(travelers_df: pd.DataFrame, n_clusters: int, seed: 
     return pd.Series(labels, index=travelers_df["traveler_id"].to_numpy(), name="segment")
 
 
+def assign_traveler_segments_out_of_sample(
+    fitted_travelers_df: pd.DataFrame,
+    new_travelers_df: pd.DataFrame,
+    n_clusters: int,
+    seed: int,
+) -> pd.Series:
+    """Segment labels for `new_travelers_df` (e.g. `eval/scenarios.py`'s hand-built
+    synthetic travelers) that are guaranteed to mean the SAME thing as
+    `poi_features.py`'s already-persisted `behav_archetype_affinity_NN` columns.
+
+    `assign_traveler_segments` above does a fresh `.fit_predict()` -- calling it on
+    `pd.concat([real_travelers_df, new_travelers_df])` would silently REFIT the
+    K-Means (a different input array, even with the same `random_state`), which can
+    relabel/reorder cluster IDs relative to the ORIGINAL fit `poi_features.py` used
+    to build `behav_archetype_affinity_00..NN` -- `channel_archetype` would then
+    read a synthetic traveler's "segment 3" against an affinity column that was
+    actually fit to mean a different cluster. This function instead fits the SAME
+    `StandardScaler` + `KMeans` pipeline ONCE on `fitted_travelers_df` (the real
+    population `poi_features.py`/`candidates/union.py` already used) and calls
+    `.predict()` (out-of-sample assignment to the nearest already-fit centroid) on
+    `new_travelers_df` -- cluster ID semantics are preserved by construction. The
+    interest vocabulary is likewise built from `fitted_travelers_df` ALONE (never
+    `new_travelers_df`), for the same "must match what was already fit" reason.
+    """
+    vocab = build_interest_vocabulary(fitted_travelers_df)
+    fitted_features = _traveler_segment_feature_matrix(fitted_travelers_df, vocab)
+    scaler = StandardScaler().fit(fitted_features)
+    kmeans = KMeans(n_clusters=n_clusters, random_state=seed, n_init=10).fit(
+        scaler.transform(fitted_features)
+    )
+
+    new_features = _traveler_segment_feature_matrix(new_travelers_df, vocab)
+    labels = kmeans.predict(scaler.transform(new_features))
+    return pd.Series(labels, index=new_travelers_df["traveler_id"].to_numpy(), name="segment")
+
+
 # -----------------------------------------------------------------------------------
 # Explicit block
 # -----------------------------------------------------------------------------------

@@ -316,13 +316,34 @@ def run_scoring_pipeline(
     geo_cfg: GeoChannelConfig,
     longtail_pop_pct_cutoff: float,
     trip_id_filter: set[str] | None = None,
+    holdout_frame_override: pd.DataFrame | None = None,
+    trips_df_override: pd.DataFrame | None = None,
+    travelers_df_override: pd.DataFrame | None = None,
+    candidates_df_override: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     """Run the full spec.md section 9 scoring pipeline over the primary holdout
     trip set (optionally restricted to `trip_id_filter`), returning every
     intermediate diagnostic AND the final assembled recommendation JSON payload.
-    Does not write any files -- `run_recommend` (below) handles persistence."""
+    Does not write any files -- `run_recommend` (below) handles persistence.
+
+    The 4 `*_override` parameters, all `None` by default (preserving this
+    function's original from-disk-only behavior exactly for `poi_rank.cli
+    recommend` and every existing test), let a caller substitute an
+    already-assembled `(trip_id, poi_id)` ranking frame / trips / travelers /
+    candidates population instead of loading the real primary holdout from
+    `data_dir` -- `eval/scenarios.py`'s hand-built synthetic traveler/trip
+    profiles run through this EXACT SAME pipeline this way (module docstring's
+    "1-8" steps unchanged), rather than a second, parallel scoring
+    implementation that could silently drift from this one. `train_frame`
+    (calibration fitting, confidence ensemble training) and `pois_df` (the real
+    catalog every candidate POI is drawn from) are never overridden -- a
+    synthetic traveler/trip is a new REQUEST against the same real system, not a
+    new training population or a new catalog."""
     budget_target_price_level = feature_cfg.traveler_features.budget_target_price_level
-    holdout_frame = load_holdout_evaluation_frame(data_dir, budget_target_price_level)
+    if holdout_frame_override is not None:
+        holdout_frame = holdout_frame_override
+    else:
+        holdout_frame = load_holdout_evaluation_frame(data_dir, budget_target_price_level)
     train_frame = load_train_ranking_frame(data_dir, budget_target_price_level)
 
     if trip_id_filter is not None:
@@ -393,9 +414,21 @@ def run_scoring_pipeline(
         scoring_cfg.confidence,
     )
 
-    trips_df = pd.read_parquet(data_dir / "trips.parquet")
-    travelers_df = pd.read_parquet(data_dir / "travelers.parquet")
-    candidates_df = pd.read_parquet(data_dir / "candidates.parquet")
+    trips_df = (
+        trips_df_override
+        if trips_df_override is not None
+        else pd.read_parquet(data_dir / "trips.parquet")
+    )
+    travelers_df = (
+        travelers_df_override
+        if travelers_df_override is not None
+        else pd.read_parquet(data_dir / "travelers.parquet")
+    )
+    candidates_df = (
+        candidates_df_override
+        if candidates_df_override is not None
+        else pd.read_parquet(data_dir / "candidates.parquet")
+    )
 
     trip_ids = set(holdout_frame["trip_id"].unique())
     compat_frame = compat.compute_compatibility_frame(

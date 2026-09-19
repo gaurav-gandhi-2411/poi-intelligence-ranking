@@ -99,15 +99,31 @@ def generate_candidates(
     traveler_features_df: pd.DataFrame,
     interactions_train: pd.DataFrame,
     cfg: CandidatesConfig,
+    segments_override: pd.Series | None = None,
 ) -> pd.DataFrame:
     """Run all 6 candidate channels for every trip in `trips_df` and return the
-    union membership table (see module docstring)."""
+    union membership table (see module docstring).
+
+    `segments_override`, if given, is used verbatim instead of a fresh
+    `assign_traveler_segments(travelers_df, ...)` fit -- `eval/scenarios.py` (new
+    synthetic travelers with no place in the real population) passes an
+    out-of-sample assignment here (`features.traveler_features
+    .assign_traveler_segments_out_of_sample`) so `channel_archetype` reads the SAME
+    cluster semantics `poi_features.parquet`'s `behav_archetype_affinity_NN`
+    columns were originally fit against, rather than silently relabeling clusters
+    by refitting K-Means jointly over real+synthetic travelers. `None` (the
+    default) preserves this function's original behavior exactly for every
+    existing caller (`poi_rank.cli candidates`, this module's own tests)."""
     dest_indices = build_destination_indices(
         pois_df, poi_features_df, cfg.traveler_segment_clusters
     )
     cf = build_item_item_cf(pois_df, interactions_train)
-    segments = assign_traveler_segments(
-        travelers_df, n_clusters=cfg.traveler_segment_clusters, seed=cfg.seed
+    segments = (
+        segments_override
+        if segments_override is not None
+        else assign_traveler_segments(
+            travelers_df, n_clusters=cfg.traveler_segment_clusters, seed=cfg.seed
+        )
     )
 
     canonical_map = build_poi_id_canonical_map(pois_df)

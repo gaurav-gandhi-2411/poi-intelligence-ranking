@@ -181,17 +181,35 @@ def enrich_recommend_result(
     figures_dir: Path,
     scoring_cfg: ScoringConfig,
     feature_cfg: FeatureBuildConfig,
+    pois_df_override: pd.DataFrame | None = None,
+    travelers_df_override: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     """`result`: `scoring.output.run_scoring_pipeline`'s full return dict (has
     `full_frame` -- every candidate scored, hard-gate/compatibility/relevance/
     utility all attached -- and `payload`, the placeholder-carrying assembled JSON).
     Returns a NEW payload (deep copy, `result["payload"]` itself is left untouched)
     with `top_signals`/`explanation` replaced by real grouped-TreeSHAP-driven
-    content, and writes `results/figures/feature_group_importance.png`."""
+    content, and writes `results/figures/feature_group_importance.png`.
+
+    `pois_df_override`/`travelers_df_override`, both `None` by default (preserving
+    this function's original from-disk-only behavior for `poi_rank.cli recommend`),
+    let a caller substitute the POI/traveler population `build_context_frame` maps
+    against -- `eval/scenarios.py` passes a `travelers_df` that includes its
+    hand-built synthetic travelers (absent from the real, on-disk
+    `travelers.parquet`, so `full["traveler_id"].map(...)` would otherwise return
+    NaN `party_type` for every synthetic row's explanation context)."""
     full: pd.DataFrame = result["full_frame"]
 
-    pois_df = pd.read_parquet(data_dir / POIS_PREPARED_FILENAME)
-    travelers_df = pd.read_parquet(data_dir / TRAVELERS_FILENAME)
+    pois_df = (
+        pois_df_override
+        if pois_df_override is not None
+        else pd.read_parquet(data_dir / POIS_PREPARED_FILENAME)
+    )
+    travelers_df = (
+        travelers_df_override
+        if travelers_df_override is not None
+        else pd.read_parquet(data_dir / TRAVELERS_FILENAME)
+    )
 
     numeric_columns = bl.numeric_feature_columns(full)
     categorical_columns = bl.categorical_feature_columns(full)

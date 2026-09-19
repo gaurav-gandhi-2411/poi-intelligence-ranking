@@ -272,6 +272,39 @@ def explain_grouped_shap(
 
 
 @pytest.fixture(scope="session")
+def scenarios_result_dir(
+    evaluate_ready_data_dir: Path,
+    trained_scoring_artifacts_dir: Path,
+    feature_build_cfg: FeatureBuildConfig,
+    fast_model_cfg: ModelConfig,
+    scoring_cfg: ScoringConfig,
+    candidates_cfg: CandidatesConfig,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Path:
+    """One full `poi_rank.eval.scenarios.run_scenarios` run (spec.md section 15,
+    the 3+1 required scenarios) over the real fixture-chain data, once per test
+    session -- mirrors `trained_scoring_artifacts_dir`/`scoring_pipeline_result`'s
+    own session-scope sharing convention. Returns the `results_dir` passed to
+    `run_scenarios` (which contains `results_dir/scenarios/{1,2,3,4}.json` +
+    `overlap_matrix.json` on return), not the summary dict, so both
+    `tests/test_scenarios.py` and `tests/test_report.py` can independently
+    re-read the same on-disk files `eval.report.load_scenarios` itself reads."""
+    from poi_rank.eval.scenarios import run_scenarios
+
+    results_dir = tmp_path_factory.mktemp("scenarios_results")
+    run_scenarios(
+        evaluate_ready_data_dir,
+        trained_scoring_artifacts_dir,
+        results_dir,
+        feature_build_cfg,
+        fast_model_cfg,
+        scoring_cfg,
+        candidates_cfg,
+    )
+    return results_dir
+
+
+@pytest.fixture(scope="session")
 def enriched_payload(
     scoring_pipeline_result: dict[str, Any],
     evaluate_ready_data_dir: Path,

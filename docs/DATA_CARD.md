@@ -1953,3 +1953,225 @@ implementations specifically, since they also use `set[str]` -- both are
 order-independent by construction: Jaccard is a set-cardinality ratio, RBO's
 `seen_a`/`seen_b` sets only ever feed `len(seen_a & seen_b)`, an exact integer,
 never a float reduction over set-iteration order).
+
+## Done (Phase 9, spec.md section 15 -- the 3+1 required scenarios)
+
+### 79. Scenario interests: spec.md section 15's plain-English descriptions mapped onto the real `INTEREST_LABELS` vocabulary
+
+spec.md section 15 states scenario interests as plain English ("local food,
+neighborhoods"; "history, architecture, museums"; "activities, parks, interactive
+experiences") -- not literal entries of `datagen/taxonomy.py::INTEREST_LABELS =
+CATEGORIES + TAGS`, the ONLY vocabulary any real traveler's `interests` list is
+ever drawn from (`datagen/travelers.py::project_stated_interests`). A synthetic
+traveler whose `interests` contained an out-of-vocabulary string would silently
+produce an all-zero `explicit_interest_*` one-hot row (every real column checks
+`target in set(xs)` against the fixed 31-label vocabulary) -- structurally valid
+but semantically wrong (the traveler would look interest-less to the model).
+Resolved by mapping each plain-English concept onto its closest real label(s),
+documented per-scenario in `eval/scenarios.py::SCENARIO_PROFILES`/
+`DIAGNOSTIC_SCENARIO`'s own `notes` field (also surfaced in `docs/RESULTS.md`'s
+generated scenarios section): Scenario 1 "local food" -> `{local, foodie}`,
+"neighborhoods" -> `{authentic}`; Scenario 2 "history" -> `{historic_site,
+historic}`, "architecture" -> `{cultural}` (no literal "architecture" tag
+exists), "museums" -> `{museum}` (exact match); Scenario 3 "activities" ->
+`{family_activity}`, "parks" -> `{nature_park}`, "interactive experiences" ->
+`{family-friendly}` (no literal "interactive" tag exists).
+
+### 80. Unspecified profile fields: destination, stay point, trip logistics, and Scenario 3's touristiness_pref/mobility
+
+spec.md section 15 does not specify a destination for any scenario, a stay
+point, trip duration/dates, or (for Scenario 3) `touristiness_pref`/`mobility`.
+Resolved, documented in `eval/scenarios.py`'s module docstring and
+`ScenarioProfile.notes`:
+- **Destination**: `seoul` for all 4 scenarios -- a single shared destination
+  keeps the top-10 overlap comparison a clean apples-to-apples read (different
+  destinations would confound "different traveler" with "different candidate
+  catalog"), simplicity favored per the task's own stated options.
+- **Stay point**: the destination's own real POI centroid (mean lat/lon of every
+  `pois_prepared.parquet` row in that destination) -- reuses the exact "actual
+  centroid, not a hardcoded city-center constant" convention `data/geo_prep.py
+  ::synthesize_transit_nodes` already establishes in this codebase, rather than
+  inventing a new convention.
+- **Trip duration/dates**: 4 days, starting 30 days after the real dataset's own
+  latest observed trip's `start_date` (a plausible near-future trip, structurally
+  irrelevant to cold-start correctness either way since these travelers never
+  appear in `interactions_train.parquet` regardless of date).
+- **Scenario 3 `touristiness_pref`**: defaulted to `0.0` (neutral -- not
+  specified, and a family-with-young-kids traveler's touristiness preference is
+  not implied by any other stated field).
+- **Scenario 3 `mobility`**: defaulted to `car` (a common real choice for a
+  family with young children traveling with a stroller); `pace` for Scenarios 1
+  and 2 (also unspecified) defaulted to `moderate` (the middle value of
+  `PACE_ORDER`).
+
+### 81. Diagnostic scenario (#4) base choice: Scenario 1
+
+spec.md section 15's 4th diagnostic scenario is "the same traveler profile" as
+one of the 3 above with `touristiness_pref` flipped to the opposite extreme,
+illustrated with the literal example values "+0.8 -> -0.8". None of the 3 base
+profiles is literally `+0.8` (Scenario 1 is `-0.8`, Scenario 2 is `+0.4`).
+Resolved: Scenario 1 (Local Experience, `touristiness_pref = -0.8`) is the base,
+flipped to `+0.8` -- it already sits at the `-0.8` extreme spec.md's own example
+uses, so flipping matches spec.md's literal `+0.8 <-> -0.8` values exactly
+(reversed direction), a cleaner mapping than Scenario 2's `+0.4` (which is not
+already at an extreme, so "flip to the opposite extreme" would require an
+additional magnitude jump beyond a pure sign flip).
+
+### 82. Out-of-sample K-Means segment assignment for synthetic travelers (`assign_traveler_segments_out_of_sample`)
+
+`candidates/channels.py::channel_archetype` (spec.md section 12's designated
+cold-start path) selects candidates from `poi_features.parquet`'s
+`behav_archetype_affinity_NN` columns, which were fit ONCE against the real
+travelers-only K-Means clustering (`features/poi_features.py`, via
+`assign_traveler_segments`). Naively calling `assign_traveler_segments` on
+`pd.concat([real_travelers_df, synthetic_travelers_df])` for candidate
+generation would REFIT K-Means on a different input array -- even with the same
+`random_state`, this can relabel/reorder cluster IDs relative to the ORIGINAL
+fit, so a synthetic traveler's "segment 3" could silently mean a DIFFERENT real
+cluster than `behav_archetype_affinity_03` was fit to represent, pointing
+`channel_archetype` at the wrong affinity column with no error or warning.
+Resolved: a new function, `features/traveler_features.py
+::assign_traveler_segments_out_of_sample(fitted_travelers_df, new_travelers_df,
+n_clusters, seed)`, fits the SAME `StandardScaler`+`KMeans` pipeline ONCE on the
+real population, then calls `.predict()` (genuine out-of-sample assignment to
+the nearest already-fit centroid) for the synthetic travelers -- cluster ID
+semantics are preserved by construction. `candidates/union.py::generate_candidates`
+gained an optional `segments_override` parameter (`None` by default, zero
+behavior change for the real `poi_rank.cli candidates` command) so
+`eval/scenarios.py` can supply this out-of-sample assignment without a second,
+parallel candidate-generation implementation.
+
+### 83. Four backward-compatible override parameters added to 3 existing modules, not a parallel scoring implementation
+
+Running a brand-new synthetic trip through "the exact same live pipeline
+`poi_rank.cli recommend` runs" requires substituting a hand-built `(trip_id,
+poi_id)` ranking frame / trips / travelers / candidates population for the real
+primary holdout `scoring/output.py::run_scoring_pipeline` otherwise loads from
+disk. Rather than a second, parallel scoring implementation living only in
+`eval/scenarios.py` (which could silently drift from what `recommend` actually
+computes), 4 small, all-`None`-by-default, backward-compatible parameters were
+added: `scoring/output.py::run_scoring_pipeline` gained
+`holdout_frame_override`/`trips_df_override`/`travelers_df_override`/
+`candidates_df_override`; `explain/output_enrichment.py::enrich_recommend_result`
+gained `pois_df_override`/`travelers_df_override` (needed because that
+function's `build_context_frame` maps `full["traveler_id"]` against a freshly
+loaded, real-only `travelers.parquet` -- without the override, every synthetic
+row's explanation context would get a NaN `party_type`, since synthetic
+traveler_ids don't exist there). Every existing caller (`poi_rank.cli
+recommend`, every pre-existing test) is unaffected: all new parameters default
+to `None`, preserving the exact prior from-disk-only behavior. `train_frame`
+(calibration fitting, confidence-ensemble training) and the real POI catalog are
+NEVER overridden -- a synthetic traveler/trip is a new REQUEST against the same
+real, already-trained system, not a new training population.
+
+### 84. Empty interactions frame for brand-new synthetic trips -> `label = 0`, a structural placeholder never read downstream
+
+`models/ranking_data.py::build_ranking_frame` requires an `interactions`
+argument to compute each candidate's graded `label`. These 4 trips have never
+been run by any real traveler, so no interaction of any kind exists for them --
+an empty `pd.DataFrame(columns=["traveler_id", "trip_id", "poi_id", "label"])`
+is passed, which correctly produces `label = 0` for every candidate via the same
+`.fillna(0)` path real holdout trips with zero exposure already use. This is a
+structural placeholder (no ground truth exists for a never-run trip), not a
+negative-sampling assumption -- nothing this module reports (utility,
+preference, compatibility, confidence) is derived from `label`; it exists only
+because `build_ranking_frame`'s schema requires the column.
+
+### 85. Pre-existing `results/metrics.json` / `docs/RESULTS.md` LODO inconsistency, found and fixed while regenerating `docs/RESULTS.md` for this phase
+
+Before this phase's own work: the committed `results/metrics.json` (as of the
+Phase 8 commit) does NOT carry a `"lodo"` key, but the committed
+`docs/RESULTS.md` already showed real LODO numbers (barcelona/kyoto/seoul NDCG@10
+LODO-vs-full-training) -- a real, pre-existing inconsistency between two
+committed files (`poi_rank.cli lodo` was evidently run in a prior session,
+`docs/RESULTS.md` regenerated and committed from that locally-enriched
+`results/metrics.json`, but the enriched `metrics.json` itself was never
+committed). Regenerating `docs/RESULTS.md` for this phase's own scenarios
+section would have silently REVERTED the committed LODO numbers to "not yet
+run" had this gone unnoticed -- caught by diffing the regenerated file against
+git before committing (rule: verify before declaring done), not by any test.
+Fixed by re-running the already-built `poi_rank.cli lodo` command (no new code)
+to restore the lodo-merged `results/metrics.json`; the resulting NDCG@10/CI/
+Wilcoxon-p numbers reproduced EXACTLY (barcelona 0.0700 vs 0.1040 p=0.04814,
+kyoto 0.0575 vs 0.0776 p=0.1197, seoul 0.0634 vs 0.0836 p=0.1166) -- only the
+wall-clock changed (36.4s -> 22.8s, a genuine, honestly-reported re-measurement
+on a different run, not a fabricated number). `results/metrics.json`'s diff
+against the prior commit is now purely additive (the `"lodo"` key), and
+`docs/RESULTS.md`'s diff is the new scenarios section plus that one wall-clock
+correction -- no other Phase 8 content touched.
+
+**Addendum, orchestrator-caught recurrence of the SAME root cause before
+commit**: `poi_rank.cli lodo`'s merge is a read-modify-write of
+`results/metrics.json` (`cli.py`'s `lodo` command body: read the file, set
+`payload["lodo"] = result`, write it back) -- it does not survive a LATER
+`poi_rank.cli evaluate` invocation, which writes a fresh `metrics.json` from
+scratch with no `"lodo"` key at all. This is an ORDER DEPENDENCY, not a one-off
+mistake: `lodo` must be the last metrics-affecting command run before `docs`
+is generated. After the fix described above, the dispatched verifier's own
+CHECK 8 (backward-compatibility of Phase 9's new override parameters) re-ran
+`poi_rank.cli evaluate` to diff its output against the Phase 8 baseline --
+a legitimate, correct check on its own terms, but it silently re-wiped the
+just-restored `"lodo"` key by the same mechanism, and this went undetected
+until the orchestrator re-checked `results/metrics.json` directly (not
+`docs/RESULTS.md`, which still showed the stale-but-plausible LODO section
+from before that re-run) immediately before staging the commit. Fixed by
+re-running the correct sequence one final time -- `evaluate` -> `lodo` ->
+`scenarios` -> `docs` -- and verifying `results/metrics.json` actually
+contains the `"lodo"` key and `docs/RESULTS.md`'s LODO table matches it
+number-for-number (not just "looks right") before staging. **Process lesson**:
+"the numbers reproduced exactly last time" is not sufficient evidence a fix
+survived — anything downstream that re-runs `evaluate` (a full pipeline
+re-verification, a backward-compatibility diff, a fresh reproduce) can silently
+undo a hand-run merge step with no error and no visible symptom in the
+generated doc, since the doc was generated from a snapshot taken before the
+undo. The only reliable check is reading the actual current file's keys
+immediately before committing, every time, not trusting a prior successful run
+earlier in the same session.
+
+**Measured results** (real committed dataset, `uv run python -m poi_rank.cli
+scenarios`, **44.8s wall-clock**, well within the <5min budget; two independent
+runs verified byte-identical excluding `generated_at`): all 4 scenarios produced
+10 real recommendations each, with genuine grouped-TreeSHAP explanations (not
+placeholders -- verified against the exact placeholder string). Pairwise top-10
+Jaccard: 1-2=0.1765, 1-3=0.1111, 1-4=**0.5385**, 2-3=0.0526, 2-4=0.3333,
+3-4=0.0526.
+
+**Honest miss, not spun**: the diagnostic scenario-4-vs-base(1) top-10 overlap
+(**0.5385**) does NOT come out low as spec.md section 15 expects (using this
+project's own established "low" bar, the `<= 0.25` cross-archetype-Jaccard
+threshold from `render_success_criteria`, this MISSES). Root-caused, verified
+directly against the real committed dataset, not assumed: Scenarios 1 and 4's
+PRE-RANKING candidate pools are **89.8%** Jaccard-identical (measured directly
+from `candidates.union.generate_candidates`'s own output and persisted in
+`results/scenarios/overlap_matrix.json`'s
+`diagnostic_vs_base_candidate_pool_jaccard` field) because both cold-start
+(zero-taste-vector) travelers are assigned the SAME K-Means archetype segment
+(segment 2, verified directly) -- `touristiness_pref` is only one of ~38
+standardized dimensions feeding that clustering and does not gate the geo/
+interest/semantic/CF channels at all, so flipping it alone barely moves the
+candidate pool. From a candidate pool this similar, `touristiness_pref` can only
+reorder the final top-10 through 2 of the >230 real feature columns feeding the
+LambdaMART score (`explicit_touristiness_pref`, `interact_localness_gap`) --
+`scoring/compatibility.py`'s 6 hard-gate/compatibility sub-scores carry no
+localness/touristiness term at all. The measured overlap (0.5385, not 1.0) IS
+real evidence the preference signal moves the ranking -- 3 of 10 positions
+genuinely swap, verified by inspecting the actual swapped POIs' localness/
+utility values directly -- just not enough to dominate a near-identical
+candidate pool. This is consistent with, not contradictory to, this project's
+own already-documented architecture (the candidate-generation channels are
+largely preference-signal-agnostic by design, and the compatibility layer's 6
+sub-scores never carry a localness/touristiness term) -- reported honestly, not
+tuned to force a lower number.
+
+Test suite at this checkpoint: **all tests passed** (full `uv run pytest`
+run) -- new `tests/test_scenarios.py` (constructed-profile field correctness
+against spec.md section 15's stated fields exactly, the scenario-4-vs-base
+diff invariant confirming ONLY `touristiness_pref` differs, overlap-matrix
+symmetry/unit-diagonal/genuinely-computed-not-hardcoded invariants, full
+real-fixture-chain integration incl. byte-determinism across 2 independent
+`run_scenarios` calls); `tests/test_report.py` extended with the scenarios
+section's own number-tracing enforcement test (reuses the SAME
+`_flatten_numbers`/`_traces_to_source`/`_relative_lift_percentages` helpers
+against the combined metrics+scenarios source set, per this project's
+"don't build a parallel doc-correctness mechanism" convention). ruff/mypy
+clean throughout.

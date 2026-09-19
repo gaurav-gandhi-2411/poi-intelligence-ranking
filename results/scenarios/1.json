@@ -1,0 +1,472 @@
+{
+  "generated_at": "2026-09-18T23:53:09.900329+00:00",
+  "model_version": "lambdamart-ips-v1",
+  "profile": {
+    "accessibility_needs": [],
+    "budget": "medium",
+    "destination": "seoul",
+    "interests": [
+      "local",
+      "foodie",
+      "authentic"
+    ],
+    "mobility": "public_transport",
+    "notes": "'local food' -> {local, foodie}; 'neighborhoods' -> {authentic} (shares the 'local' tag with the food interest -- an authentic-local-neighborhood preference is naturally the same underlying taste). `pace` is not specified by spec.md section 15 for this scenario -- defaulted to 'moderate' (the middle of the 3-value PACE_ORDER scale).",
+    "pace": "moderate",
+    "party_type": "solo",
+    "start_date": "2026-01-27T00:00:00",
+    "stay_lat": 37.56334200129879,
+    "stay_lon": 126.97816459209018,
+    "touristiness_pref": -0.8,
+    "traveler_id": "SCENARIO_1_TRAVELER",
+    "trip_duration_days": 4,
+    "trip_id": "SCENARIO_1_TRIP"
+  },
+  "recommendations": [
+    {
+      "category": "museum",
+      "compatibility_breakdown": {
+        "budget_fit": 0.8333333333333334,
+        "duration_fit": 1.0,
+        "hours_fit": 0.5416666666666666,
+        "mobility_fit": 0.6542739157788053,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.44698856274478227,
+      "context_compatibility": 0.8160530866997214,
+      "diversity_group": "museum_local",
+      "expected_duration_min": 90.14186408523518,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in authentic",
+        "Matches your stated medium budget",
+        "Only open 54% of your trip's plausible visiting hours"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": 1.0335558578064477,
+      "name": "Vibrant Gangnam Exhibition Hall",
+      "planner_weight": 0.17650385339065294,
+      "poi_id": "PSEO0095",
+      "popularity_percentile": 30.91286307053942,
+      "preference_score": 1.0,
+      "rank": 1,
+      "top_signals": [
+        {
+          "contribution": 1.159993,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.664338,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.044943,
+          "feature_group": "price_fit"
+        }
+      ],
+      "utility": 0.8673669868187063
+    },
+    {
+      "category": "family_activity",
+      "compatibility_breakdown": {
+        "budget_fit": 0.6666666666666667,
+        "duration_fit": 0.30096018048504736,
+        "hours_fit": 0.7916666666666667,
+        "mobility_fit": 0.6378437541029787,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.48279883448861405,
+      "context_compatibility": 0.6827773007134422,
+      "diversity_group": "family_activity_touristy",
+      "expected_duration_min": 264.0932776478166,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in foodie",
+        "Popular choice -- busier than 82% of comparable POIs in Seoul",
+        "Weaker fit on visit-length fit than most of your other options",
+        "Would rank #1 instead of #2 if it fit better within your day's pace"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -0.19778684010898895,
+      "name": "Hidden Seongsu Adventure Park",
+      "planner_weight": 0.15579253892480543,
+      "poi_id": "PSEO0301",
+      "popularity_percentile": 81.95020746887967,
+      "preference_score": 1.0,
+      "rank": 2,
+      "top_signals": [
+        {
+          "contribution": 1.196767,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.514771,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.082587,
+          "feature_group": "popularity"
+        }
+      ],
+      "utility": 0.7655884132850354
+    },
+    {
+      "category": "restaurant",
+      "compatibility_breakdown": {
+        "budget_fit": 0.6666666666666667,
+        "duration_fit": 1.0,
+        "hours_fit": 0.875,
+        "mobility_fit": 0.9447924373060214,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.4424879542613519,
+      "context_compatibility": 0.9054730603485998,
+      "diversity_group": "restaurant_touristy",
+      "expected_duration_min": 108.67168855803125,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in authentic",
+        "Popular choice -- busier than 66% of comparable POIs in Seoul",
+        "Priced above what's typical for your medium budget",
+        "Would rank #3 instead of #4 if it fit your budget exactly"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": 0.03681812283951272,
+      "name": "Lively Insadong Noodle House",
+      "planner_weight": 0.119892446290158,
+      "poi_id": "PSEO0052",
+      "popularity_percentile": 65.56016597510373,
+      "preference_score": 0.6315789473684209,
+      "rank": 3,
+      "top_signals": [
+        {
+          "contribution": 1.137729,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.458368,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.063296,
+          "feature_group": "popularity"
+        }
+      ],
+      "utility": 0.5891698559739486
+    },
+    {
+      "category": "shopping",
+      "compatibility_breakdown": {
+        "budget_fit": 0.8333333333333334,
+        "duration_fit": 1.0,
+        "hours_fit": 0.9166666666666666,
+        "mobility_fit": 0.80098560589502,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.4567194541774961,
+      "context_compatibility": 0.9213878564663917,
+      "diversity_group": "shopping_touristy",
+      "expected_duration_min": 52.45251687799606,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in foodie",
+        "Popular choice -- busier than 98% of comparable POIs in Seoul",
+        "10 min from your stay by public transport -- a bit of a trek"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -1.3216588884152665,
+      "name": "Hidden Seongsu Bazaar",
+      "planner_weight": 0.12136366609675492,
+      "poi_id": "PSEO0030",
+      "popularity_percentile": 97.5103734439834,
+      "preference_score": 0.6315789473684209,
+      "rank": 4,
+      "top_signals": [
+        {
+          "contribution": 1.099668,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.500516,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.069769,
+          "feature_group": "popularity"
+        }
+      ],
+      "utility": 0.5963996555850178
+    },
+    {
+      "category": "restaurant",
+      "compatibility_breakdown": {
+        "budget_fit": 0.6666666666666667,
+        "duration_fit": 1.0,
+        "hours_fit": 0.875,
+        "mobility_fit": 0.7693794446163787,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.394196280355203,
+      "context_compatibility": 0.875003040611684,
+      "diversity_group": "restaurant_touristy",
+      "expected_duration_min": 63.464938630843534,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in foodie",
+        "Popular choice -- busier than 94% of comparable POIs in Seoul",
+        "Priced above what's typical for your medium budget"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": 0.18121614502898892,
+      "name": "Serene Myeongdong Diner",
+      "planner_weight": 0.11705383356055613,
+      "poi_id": "PSEO0075",
+      "popularity_percentile": 94.1908713692946,
+      "preference_score": 0.6315789473684209,
+      "rank": 5,
+      "top_signals": [
+        {
+          "contribution": 1.163917,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.464703,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.071559,
+          "feature_group": "popularity"
+        }
+      ],
+      "utility": 0.5752204779704517
+    },
+    {
+      "category": "restaurant",
+      "compatibility_breakdown": {
+        "budget_fit": 0.8333333333333334,
+        "duration_fit": 1.0,
+        "hours_fit": 0.875,
+        "mobility_fit": 0.6377503769158093,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.46163544903209247,
+      "context_compatibility": 0.880196401054506,
+      "diversity_group": "restaurant_touristy",
+      "expected_duration_min": 66.80132288591473,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in authentic",
+        "Popular choice -- busier than 75% of comparable POIs in Seoul",
+        "19 min from your stay by public transport -- a bit of a trek",
+        "Would rank #6 instead of #8 if it were closer to your stay"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": 0.042090559995368024,
+      "name": "Scenic Gangnam Kitchen",
+      "planner_weight": 0.0803883603114184,
+      "poi_id": "PSEO0473",
+      "popularity_percentile": 75.10373443983403,
+      "preference_score": 0.4319526627218935,
+      "rank": 6,
+      "top_signals": [
+        {
+          "contribution": 0.812036,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.640298,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.079618,
+          "feature_group": "popularity"
+        }
+      ],
+      "utility": 0.39504072301632775
+    },
+    {
+      "category": "shopping",
+      "compatibility_breakdown": {
+        "budget_fit": 0.6666666666666667,
+        "duration_fit": 1.0,
+        "hours_fit": 0.9166666666666666,
+        "mobility_fit": 0.9584030867990951,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5364425875394482,
+      "context_compatibility": 0.9146987044775662,
+      "diversity_group": "shopping_touristy",
+      "expected_duration_min": 51.448489277242345,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in local",
+        "Popular choice -- busier than 95% of comparable POIs in Seoul",
+        "Priced above what's typical for your medium budget"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -1.6548819973595004,
+      "name": "Quiet Bukchon Market",
+      "planner_weight": 0.08258137377244092,
+      "poi_id": "PSEO0380",
+      "popularity_percentile": 95.4356846473029,
+      "preference_score": 0.4319526627218935,
+      "rank": 7,
+      "top_signals": [
+        {
+          "contribution": 1.079757,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.27658,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.090849,
+          "feature_group": "popularity"
+        }
+      ],
+      "utility": 0.4058175272684705
+    },
+    {
+      "category": "restaurant",
+      "compatibility_breakdown": {
+        "budget_fit": 0.8333333333333334,
+        "duration_fit": 0.8791614495153889,
+        "hours_fit": 0.8541666666666667,
+        "mobility_fit": 0.7985843388284506,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5176895083713258,
+      "context_compatibility": 0.8908237759449795,
+      "diversity_group": "restaurant_touristy",
+      "expected_duration_min": 135.45440689008453,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in local",
+        "Popular choice -- busier than 90% of comparable POIs in Seoul",
+        "10 min from your stay by public transport -- a bit of a trek"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -0.5093201490866883,
+      "name": "Iconic Seongsu Bistro",
+      "planner_weight": 0.08106655512142535,
+      "poi_id": "PSEO0089",
+      "popularity_percentile": 89.83402489626556,
+      "preference_score": 0.4319526627218935,
+      "rank": 8,
+      "top_signals": [
+        {
+          "contribution": 1.069769,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.304823,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.060303,
+          "feature_group": "popularity"
+        }
+      ],
+      "utility": 0.39837347625390085
+    },
+    {
+      "category": "family_activity",
+      "compatibility_breakdown": {
+        "budget_fit": 0.8333333333333334,
+        "duration_fit": 0.9710141036602041,
+        "hours_fit": 0.7916666666666667,
+        "mobility_fit": 0.8178140267883913,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5463931640215037,
+      "context_compatibility": 0.8978563690313106,
+      "diversity_group": "family_activity_local",
+      "expected_duration_min": 123.52971430974259,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in local",
+        "Matches your stated medium budget",
+        "Only open 79% of your trip's plausible visiting hours"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": 0.3567598024052749,
+      "name": "Vibrant Myeongdong Playland",
+      "planner_weight": 0.04138388587018936,
+      "poi_id": "PSEO0459",
+      "popularity_percentile": 9.232365145228217,
+      "preference_score": 0.21929824561403508,
+      "rank": 9,
+      "top_signals": [
+        {
+          "contribution": 0.832902,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.332141,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.061001,
+          "feature_group": "price_fit"
+        }
+      ],
+      "utility": 0.20336675772528068
+    },
+    {
+      "category": "entertainment",
+      "compatibility_breakdown": {
+        "budget_fit": 0.6666666666666667,
+        "duration_fit": 1.0,
+        "hours_fit": 0.7708333333333334,
+        "mobility_fit": 0.6553969233799174,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5554437764027389,
+      "context_compatibility": 0.8341207742203963,
+      "diversity_group": "entertainment_touristy",
+      "expected_duration_min": 88.22774073299607,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Matches your stated medium budget",
+        "Popular choice -- busier than 86% of comparable POIs in Seoul",
+        "18 min from your stay by public transport -- a bit of a trek"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -0.40400766303314284,
+      "name": "Scenic Myeongdong Playhouse",
+      "planner_weight": 0.02397348666159858,
+      "poi_id": "PSEO0386",
+      "popularity_percentile": 85.89211618257261,
+      "preference_score": 0.1337579617834395,
+      "rank": 10,
+      "top_signals": [
+        {
+          "contribution": 0.899137,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.090124,
+          "feature_group": "price_fit"
+        },
+        {
+          "contribution": 0.044428,
+          "feature_group": "popularity"
+        }
+      ],
+      "utility": 0.11780938766921209
+    }
+  ],
+  "scenario_name": "Local Experience",
+  "scenario_number": 1
+}

@@ -349,6 +349,83 @@ clean throughout. Determinism byte-identical, verified at every phase.**
     `personalization.py`'s Jaccard/RBO specifically — both are exact-cardinality
     operations, order-independent by construction).
 
+## Done (Phase 9, spec.md section 15 — the 3+1 required scenarios)
+
+11. **Scenarios** (`eval/scenarios.py`, `poi_rank.cli scenarios` / `make
+    scenarios`) — 4 hand-specified SYNTHETIC traveler/trip profiles (not real
+    dataset travelers), run through the EXACT SAME live pipeline `recommend`
+    uses for real holdout trips (candidate generation → LambdaMART+IPS scoring
+    + calibration + confidence → compatibility/hard gates → multiplicative
+    utility → MMR → grouped-TreeSHAP explanations), never a second parallel
+    scoring implementation. 4 small, all-`None`-by-default override parameters
+    added to 3 existing modules for this (`scoring/output.py
+    ::run_scoring_pipeline`, `explain/output_enrichment.py
+    ::enrich_recommend_result`, `candidates/union.py::generate_candidates`'s
+    `segments_override`) — zero behavior change for every existing caller
+    (`docs/DATA_CARD.md` #83). New `features/traveler_features.py
+    ::assign_traveler_segments_out_of_sample` gives synthetic travelers a
+    K-Means archetype segment that means the SAME thing as
+    `poi_features.parquet`'s already-persisted affinity columns, avoiding a
+    real relabeling bug a naive joint refit would have introduced
+    (`docs/DATA_CARD.md` #82). Destination: seoul, all 4 scenarios (documented
+    choice, #80). Scenario interests mapped from spec.md's plain English onto
+    the real `INTEREST_LABELS` vocabulary (#79). Diagnostic scenario 4 bases on
+    Scenario 1 (#81), `touristiness_pref` flipped -0.8 → +0.8, everything else
+    held constant (verified via a field-by-field row diff test).
+
+    **Results** (real committed dataset, `uv run python -m poi_rank.cli
+    scenarios` = **44.8s**, well within the <5min budget, byte-deterministic
+    across 2 runs): all 4 scenarios produced real top-10 recommendations with
+    genuine grouped-TreeSHAP explanations (not placeholders). **Honest miss,
+    root-caused, not hidden** (`docs/DATA_CARD.md` #85): the scenario-4-vs-base
+    top-10 Jaccard overlap = **0.5385**, NOT low as spec.md section 15 expects
+    (using this project's own established ≤0.25 "low" bar) — root-caused to
+    Scenarios 1/4's candidate pools being **89.8%** Jaccard-identical (both
+    cold-start travelers land in the SAME K-Means archetype segment, since
+    `touristiness_pref` is only 1 of ~38 clustering dimensions and doesn't gate
+    any of the other 5 candidate channels), so `touristiness_pref` can only
+    reorder the final ranking through 2 of >230 real feature columns
+    (`explicit_touristiness_pref`, `interact_localness_gap`) — `scoring/
+    compatibility.py`'s 6 sub-scores carry no localness term at all. Not tuned
+    to force a lower number.
+
+    **Orchestrator-caught pre-existing repo inconsistency, fixed before commit**
+    (`docs/DATA_CARD.md` #85): regenerating `docs/RESULTS.md` for this phase's
+    scenarios section would have silently REVERTED the already-committed LODO
+    section to "not yet run" — the committed `results/metrics.json` lacked the
+    `"lodo"` key even though the committed `docs/RESULTS.md` already showed
+    real LODO numbers (a pre-existing gap from a prior session, not caused by
+    this phase). Caught by diffing the regenerated file against git before
+    committing. Fixed by re-running the already-built `poi_rank.cli lodo`
+    command (no new code) — numbers reproduced exactly, only wall-clock
+    differed (36.4s → 22.8s, a genuine re-measurement).
+
+    **Orchestrator caught a RECURRENCE of the exact same issue before commit**
+    (`docs/DATA_CARD.md` #85 addendum): `lodo`'s merge into `metrics.json` is a
+    read-modify-write that does not survive a later `poi_rank.cli evaluate`
+    call (which writes a fresh file with no `lodo` key). After the executor's
+    own fix above, the dispatched verifier's backward-compatibility check
+    (CHECK 8) re-ran `evaluate` to diff against Phase 8's baseline — legitimate
+    on its own terms, but it silently re-wiped the just-restored `lodo` key,
+    undetected until the orchestrator re-checked `results/metrics.json`'s
+    actual keys immediately before staging (not `docs/RESULTS.md`, which still
+    looked fine — it was generated from a snapshot taken before the re-wipe).
+    Fixed by re-running the correct final sequence once more — `evaluate` →
+    `lodo` → `scenarios` → `docs` — and confirming `metrics.json` genuinely has
+    the key and every RESULTS.md LODO number matches it, immediately before
+    commit. **Lesson for future phases**: any downstream step that re-runs
+    `evaluate` (a re-verification, a fresh reproduce, a backward-compat diff)
+    can silently undo `lodo`'s hand-run merge with zero visible symptom in the
+    generated doc. Never trust "it worked earlier in this session" — check the
+    actual current file's keys right before every commit.
+
+    Test suite at this checkpoint: **all tests passed** — new
+    `tests/test_scenarios.py` (profile-field correctness, scenario-4-vs-base
+    diff invariant, overlap-matrix symmetry/diagonal/genuinely-computed
+    invariants, full real-fixture-chain determinism); `tests/test_report.py`
+    extended (not a parallel mechanism) with the scenarios section's own
+    number-tracing enforcement. ruff/mypy clean throughout.
+
 ## Next (Day 2 P0, spec.md §16)
 
 7. ~~**LambdaMART + IPS** (`models/lambdamart.py`) — `lightgbm` `lambdarank`,
@@ -376,7 +453,8 @@ clean throughout. Determinism byte-identical, verified at every phase.**
     **DONE — see "Done (Day 2 P0, Phase 8)" below. All 9 ablations AND LODO
     completed (not deferred to P1) — real wall-clock made both affordable
     within budget.**
-11. 3+1 required scenarios (`make scenarios`).
+11. ~~3+1 required scenarios (`make scenarios`).~~
+    **DONE — see "Done (Phase 9, spec.md section 15)" below.**
 12. `docs/TECHNICAL.md` (11 sections, incl. explicit LambdaMART-vs-two-tower and
     multiplicative-vs-additive justifications), README, finalize DATA_CARD.
 13. ~~P1: full ablation table, LODO, confidence-decile validation (if time).~~

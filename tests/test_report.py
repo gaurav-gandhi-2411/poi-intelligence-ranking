@@ -14,6 +14,7 @@ import pytest
 
 from poi_rank.eval.report import (
     load_metrics,
+    load_scenarios,
     render_results_md,
     render_success_criteria,
 )
@@ -166,6 +167,17 @@ def fast_metrics_payload(
     return result
 
 
+@pytest.fixture(scope="module")
+def fast_scenarios_payload(scenarios_result_dir: Path) -> dict[str, Any]:
+    """`load_scenarios` applied to the shared session fixture's real
+    `poi_rank.eval.scenarios.run_scenarios` output -- mirrors
+    `fast_metrics_payload`'s own "one real run, shared across this module's
+    tests" convention."""
+    scenarios = load_scenarios(scenarios_result_dir / "scenarios")
+    assert scenarios is not None, "scenarios_result_dir fixture did not write scenario JSON"
+    return scenarios
+
+
 def test_render_results_md_produces_nonempty_markdown(fast_metrics_payload: dict[str, Any]) -> None:
     md = render_results_md(fast_metrics_payload)
     assert "# RESULTS.md" in md
@@ -192,6 +204,43 @@ def test_every_number_in_results_md_traces_to_metrics_json(
     assert not untraceable, (
         f"{len(untraceable)} number(s) in docs/RESULTS.md do not trace to "
         f"results/metrics.json (first 20): {untraceable[:20]}"
+    )
+
+
+def test_render_results_md_scenarios_section_present(
+    fast_metrics_payload: dict[str, Any], fast_scenarios_payload: dict[str, Any]
+) -> None:
+    md = render_results_md(fast_metrics_payload, fast_scenarios_payload)
+    assert "## Scenarios (spec.md section 15)" in md
+    for n in (1, 2, 3, 4):
+        assert f"### Scenario {n}:" in md
+    assert "Pairwise top-10 Jaccard overlap" in md
+    scenarios_section = md.split("## Scenarios (spec.md section 15)", 1)[1]
+    assert "not yet run" not in scenarios_section.lower()
+
+
+def test_every_number_in_results_md_traces_to_metrics_json_or_scenarios_json(
+    fast_metrics_payload: dict[str, Any], fast_scenarios_payload: dict[str, Any]
+) -> None:
+    """Same enforcement mechanism as
+    `test_every_number_in_results_md_traces_to_metrics_json` above (reuses the
+    SAME `_flatten_numbers`/`_traces_to_source`/`_relative_lift_percentages`/
+    `_extract_doc_numbers` helpers -- deliberately not a second, parallel
+    doc-correctness mechanism), extended to also cover the scenarios section:
+    every numeric token in the FULL generated markdown (metrics + scenarios) must
+    trace back to EITHER `results/metrics.json` OR `results/scenarios/*.json`."""
+    md = render_results_md(fast_metrics_payload, fast_scenarios_payload)
+    source_values: list[float] = []
+    _flatten_numbers(fast_metrics_payload, source_values)
+    _flatten_numbers(fast_scenarios_payload, source_values)
+    ratio_pairs = _relative_lift_percentages(source_values)
+
+    doc_numbers = _extract_doc_numbers(md)
+    untraceable = [n for n in doc_numbers if not _traces_to_source(n, source_values, ratio_pairs)]
+
+    assert not untraceable, (
+        f"{len(untraceable)} number(s) in docs/RESULTS.md do not trace to "
+        f"results/metrics.json or results/scenarios/*.json (first 20): {untraceable[:20]}"
     )
 
 
