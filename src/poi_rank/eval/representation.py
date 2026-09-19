@@ -184,3 +184,89 @@ def d9_and_ablations(
         "taste_estimator_alone": within_trip_spearman(trip_idx, reference, estimator_alone),
         "text_alone": within_trip_spearman(trip_idx, reference, text_alone),
     }
+
+
+ORACLE_RELEVANCE_TOP_FRACTION = 0.05  # "relevant" = top 5% of the destination catalog by true u
+
+
+def oracle_relevance_recall(
+    data_dir: Path, candidates: pd.DataFrame, pois: pd.DataFrame, holdout_trip_ids: set[str]
+) -> dict[str, float]:
+    """Recall of the candidate set against the oracle-relevance set (top 5% of the trip's
+    destination catalog by TRUE utility) -- not conditioned on exposure at all, so it answers
+    "did candidate generation find what actually matters". Reporting only."""
+    util = load_holdout_utility_true(oracle_dir_for(data_dir))
+    util = util.loc[
+        util["poi_id"].isin(set(pois["poi_id"])) & util["trip_id"].isin(holdout_trip_ids)
+    ]
+    pop = dict(zip(pois["poi_id"], pois["pop_pct"], strict=True))
+    cand = {str(t): set(g["poi_id"]) for t, g in candidates.groupby("trip_id")}
+    overall: list[float] = []
+    long_tail: list[float] = []
+    for trip_id, g in util.groupby("trip_id"):
+        k = max(1, int(round(ORACLE_RELEVANCE_TOP_FRACTION * len(g))))
+        relevant = g.nlargest(k, "utility_true")["poi_id"]
+        got = cand.get(str(trip_id), set())
+        overall.append(float(relevant.isin(got).mean()))
+        rel_lt = relevant[relevant.map(pop) < 0.5]
+        if len(rel_lt):
+            long_tail.append(float(rel_lt.isin(got).mean()))
+    return {
+        "overall": float(np.mean(overall)),
+        "long_tail": float(np.mean(long_tail)),
+        "top_fraction": ORACLE_RELEVANCE_TOP_FRACTION,
+        "n_trips": float(len(overall)),
+    }
+
+
+def run_representation_report(data_dir: Path, feature_cfg: Any) -> dict[str, Any]:
+    """D11 + within-trip D9 + both ablations + oracle-relevance recall, on the CURRENT
+    features/candidates. REPORTING ONLY (module docstring): computed after every
+    representation choice is frozen; the oracle never touched a decision."""
+    from poi_rank.features.traveler_features import assemble_traveler_features
+
+    inputs = load_reference_inputs(data_dir)
+    pois, semantic = inputs["pois"], inputs["semantic"]
+    pf = pd.read_parquet(data_dir / "poi_features.parquet").set_index("poi_id").loc[pois["poi_id"]]
+    dim = feature_cfg.text_embedding.svd_dim
+    emb = pf[[f"text_emb_{i:02d}" for i in range(dim)]].to_numpy(dtype=np.float64)
+
+    recov = ridge_recoverability(emb, semantic)
+    pred = recov.pop("_pred")
+
+    trips = pd.read_parquet(data_dir / "trips.parquet")
+    # Only holdout trips are scored, and a trip's taste estimate depends only on its traveler's
+    # history strictly before its own start date -- so the estimator can be run on them alone.
+    est_semantic = assemble_traveler_features(
+        pd.read_parquet(data_dir / "travelers.parquet"),
+        trips.loc[trips["is_holdout"]],
+        pd.read_parquet(data_dir / "interactions_train.parquet"),
+        pois,
+        semantic.astype(np.float32),
+        feature_cfg,
+        pd.read_parquet(data_dir / "interactions_pretrip.parquet"),
+    )
+    holdout = set(trips.loc[trips["is_holdout"], "trip_id"].astype(str))
+    trip_to_traveler = dict(
+        zip(trips["trip_id"].astype(str), trips["traveler_id"].astype(str), strict=True)
+    )
+    d9 = d9_and_ablations(
+        data_dir,
+        pd.read_parquet(data_dir / "traveler_features.parquet"),
+        emb,
+        est_semantic,
+        holdout,
+        trip_to_traveler,
+        inputs,
+        pred,
+    )
+    candidates = pd.read_parquet(data_dir / "candidates.parquet")
+    return {
+        "d11_text_only": recov,
+        # No behavioral block was built (A3 step 0: text D11 already >> 0.45), so the
+        # concatenated representation IS the text representation.
+        "d11_concatenated_equals_text_only": True,
+        "d9_within_trip": d9,
+        "oracle_relevance_recall": oracle_relevance_recall(data_dir, candidates, pois, holdout),
+        "n_holdout_trips": len(holdout),
+    }

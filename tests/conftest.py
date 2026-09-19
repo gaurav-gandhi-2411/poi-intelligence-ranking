@@ -9,6 +9,11 @@ import pandas as pd
 import pytest
 
 from poi_rank.candidates.config import CandidatesConfig
+from poi_rank.candidates.retriever import (
+    RetrieverInputs,
+    crossfit_retriever_scores,
+    top_k_by_trip,
+)
 from poi_rank.candidates.union import generate_candidates
 from poi_rank.data.config import FeaturesConfig
 from poi_rank.data.prepare import prepare_pois
@@ -22,6 +27,7 @@ from poi_rank.models.baselines import categorical_feature_columns, numeric_featu
 from poi_rank.models.config import LambdaMartConfig, ModelConfig
 from poi_rank.models.lambdamart import load_boosters, save_boosters, train_lambdamart_systems
 from poi_rank.models.ranking_data import load_train_ranking_frame
+from poi_rank.scoring.confidence import save_ensemble, train_ensemble_boosters
 from poi_rank.scoring.config import ScoringConfig
 from poi_rank.scoring.output import run_scoring_pipeline
 
@@ -118,6 +124,24 @@ def generated_candidates(
     trips_df = pd.read_parquet(output_dir / "trips.parquet")
     interactions_train = pd.read_parquet(output_dir / "interactions_train.parquet")
 
+    learned_top_k = None
+    if candidates_cfg.learned is not None and candidates_cfg.learned.quota > 0:
+        scores, _ = crossfit_retriever_scores(
+            RetrieverInputs(
+                pois_df,
+                travelers_df,
+                trips_df,
+                built_features["poi_features"],
+                built_features["traveler_features"],
+                interactions_train,
+                built_features["cfg"].traveler_features.budget_target_price_level,
+            ),
+            candidates_cfg.learned,
+            candidates_cfg.seed,
+            candidates_cfg.learned.num_threads,
+        )
+        learned_top_k = top_k_by_trip(scores, candidates_cfg.learned.quota)
+
     candidates_df = generate_candidates(
         pois_df,
         travelers_df,
@@ -126,6 +150,7 @@ def generated_candidates(
         built_features["traveler_features"],
         interactions_train,
         candidates_cfg,
+        learned_top_k=learned_top_k,
     )
     return {
         "candidates": candidates_df,
@@ -216,6 +241,15 @@ def trained_scoring_artifacts_dir(
     )
     artifacts_dir = tmp_path_factory.mktemp("scoring_artifacts")
     save_boosters(artifacts, artifacts_dir)
+    # `poi_rank.cli train` also fits + persists the confidence ensemble; scoring loads it.
+    seeds = ScoringConfig.from_yaml(SCORING_CONFIG_PATH).confidence.ensemble_seeds
+    save_ensemble(
+        train_ensemble_boosters(
+            train_frame, interactions_train, pois_df, fast_model_cfg.lambdamart, seeds
+        ),
+        seeds,
+        artifacts_dir,
+    )
     return artifacts_dir
 
 
@@ -326,3 +360,19 @@ def enriched_payload(
         scoring_cfg,
         feature_build_cfg,
     )
+
+
+# --- test tiers ---------------------------------------------------------------------------------
+# Any test whose fixture closure reaches the full-scale pipeline chain (prepare -> features ->
+# candidates, built once per session and shared) is `slow`: it runs in the serial lane, because
+# every xdist worker would otherwise rebuild that chain itself (N x the time, N x ~5 GB).
+# `-m "not slow" -n 12` therefore runs only the light tests, in parallel.
+_HEAVY_FIXTURES = frozenset({"prepared_data", "built_features", "generated_candidates"})
+_SLOW_MODULES = frozenset({"test_determinism.py", "test_readme_quickstart.py"})
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    for item in items:
+        fixtures = set(getattr(item, "fixturenames", ()))
+        if fixtures & _HEAVY_FIXTURES or item.path.name in _SLOW_MODULES:
+            item.add_marker(pytest.mark.slow)

@@ -1506,11 +1506,18 @@ def run_dgp_diagnostics(
     results_dir: Path,
     datagen_cfg: DatagenConfig,
     feature_cfg: FeatureBuildConfig,
+    lean: bool = False,
 ) -> dict[str, Any]:
     """`poi_rank.cli diagnose-dgp` entry point: computes D1-D10 (module docstring)
     and writes `results/parts/dgp_diagnostics.json`. Diagnostic-only -- never
     writes anywhere else, never touches `datagen/features/models/candidates/
     scoring` code.
+
+    `lean=True` (the blocking Gate-A path in `make reproduce`) computes only what the gate
+    reads -- D1-D7 (slate/full-catalog oracle NDCG, no candidate-level frame) and D10 -- and
+    writes nothing: it skips the candidate-level oracle (needs ranking frames), D8 (bias-gap
+    frames) and D9 (incl. the MiniLM subprocess), which cost ~60 s of a <5-minute budget and
+    feed no gate row (D9/D11 are Gate-B reporting numbers, `eval/representation.py`).
 
     Takes the full `feature_cfg` (not just `budget_target_price_level`, D1-D8's
     original signature) because D9's MiniLM path needs `feature_cfg.text_embedding`
@@ -1534,7 +1541,11 @@ def run_dgp_diagnostics(
     d3 = spearman_utility_vs_label(interactions_holdout_random, oracle_score)
     d4 = choice_sharpness(interactions_holdout_random, oracle_score, holdout_utility_true).to_dict()
     d5_slate = oracle_ndcg_slate_level(interactions_holdout_random, oracle_score).to_dict()
-    d5_candidate = oracle_ndcg_candidate_level(data_dir, oracle_dir, budget_target_price_level)
+    d5_candidate = (
+        None
+        if lean
+        else oracle_ndcg_candidate_level(data_dir, oracle_dir, budget_target_price_level)
+    )
     d5_full_catalog = oracle_ndcg_full_catalog(holdout_utility_true, interactions_holdout_random)
 
     d6 = cold_start_share(data_dir)
@@ -1542,14 +1553,17 @@ def run_dgp_diagnostics(
     pois_prepared = pd.read_parquet(data_dir / POIS_PREPARED_FILENAME)
     d7 = localness_vs_geo_generation(pois_prepared, oracle_dir)
 
-    d8 = bias_gap_popularity(data_dir, budget_target_price_level)
-    existing_gap = _read_existing_bias_gap_popularity(results_dir)
-    if existing_gap is not None:
-        d8["existing_metrics_json_gap"] = existing_gap
+    d8: dict[str, Any] | None = None
+    d9: dict[str, Any] | None = None
+    if not lean:
+        d8 = bias_gap_popularity(data_dir, budget_target_price_level)
+        existing_gap = _read_existing_bias_gap_popularity(results_dir)
+        if existing_gap is not None:
+            d8["existing_metrics_json_gap"] = existing_gap
 
-    d9_tfidf = semantic_fidelity_tfidf(data_dir, components, feature_cfg)
-    d9_minilm = semantic_fidelity_minilm(data_dir, results_dir, components, feature_cfg)
-    d9 = {"tfidf_path": d9_tfidf, "minilm_path": d9_minilm}
+        d9_tfidf = semantic_fidelity_tfidf(data_dir, components, feature_cfg)
+        d9_minilm = semantic_fidelity_minilm(data_dir, results_dir, components, feature_cfg)
+        d9 = {"tfidf_path": d9_tfidf, "minilm_path": d9_minilm}
 
     poi_latent = oracle_reader.load_poi_latent(oracle_dir)
     poi_features = pd.read_parquet(data_dir / POI_FEATURES_FILENAME)
@@ -1604,6 +1618,9 @@ def run_dgp_diagnostics(
         "D9_semantic_fidelity": d9,
         "D10_description_conditioning": d10,
     }
+
+    if lean:
+        return {"payload": payload, "output_path": None}
 
     output_dir = results_dir / "parts"
     output_dir.mkdir(parents=True, exist_ok=True)

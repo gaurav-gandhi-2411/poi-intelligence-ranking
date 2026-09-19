@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import typer
 
@@ -22,17 +23,22 @@ from poi_rank.data.config import FeaturesConfig
 from poi_rank.data.prepare import run_prepare
 from poi_rank.datagen.config import DatagenConfig
 from poi_rank.datagen.pipeline import run_generate
+from poi_rank.eval.audit import run_audit
 from poi_rank.eval.cold_start import run_lodo
+from poi_rank.eval.compose import PARTS_DIRNAME, compose_metrics, write_part
 from poi_rank.eval.config import EvalConfig
 from poi_rank.eval.dgp_diagnostics import run_dgp_diagnostics
 from poi_rank.eval.gate_dgp import run_gate_dgp
-from poi_rank.eval.run import ALL_SYSTEM_NAMES, METRICS_FILENAME, WILCOXON_METRIC, run_evaluate
+from poi_rank.eval.gate_representation import run_gate_representation
+from poi_rank.eval.representation import run_representation_report
+from poi_rank.eval.run import ALL_SYSTEM_NAMES, WILCOXON_METRIC, run_evaluate
 from poi_rank.eval.scenarios import run_scenarios
 from poi_rank.explain.output_enrichment import build_payload_enricher
 from poi_rank.features.build import run_features
 from poi_rank.features.config import FeatureBuildConfig
 from poi_rank.models.config import ModelConfig
 from poi_rank.models.lambdamart import run_train_lambdamart
+from poi_rank.scoring.confidence import run_train_ensemble
 from poi_rank.scoring.config import ScoringConfig
 from poi_rank.scoring.output import run_recommend
 
@@ -47,6 +53,10 @@ DEFAULT_SCORING_CONFIG_PATH = REPO_ROOT / "configs" / "scoring.yaml"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "data" / "synthetic"
 DEFAULT_ARTIFACTS_DIR = REPO_ROOT / "artifacts"
 DEFAULT_RESULTS_DIR = REPO_ROOT / "results"
+# `recommend` output is for human inspection (sample of served slates + explanations), so it
+# is capped; `evaluate` -- the metric source -- always runs the full holdout.
+RECOMMEND_MAX_TRIPS = 300
+SAMPLE_SEED = 42
 
 
 @app.callback()
@@ -306,13 +316,16 @@ def candidates(
     data_dir: Path = typer.Option(  # noqa: B008
         DEFAULT_OUTPUT_DIR, help="Directory containing data/synthetic/*.parquet"
     ),
+    artifacts_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_ARTIFACTS_DIR, help="Directory the fitted retriever is saved to"
+    ),
 ) -> None:
     """Run the Phase 4a candidate-generation pipeline (6 channels + quotas) and
     print candidate-set-size + candidate-recall@250 (overall, long-tail-stratum,
     per-channel marginal) summaries."""
     cfg = CandidatesConfig.from_yaml(config_path)
     budget = FeatureBuildConfig.from_yaml(config_path).traveler_features.budget_target_price_level
-    summary = run_candidates(cfg, data_dir, budget)
+    summary = run_candidates(cfg, data_dir, budget, artifacts_dir)
 
     typer.echo("=== poi-rank candidates: summary ===")
     typer.echo(f"  output: {summary['output_path']}")
@@ -359,6 +372,12 @@ def train(
     artifacts_dir: Path = typer.Option(  # noqa: B008
         DEFAULT_ARTIFACTS_DIR, help="Directory to write artifacts/*.txt LightGBM boosters"
     ),
+    scoring_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_SCORING_CONFIG_PATH, help="Path to scoring.yaml (confidence-ensemble seeds)"
+    ),
+    results_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_RESULTS_DIR, help="Directory to write results/parts/train.json"
+    ),
 ) -> None:
     """Fit systems 7 (LambdaMART) and 8 (LambdaMART+IPS, primary) plus the
     dropout-ablation-only booster (`models.lambdamart`) on the TRAIN ranking frame,
@@ -368,6 +387,12 @@ def train(
     model_cfg = ModelConfig.from_yaml(model_config_path)
 
     summary = run_train_lambdamart(data_dir, artifacts_dir, model_cfg, feature_cfg)
+    write_part(results_dir, "train", summary["diagnostics"])
+    scoring_cfg = ScoringConfig.from_yaml(scoring_config_path)
+    ensemble_paths = run_train_ensemble(
+        data_dir, artifacts_dir, model_cfg, feature_cfg, scoring_cfg
+    )
+    summary["paths"].update({p.stem: p for p in ensemble_paths})
     diagnostics = summary["diagnostics"]
 
     typer.echo("=== poi-rank train: lambdamart / lambdamart_ips ===")
@@ -450,9 +475,10 @@ def evaluate(
         scoring_cfg,
     )
     payload = summary["payload"]
+    metrics_path = compose_metrics(results_dir)
 
     typer.echo("=== poi-rank evaluate: summary ===")
-    typer.echo(f"  output: {summary['output_path']}")
+    typer.echo(f"  output: {summary['output_path']} (composed into {metrics_path})")
     typer.echo(f"  n_holdout_trips: {payload['meta']['n_holdout_trips']}")
     typer.echo(f"  bootstrap_n_resamples: {payload['meta']['bootstrap_n_resamples']}")
 
@@ -571,9 +597,10 @@ def lodo(
     model_cfg = ModelConfig.from_yaml(model_config_path)
     eval_cfg = EvalConfig.from_yaml(eval_config_path)
 
-    metrics_path = results_dir / METRICS_FILENAME
-    if not metrics_path.exists():
-        typer.echo(f"ERROR: {metrics_path} does not exist -- run `poi_rank.cli evaluate` first.")
+    if not (results_dir / PARTS_DIRNAME / "evaluate.json").exists():
+        typer.echo(
+            "ERROR: results/parts/evaluate.json missing -- run `poi_rank.cli evaluate` first."
+        )
         raise typer.Exit(code=1)
 
     trips_df = pd.read_parquet(data_dir / "trips.parquet")
@@ -591,9 +618,8 @@ def lodo(
         destinations,
     )
 
-    payload = json.loads(metrics_path.read_text(encoding="utf-8"))
-    payload["lodo"] = result
-    metrics_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_part(results_dir, "lodo", result)
+    metrics_path = compose_metrics(results_dir)
 
     typer.echo("=== poi-rank lodo: summary ===")
     typer.echo(f"  wall_clock_seconds={result['wall_clock_seconds']:.1f}")
@@ -603,7 +629,7 @@ def lodo(
             f"full_training_ndcg@10={row['ndcg@10_full_training']['mean']:.4f} "
             f"p={row['wilcoxon_lodo_vs_full_training']['p_value']:.4g}"
         )
-    typer.echo(f"  merged into: {metrics_path}")
+    typer.echo(f"  part written; composed into: {metrics_path}")
 
 
 @app.command()
@@ -627,7 +653,12 @@ def recommend(
         DEFAULT_RESULTS_DIR, help="Directory to write results/recommendations.json + figures/"
     ),
     trip_id: str | None = typer.Option(  # noqa: B008
-        None, help="Restrict to a single trip_id (default: every primary-holdout trip)"
+        None, help="Restrict to a single trip_id (default: a seeded sample of holdout trips)"
+    ),
+    max_trips: int = typer.Option(  # noqa: B008
+        RECOMMEND_MAX_TRIPS,
+        help="Cap on holdout trips explained (0 = all). `recommend` writes an inspection "
+        "artifact, not a metric source -- `evaluate` scores the FULL holdout.",
     ),
 ) -> None:
     """Run the full scoring pipeline (spec.md section 9: compatibility + hard gates,
@@ -642,6 +673,14 @@ def recommend(
     candidates_cfg = CandidatesConfig.from_yaml(features_config_path)
 
     trip_id_filter = {trip_id} if trip_id else None
+    if trip_id_filter is None and max_trips > 0:
+        trips = pd.read_parquet(data_dir / "trips.parquet")
+        holdout_ids = sorted(trips.loc[trips["is_holdout"], "trip_id"].astype(str))
+        if len(holdout_ids) > max_trips:
+            picked = np.random.default_rng(SAMPLE_SEED).choice(
+                holdout_ids, size=max_trips, replace=False
+            )
+            trip_id_filter = {str(t) for t in picked}
     payload_enricher = build_payload_enricher(
         data_dir, artifacts_dir, results_dir / "figures", scoring_cfg, feature_cfg
     )
@@ -747,3 +786,84 @@ def scenarios(
 
 if __name__ == "__main__":
     app()
+
+
+@app.command()
+def compose(
+    results_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_RESULTS_DIR, help="Directory holding results/parts/*.json"
+    ),
+) -> None:
+    """Merge every `results/parts/<stage>.json` into `results/metrics.json` -- the only writer
+    of that file (`eval/compose.py`). `evaluate`/`lodo` call it after writing their part, so
+    metrics.json is always current; run it directly after adding or refreshing any other part."""
+    path = compose_metrics(results_dir)
+    typer.echo(f"composed: {path}")
+
+
+@app.command()
+def representation(
+    features_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_FEATURES_CONFIG_PATH, help="Path to features.yaml"
+    ),
+    data_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_OUTPUT_DIR, help="Directory containing data/synthetic/*.parquet"
+    ),
+    results_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_RESULTS_DIR, help="Directory to write results/parts/representation.json"
+    ),
+) -> None:
+    """D11 / within-trip D9 / ablations / oracle-relevance recall (REPORTING ONLY -- computed
+    after representation choices are frozen; `eval/representation.py`)."""
+    feature_cfg = FeatureBuildConfig.from_yaml(features_config_path)
+    payload = run_representation_report(data_dir, feature_cfg)
+    path = write_part(results_dir, "representation", payload)
+    typer.echo(f"=== poi-rank representation: {path} ===")
+    typer.echo(f"  D11 ridge R2 (text-only): {payload['d11_text_only']['ridge_r2_oof']:.4f}")
+    for name, d in payload["d9_within_trip"].items():
+        typer.echo(f"  {name}: within-trip Spearman={d['mean_within_trip_spearman']:.4f}")
+    orr = payload["oracle_relevance_recall"]
+    typer.echo(
+        f"  oracle-relevance recall: overall={orr['overall']:.4f} long_tail={orr['long_tail']:.4f}"
+    )
+
+
+@app.command(name="gate-representation")
+def gate_representation(
+    results_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_RESULTS_DIR, help="Directory holding results/parts/{evaluate,representation}.json"
+    ),
+) -> None:
+    """Gate-B (blocking, oracle-free candidate-recall rows; D9/D11/oracle rows reported only).
+    Exits non-zero if any blocking row fails."""
+    result = run_gate_representation(results_dir)
+    payload = result["payload"]
+    typer.echo("=== poi-rank gate-representation: Gate-B ===")
+    for name, check in payload["blocking_checks"].items():
+        status = "PASS" if check["passed"] else "FAIL"
+        typer.echo(
+            f"  [{status}] {name}: {check['measured']:.4f} {check['op']} {check['threshold']}"
+        )
+    for name, value in payload["reporting_only_after_freeze"].items():
+        if isinstance(value, float):
+            typer.echo(f"  [report] {name}: {value:.4f}")
+    typer.echo(f"\n  overall: {'PASS' if payload['overall_pass'] else 'FAIL'}")
+    if not payload["overall_pass"]:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def audit(
+    results_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_RESULTS_DIR, help="Directory holding results/parts + metrics.json"
+    ),
+    deep: bool = typer.Option(  # noqa: B008
+        False, help="Also regenerate the dataset twice and compare SHA-256 manifests (~1 min)"
+    ),
+) -> None:
+    """Deterministic invariant audit (`eval/audit.py`); prints JSON and exits non-zero on any
+    failed check. Replaces the verifier subagent: a script cannot hallucinate a PASS."""
+    payload = run_audit(results_dir, deep=deep)
+    typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+    if not payload["all_passed"]:
+        raise typer.Exit(code=1)

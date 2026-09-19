@@ -25,6 +25,7 @@ from poi_rank.datagen.oracle_export import (
     write_holdout_utility,
     write_poi_latent,
     write_term_standardization,
+    write_traveler_archetype,
     write_traveler_taste,
 )
 from poi_rank.datagen.taxonomy import CATEGORY_INDEX
@@ -268,7 +269,7 @@ def run_generate(cfg: DatagenConfig, output_dir: Path) -> dict[str, Any]:
     poi_export_df = apply_catalog_dirtiness(rng, poi_true_df, cfg)
     arrays = build_catalog_arrays(poi_true_df)
 
-    travelers_df, taste_vectors = generate_travelers(rng, cfg)
+    travelers_df, taste_vectors, archetype_mixtures = generate_travelers(rng, cfg)
     trips_df = generate_trips(rng, travelers_df, cfg, timeline)
     trips_df["is_holdout"] = trips_df["start_date"] >= timeline.split
 
@@ -494,6 +495,7 @@ def run_generate(cfg: DatagenConfig, output_dir: Path) -> dict[str, Any]:
 
     oracle_paths = {
         "traveler_taste.parquet": write_traveler_taste(oracle_dir, taste_vectors),
+        "traveler_archetype.parquet": write_traveler_archetype(oracle_dir, archetype_mixtures),
         "poi_latent.parquet": write_poi_latent(oracle_dir, poi_true_df),
         "holdout_utility_true.parquet": write_holdout_utility(oracle_dir, oracle_utility_df),
         "term_standardization.json": write_term_standardization(oracle_dir, standardization),

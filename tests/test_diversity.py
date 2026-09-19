@@ -131,3 +131,45 @@ def test_mmr_rerank_trip_produces_valid_ordered_list() -> None:
     assert len(ordered) == 5
     assert len(set(ordered)) == 5
     assert all(pid in group["poi_id"].to_numpy() for pid in ordered)
+
+
+def _reference_mmr_select(
+    utility: np.ndarray, sim: np.ndarray, poi_ids: list[str], lam: float, k: int
+) -> list[int]:
+    """The original O(n^2 k) pure-Python greedy MMR, kept as an oracle for the vectorised
+    `mmr_select` (behaviour-preserving refactor guard)."""
+    n = len(utility)
+    selected: list[int] = []
+    remaining = list(range(n))
+    for _ in range(min(k, n)):
+        best_i: int | None = None
+        best_score = -np.inf
+        for i in remaining:
+            max_sim = max((sim[i, j] for j in selected), default=0.0)
+            score = lam * utility[i] - (1.0 - lam) * max_sim
+            if (
+                best_i is None
+                or score > best_score
+                or (score == best_score and poi_ids[i] < poi_ids[best_i])
+            ):
+                best_score, best_i = score, i
+        assert best_i is not None
+        selected.append(best_i)
+        remaining.remove(best_i)
+    return selected
+
+
+@pytest.mark.parametrize("lam", [0.5, 0.8, 1.0])
+def test_mmr_select_matches_reference_implementation(lam: float) -> None:
+    rng = np.random.default_rng(7)
+    for _ in range(25):
+        n = int(rng.integers(3, 40))
+        emb = rng.normal(size=(n, 6))
+        emb /= np.linalg.norm(emb, axis=1, keepdims=True)
+        sim = 0.6 * (emb @ emb.T) + 0.4 * (rng.integers(0, 2, size=(n, n)) > 0)
+        sim = (sim + sim.T) / 2
+        utility = np.round(rng.normal(size=n), 1)  # coarse -> many exact ties
+        poi_ids = [f"P{i:03d}" for i in rng.permutation(n)]
+        assert mmr_select(utility, sim, poi_ids, lam, 10) == _reference_mmr_select(
+            utility, sim, poi_ids, lam, 10
+        )

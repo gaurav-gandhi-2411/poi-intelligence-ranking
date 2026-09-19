@@ -58,7 +58,7 @@ def _inputs(n_train: int = 60, n_holdout: int = 15) -> rt.RetrieverInputs:
 
 def test_scores_cover_every_trip_by_every_destination_poi() -> None:
     inp = _inputs()
-    scores = rt.crossfit_retriever_scores(inp, CFG, seed=42, num_threads=1)
+    scores, _ = rt.crossfit_retriever_scores(inp, CFG, seed=42, num_threads=1)
     n_dest = inp.pois_df.groupby("destination").size()
     expected = inp.trips_df["destination"].map(n_dest).sum()
     assert len(scores) == expected
@@ -67,25 +67,30 @@ def test_scores_cover_every_trip_by_every_destination_poi() -> None:
 
 def test_identical_scores_at_1_and_8_threads() -> None:
     inp = _inputs(n_train=40, n_holdout=10)
-    a = rt.crossfit_retriever_scores(inp, CFG, seed=42, num_threads=1)
-    b = rt.crossfit_retriever_scores(inp, CFG, seed=42, num_threads=8)
+    a, model_a = rt.crossfit_retriever_scores(inp, CFG, seed=42, num_threads=1)
+    b, model_b = rt.crossfit_retriever_scores(inp, CFG, seed=42, num_threads=8)
     pd.testing.assert_frame_equal(a, b, check_exact=True)
+    # The serialised model ends with a `parameters:` footer that records num_threads itself;
+    # the trees (everything before it) are what must be identical.
+    trees_a = model_a.booster.model_to_string().split("parameters:")[0]
+    trees_b = model_b.booster.model_to_string().split("parameters:")[0]
+    assert trees_a == trees_b
 
 
 def test_train_trips_are_never_scored_by_a_model_fit_on_them(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     inp = _inputs(n_train=40, n_holdout=10)
-    fit_sets: list[set[str]] = []
+    fit_ids_by_model: dict[int, set[str]] = {}
     real_fit = rt.fit_retriever
-
-    def spy_fit(inp_, impressions, fit_ids, cfg, seed, num_threads):  # type: ignore[no-untyped-def]
-        fit_sets.append(set(fit_ids))
-        return real_fit(inp_, impressions, fit_ids, cfg, seed, num_threads)
-
-    scored: list[tuple[int, set[str]]] = []
     real_score = rt.score_full_catalog
+    scored: list[tuple[set[str], set[str]]] = []  # (trips scored, trips the scorer was fit on)
+
+    def spy_fit(table, fit_ids, cfg, seed, num_threads):  # type: ignore[no-untyped-def]
+        model = real_fit(table, fit_ids, cfg, seed, num_threads)
+        fit_ids_by_model[id(model)] = set(fit_ids)
+        return model
 
     def spy_score(inp_, model, trip_ids, num_threads):  # type: ignore[no-untyped-def]
-        scored.append((len(fit_sets), set(trip_ids)))
+        scored.append((set(trip_ids), fit_ids_by_model[id(model)]))
         return real_score(inp_, model, trip_ids, num_threads)
 
     monkeypatch.setattr(rt, "fit_retriever", spy_fit)
@@ -93,8 +98,8 @@ def test_train_trips_are_never_scored_by_a_model_fit_on_them(monkeypatch) -> Non
     rt.crossfit_retriever_scores(inp, CFG, seed=42, num_threads=1)
 
     holdout = set(inp.trips_df.loc[inp.trips_df["is_holdout"], "trip_id"])
-    for n_fits_so_far, trips in scored:
-        model_fit_ids = fit_sets[n_fits_so_far - 1]  # the model fit immediately before scoring
+    assert len(scored) == CFG.n_folds + 1
+    for trips, model_fit_ids in scored:
         if trips & holdout:
             assert trips <= holdout
             assert not (model_fit_ids & holdout)  # holdout trips never enter any fit

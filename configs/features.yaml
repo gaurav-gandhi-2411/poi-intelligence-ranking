@@ -160,10 +160,10 @@ candidates:
   learned:
     # Learned first-stage retriever over the FULL destination catalog (candidates/retriever.py):
     # IPS-weighted LightGBM on observable pair features, cross-fitted by trip for train trips.
-    quota: 180
+    quota: 210
     n_estimators: 300
     learning_rate: 0.05
     num_leaves: 31
     n_folds: 5
     ips_clip_min: 0.05
-    num_threads: 8
+    num_threads: 16

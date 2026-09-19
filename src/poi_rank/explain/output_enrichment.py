@@ -156,13 +156,13 @@ def build_context_frame(
 
 def plot_feature_group_importance(group_contributions: pd.DataFrame, output_path: Path) -> None:
     """Global feature-group importance (spec.md section 10): mean |SHAP| per group
-    across every holdout candidate row (`group_contributions`, one row per
-    `(trip_id, poi_id)` candidate, `explain/shap_groups.py`'s ~10 group columns)."""
+    across every RETURNED recommendation row (`group_contributions`, one row per
+    `(trip_id, poi_id)`, `explain/shap_groups.py`'s ~10 group columns)."""
     mean_abs = group_contributions.abs().mean().reindex(FEATURE_GROUPS)
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.barh(list(FEATURE_GROUPS)[::-1], mean_abs.to_numpy()[::-1])
     ax.set_xlabel("Mean |SHAP contribution|")
-    ax.set_title("Global feature-group importance (grouped TreeSHAP, primary holdout)")
+    ax.set_title("Feature-group importance (grouped TreeSHAP, returned recommendations)")
     fig.tight_layout()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path, dpi=150)
@@ -211,17 +211,33 @@ def enrich_recommend_result(
         else pd.read_parquet(data_dir / TRAVELERS_FILENAME)
     )
 
-    numeric_columns = bl.numeric_feature_columns(full)
-    categorical_columns = bl.categorical_feature_columns(full)
+    # TreeSHAP only for the (trip, POI) rows that are actually RETURNED: we never explain a
+    # POI we do not recommend, and exact TreeSHAP over every scored candidate (~200/trip vs
+    # 10 returned) was the dominant cost of `recommend`.
+    full_position = {
+        (str(tid), str(pid)): i
+        for i, (tid, pid) in enumerate(zip(full["trip_id"], full["poi_id"], strict=True))
+    }
+    returned_rows = sorted(
+        {
+            full_position[(str(trip_id), rec["poi_id"])]
+            for trip_id, trip_payload in result["payload"].items()
+            for rec in trip_payload["recommendations"]
+        }
+    )
+    explained = full.iloc[returned_rows]
+
+    numeric_columns = bl.numeric_feature_columns(explained)
+    categorical_columns = bl.categorical_feature_columns(explained)
     booster = lm.load_boosters(artifacts_dir)["lambdamart_ips"]
-    shap_result = compute_grouped_shap(booster, full, numeric_columns, categorical_columns)
+    shap_result = compute_grouped_shap(booster, explained, numeric_columns, categorical_columns)
 
     plot_feature_group_importance(
         shap_result.group_contributions, figures_dir / FEATURE_GROUP_IMPORTANCE_FIGURE_FILENAME
     )
 
     contexts = build_context_frame(
-        full,
+        explained,
         pois_df,
         travelers_df,
         scoring_cfg.compatibility.mobility_fit,
@@ -229,9 +245,10 @@ def enrich_recommend_result(
     )
     group_contrib_records = shap_result.group_contributions.to_dict("records")
 
+    # Position of each returned (trip, POI) within `explained` (SHAP / context row order).
     key_to_position = {
         (str(tid), str(pid)): i
-        for i, (tid, pid) in enumerate(zip(full["trip_id"], full["poi_id"], strict=True))
+        for i, (tid, pid) in enumerate(zip(explained["trip_id"], explained["poi_id"], strict=True))
     }
 
     survivors = full.loc[full["hard_gate"] == 1.0]

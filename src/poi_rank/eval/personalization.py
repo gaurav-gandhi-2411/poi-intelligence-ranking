@@ -66,13 +66,29 @@ def _all_pairs(keys: Sequence[str]) -> Iterator[tuple[str, str]]:
     yield from combinations(sorted(keys), 2)
 
 
-def mean_pairwise_jaccard(lists_by_trip: dict[str, list[str]]) -> tuple[float, int]:
+def _pairs(keys: Sequence[str], group_of: dict[str, str] | None) -> Iterator[tuple[str, str]]:
+    """All distinct key pairs; if `group_of` is given, only pairs in the SAME group.
+
+    Every POI belongs to exactly one destination, so two trips to different destinations have
+    Jaccard = RBO = 0 by construction. Pooling those pairs (2/3 of all pairs with 3
+    destinations) into a "personalization" mean measured the catalog partition, not the
+    recommender -- personalization is compared between travelers who could have been shown
+    the same POIs."""
+    for a, b in _all_pairs(keys):
+        if group_of is None or group_of.get(a) == group_of.get(b):
+            yield a, b
+
+
+def mean_pairwise_jaccard(
+    lists_by_trip: dict[str, list[str]], trip_destination: dict[str, str] | None = None
+) -> tuple[float, int]:
     """Mean Jaccard@10 across ALL distinct pairs of trips' top-10 sets (spec.md
     section 11.2's "mean pairwise Jaccard@10 across all traveler pairs", module
     docstring). Returns `(mean, n_pairs)`."""
     trip_ids = list(lists_by_trip)
     values = [
-        jaccard(set(lists_by_trip[a]), set(lists_by_trip[b])) for a, b in _all_pairs(trip_ids)
+        jaccard(set(lists_by_trip[a]), set(lists_by_trip[b]))
+        for a, b in _pairs(trip_ids, trip_destination)
     ]
     if not values:
         return 0.0, 0
@@ -118,12 +134,17 @@ def rank_biased_overlap(list_a: Sequence[str], list_b: Sequence[str], p: float =
     return float(first_term + second_term)
 
 
-def mean_pairwise_rbo(lists_by_trip: dict[str, list[str]], p: float = RBO_P) -> tuple[float, int]:
+def mean_pairwise_rbo(
+    lists_by_trip: dict[str, list[str]],
+    p: float = RBO_P,
+    trip_destination: dict[str, str] | None = None,
+) -> tuple[float, int]:
     """Mean RBO across ALL distinct pairs of trips' top-10 lists, same pairing
     population as `mean_pairwise_jaccard`. Returns `(mean, n_pairs)`."""
     trip_ids = list(lists_by_trip)
     values = [
-        rank_biased_overlap(lists_by_trip[a], lists_by_trip[b], p) for a, b in _all_pairs(trip_ids)
+        rank_biased_overlap(lists_by_trip[a], lists_by_trip[b], p)
+        for a, b in _pairs(trip_ids, trip_destination)
     ]
     if not values:
         return 0.0, 0
@@ -159,7 +180,9 @@ class ArchetypeJaccardResult:
 
 
 def within_cross_archetype_jaccard(
-    lists_by_trip: dict[str, list[str]], trip_segment: dict[str, int]
+    lists_by_trip: dict[str, list[str]],
+    trip_segment: dict[str, int],
+    trip_destination: dict[str, str] | None = None,
 ) -> ArchetypeJaccardResult:
     """Partitions every distinct trip pair into "within" (same segment proxy) vs
     "cross" (different segment proxy) and reports mean Jaccard@10 for each, plus the
@@ -170,12 +193,57 @@ def within_cross_archetype_jaccard(
     trip_ids = [t for t in lists_by_trip if t in trip_segment]
     within_vals: list[float] = []
     cross_vals: list[float] = []
-    for a, b in _all_pairs(trip_ids):
+    for a, b in _pairs(trip_ids, trip_destination):
         j = jaccard(set(lists_by_trip[a]), set(lists_by_trip[b]))
         if trip_segment[a] == trip_segment[b]:
             within_vals.append(j)
         else:
             cross_vals.append(j)
+
+    within_mean = sum(within_vals) / len(within_vals) if within_vals else 0.0
+    cross_mean = sum(cross_vals) / len(cross_vals) if cross_vals else 0.0
+    ratio = (within_mean / cross_mean) if cross_mean > 0 else float("inf")
+    return ArchetypeJaccardResult(
+        within_mean=within_mean,
+        within_n_pairs=len(within_vals),
+        cross_mean=cross_mean,
+        cross_n_pairs=len(cross_vals),
+        ratio=ratio,
+    )
+
+
+TRUE_ARCHETYPE_MIXTURE_COSINE = 0.8
+
+
+def within_cross_true_archetype_jaccard(
+    lists_by_trip: dict[str, list[str]],
+    trip_dominant: dict[str, str],
+    trip_mixture: dict[str, Sequence[float]],
+    trip_destination: dict[str, str],
+    mixture_cosine_min: float = TRUE_ARCHETYPE_MIXTURE_COSINE,
+) -> ArchetypeJaccardResult:
+    """RC4: within/cross Jaccard@10 using the DGP's TRUE archetype labels (eval-only oracle read).
+
+    Same-destination pairs only. WITHIN = same dominant archetype AND cosine(mixture_a,
+    mixture_b) > `mixture_cosine_min`; CROSS = different dominant archetype. Same-dominant pairs
+    with a lower mixture cosine are ambiguous and belong to neither group (dropped, not lumped
+    into cross). The K-Means-proxy version (`within_cross_archetype_jaccard`) is kept alongside,
+    labelled as a proxy: its groups are clusters of the same features the recommender consumes,
+    so its ratio drifting toward 1 said nothing about personalization."""
+    trip_ids = [t for t in lists_by_trip if t in trip_dominant and t in trip_destination]
+    within_vals: list[float] = []
+    cross_vals: list[float] = []
+    for a, b in _pairs(trip_ids, trip_destination):
+        j = jaccard(set(lists_by_trip[a]), set(lists_by_trip[b]))
+        if trip_dominant[a] != trip_dominant[b]:
+            cross_vals.append(j)
+            continue
+        ma, mb = trip_mixture[a], trip_mixture[b]
+        dot = sum(x * y for x, y in zip(ma, mb, strict=True))
+        na = sum(x * x for x in ma) ** 0.5
+        nb = sum(y * y for y in mb) ** 0.5
+        if na > 0 and nb > 0 and dot / (na * nb) > mixture_cosine_min:
+            within_vals.append(j)
 
     within_mean = sum(within_vals) / len(within_vals) if within_vals else 0.0
     cross_mean = sum(cross_vals) / len(cross_vals) if cross_vals else 0.0

@@ -140,7 +140,7 @@ def test_run_gate_dgp_writes_report_and_computes_overall_pass(
     all_passing_payload = _base_payload()
 
     def _fake_run_dgp_diagnostics(
-        data_dir: Path, results_dir: Path, datagen_cfg: Any, feature_cfg: Any
+        data_dir: Path, results_dir: Path, datagen_cfg: Any, feature_cfg: Any, lean: bool = False
     ) -> dict[str, Any]:
         return {"payload": all_passing_payload, "output_path": results_dir / "parts" / "x.json"}
 
@@ -169,7 +169,7 @@ def test_run_gate_dgp_overall_fails_if_any_single_gate_fails(
     failing_payload = _base_payload(**{"D3_spearman_utility_vs_label.spearman_rho": 0.10})
 
     def _fake_run_dgp_diagnostics(
-        data_dir: Path, results_dir: Path, datagen_cfg: Any, feature_cfg: Any
+        data_dir: Path, results_dir: Path, datagen_cfg: Any, feature_cfg: Any, lean: bool = False
     ) -> dict[str, Any]:
         return {"payload": failing_payload, "output_path": results_dir / "parts" / "x.json"}
 

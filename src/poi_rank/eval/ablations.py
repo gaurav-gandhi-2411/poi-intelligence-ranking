@@ -191,7 +191,13 @@ def _mmr_scores_for_lambda(
     `scoring.diversity.lambda_sweep_report` already uses internally, so NDCG@k over
     this score reproduces exactly what that report's own numbers measure)."""
     reranked = div.mmr_rerank_all_trips(survivors, cfg, lam, k)
-    rank_by_trip_poi = reranked.set_index(["trip_id", "poi_id"])["mmr_rank"]
+    rank_by_trip_poi = dict(
+        zip(
+            zip(reranked["trip_id"], reranked["poi_id"], strict=True),
+            reranked["mmr_rank"],
+            strict=True,
+        )
+    )
     scores = []
     for trip_id, poi_id in zip(survivors["trip_id"], survivors["poi_id"], strict=True):
         rank = rank_by_trip_poi.get((trip_id, poi_id))

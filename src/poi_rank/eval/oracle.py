@@ -124,6 +124,12 @@ def load_traveler_taste(oracle_dir: Path) -> pd.DataFrame:
     return pd.read_parquet(oracle_dir / "traveler_taste.parquet")
 
 
+def load_traveler_archetype(oracle_dir: Path) -> pd.DataFrame:
+    """Load `traveler_archetype.parquet` (`traveler_id`, `archetype_mixture` -- the true 8-way
+    Dirichlet mixture, `dominant_archetype`). Eval-only, for RC4 personalization scoring."""
+    return pd.read_parquet(oracle_dir / "traveler_archetype.parquet")
+
+
 def load_holdout_utility_true(oracle_dir: Path) -> pd.DataFrame:
     """Load `holdout_utility_true.parquet` (`trip_id`, `traveler_id`, `poi_id`,
     `utility_true`) -- the DGP's noise-free latent utility for every `(trip, poi)`

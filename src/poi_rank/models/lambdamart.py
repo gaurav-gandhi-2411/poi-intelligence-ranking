@@ -225,7 +225,9 @@ def _feature_matrix(
     Categorical block passed through as-is, preserving the `category` dtype
     (`configs/features.yaml` already exports `cat_*` columns that way) so LightGBM
     auto-detects + natively splits on them, no one-hot expansion."""
-    numeric = frame[numeric_columns].astype(np.float64)
+    # float32: LightGBM bins features into <=255 histogram buckets anyway, so the extra
+    # mantissa bits change nothing material but double Dataset-construction time/memory.
+    numeric = frame[numeric_columns].astype(np.float32)
     categorical = frame[categorical_columns]
     return pd.concat([numeric, categorical], axis=1)
 
@@ -252,6 +254,7 @@ def _lgb_params(cfg: LambdaMartConfig, seed: int) -> dict[str, Any]:
         "lambdarank_truncation_level": cfg.lambdarank_truncation_level,
         "label_gain": list(cfg.label_gain),
         "num_leaves": cfg.num_leaves,
+        "max_bin": cfg.max_bin,
         "learning_rate": cfg.learning_rate,
         "min_data_in_leaf": cfg.min_data_in_leaf,
         "feature_fraction": cfg.feature_fraction,

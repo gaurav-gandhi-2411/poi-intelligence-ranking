@@ -23,6 +23,7 @@ text = ["sentence-transformers>=2.6,<3.1"]
 dev = [
     "pytest>=8.0,<9.0",
     "pytest-cov>=5.0,<6.0",
+    "pytest-xdist>=3.5,<4.0",
     "ruff>=0.5,<0.9",
     "mypy>=1.10,<1.14",
 ]
@@ -77,6 +78,9 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+    "slow: heavy pipeline/training tests (session-scoped fixtures; run in the serial lane)",
+]
 
 [tool.coverage.report]
 omit = ["notebooks/*"]

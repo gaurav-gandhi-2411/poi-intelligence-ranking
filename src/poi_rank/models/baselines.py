@@ -22,6 +22,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import log_loss
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -286,26 +287,69 @@ class LogisticRegressionModel:
     numeric_columns: list[str]
     categorical_columns: list[str]
     dummy_columns: list[str]
+    selected_c: float = 1.0
+    cv_logloss_by_c: dict[str, float] = field(default_factory=dict)
+
+
+def select_l2_strength(
+    design: pd.DataFrame,
+    y: npt.NDArray[np.int64],
+    trip_ids: npt.NDArray[np.object_],
+    cfg: LogisticRegressionConfig,
+    seed: int,
+) -> tuple[float, dict[str, float]]:
+    """Choose the L2 inverse-strength `C` from `cfg.c_grid` by TRIP-GROUPED k-fold CV on a
+    seeded trip subsample (`cfg.cv_trip_fraction`) -- rows of one trip never straddle a fold,
+    and no holdout row is ever touched. Criterion: mean out-of-fold log-loss (oracle-free).
+
+    Why this exists (S2): the original `C=1.0` fit 308 standardised columns on ~1.5k trips with
+    essentially no regularisation, so the headline "LambdaMART beats logistic regression"
+    could have been a straw-man win. Returns `(best_C, {str(C): mean_logloss})`.
+    """
+    rng = np.random.default_rng(seed)
+    unique_trips = np.array(sorted(set(trip_ids)))
+    n_use = max(cfg.cv_folds, int(round(cfg.cv_trip_fraction * len(unique_trips))))
+    used = rng.choice(unique_trips, size=min(n_use, len(unique_trips)), replace=False)
+    fold_of_trip = {t: i % cfg.cv_folds for i, t in enumerate(rng.permutation(used))}
+    fold = np.array([fold_of_trip.get(t, -1) for t in trip_ids])
+    x = StandardScaler().fit_transform(design.to_numpy(dtype=np.float64))
+
+    losses: dict[str, float] = {}
+    for c in cfg.c_grid:
+        fold_losses: list[float] = []
+        for k in range(cfg.cv_folds):
+            tr, va = fold >= 0, fold == k
+            tr &= ~va
+            clf = LogisticRegression(max_iter=cfg.max_iter, C=c, random_state=seed)
+            clf.fit(x[tr], y[tr])
+            fold_losses.append(float(log_loss(y[va], clf.predict_proba(x[va])[:, 1])))
+        losses[str(c)] = float(np.mean(fold_losses))
+    best = min(cfg.c_grid, key=lambda c: losses[str(c)])
+    return float(best), losses
 
 
 def fit_logistic_regression(
     train_frame: pd.DataFrame, cfg: LogisticRegressionConfig, seed: int
 ) -> LogisticRegressionModel:
-    """Fit a plain `StandardScaler -> LogisticRegression` pipeline on the TRAIN
-    ranking frame's full feature set, predicting `P(label >= 1)` (spec.md section 8
-    baseline 6)."""
+    """Fit a `StandardScaler -> LogisticRegression` pipeline on the TRAIN ranking frame's full
+    feature set, predicting `P(label >= 1)` (spec.md section 8 baseline 6). The L2 strength is
+    CV-tuned when `cfg.c_grid` is set (`select_l2_strength`), else `cfg.C`."""
     numeric_columns = numeric_feature_columns(train_frame)
     categorical_columns = categorical_feature_columns(train_frame)
     design, dummy_columns = _design_matrix(train_frame, numeric_columns, categorical_columns)
     y = (train_frame["label"].to_numpy() >= 1).astype(int)
 
+    c_value = cfg.C
+    cv_losses: dict[str, float] = {}
+    if cfg.c_grid:
+        c_value, cv_losses = select_l2_strength(
+            design, y, train_frame["trip_id"].to_numpy(dtype=object), cfg, seed
+        )
+
     pipeline = Pipeline(
         [
             ("scaler", StandardScaler()),
-            (
-                "clf",
-                LogisticRegression(max_iter=cfg.max_iter, C=cfg.C, random_state=seed),
-            ),
+            ("clf", LogisticRegression(max_iter=cfg.max_iter, C=c_value, random_state=seed)),
         ]
     )
     pipeline.fit(design, y)
@@ -314,6 +358,8 @@ def fit_logistic_regression(
         numeric_columns=numeric_columns,
         categorical_columns=categorical_columns,
         dummy_columns=dummy_columns,
+        selected_c=c_value,
+        cv_logloss_by_c=cv_losses,
     )
 
 

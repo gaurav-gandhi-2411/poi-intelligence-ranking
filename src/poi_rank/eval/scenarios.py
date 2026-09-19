@@ -61,6 +61,12 @@ from typing import Any
 import pandas as pd
 
 from poi_rank.candidates.config import CandidatesConfig
+from poi_rank.candidates.retriever import (
+    Retriever,
+    RetrieverInputs,
+    score_full_catalog,
+    top_k_by_trip,
+)
 from poi_rank.candidates.union import generate_candidates
 from poi_rank.eval.personalization import jaccard
 from poi_rank.explain.output_enrichment import enrich_recommend_result
@@ -326,6 +332,7 @@ def generate_scenario_candidates(
     synthetic_traveler_features_df: pd.DataFrame,
     interactions_train: pd.DataFrame,
     candidates_cfg: CandidatesConfig,
+    learned_top_k: dict[str, list[str]] | None = None,
 ) -> pd.DataFrame:
     """The 4 synthetic trips' candidate union table -- `candidates.union
     .generate_candidates`, unchanged, given an out-of-sample K-Means segment
@@ -347,6 +354,7 @@ def generate_scenario_candidates(
         interactions_train,
         candidates_cfg,
         segments_override=segments,
+        learned_top_k=learned_top_k,
     )
 
 
@@ -515,6 +523,26 @@ def run_scenarios(
         artifacts_dir,
     )
 
+    learned_top_k = None
+    if candidates_cfg.learned is not None and candidates_cfg.learned.quota > 0:
+        # The full-train retriever persisted by `poi_rank.cli candidates`: scenario travelers
+        # are unseen, so they are scored out-of-sample exactly like holdout trips.
+        scenario_scores = score_full_catalog(
+            RetrieverInputs(
+                pois_df,
+                synthetic_travelers_df,
+                synthetic_trips_df,
+                poi_features_df,
+                synthetic_traveler_features_df,
+                interactions_train,
+                feature_cfg.traveler_features.budget_target_price_level,
+            ),
+            Retriever.load(artifacts_dir),
+            sorted(synthetic_trips_df["trip_id"]),
+            candidates_cfg.learned.num_threads,
+        )
+        learned_top_k = top_k_by_trip(scenario_scores, candidates_cfg.learned.quota)
+
     candidates_df = generate_scenario_candidates(
         pois_df,
         real_travelers_df,
@@ -524,6 +552,7 @@ def run_scenarios(
         synthetic_traveler_features_df,
         interactions_train,
         candidates_cfg,
+        learned_top_k,
     )
 
     budget_target_price_level = feature_cfg.traveler_features.budget_target_price_level

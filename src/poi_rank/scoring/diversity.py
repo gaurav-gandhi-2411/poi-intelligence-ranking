@@ -59,29 +59,40 @@ def mmr_select(
     n = len(utility)
     kk = min(k, n)
     selected: list[int] = []
-    remaining = list(range(n))
-    for _ in range(kk):
-        best_i: int | None = None
-        best_score = -np.inf
-        for i in remaining:
-            max_sim = max((sim_matrix[i, j] for j in selected), default=0.0)
-            score = lam * utility[i] - (1.0 - lam) * max_sim
-            if (
-                best_i is None
-                or score > best_score
-                or (score == best_score and poi_ids[i] < poi_ids[best_i])
-            ):
-                best_score = score
-                best_i = i
-        assert best_i is not None  # `remaining` is non-empty on every iteration here
+    available = np.ones(n, dtype=bool)
+    # Running max-similarity-to-selected, updated incrementally (one row of `sim_matrix` per
+    # pick) instead of rescanning every selected item for every candidate. The first pick sees
+    # `max_sim = 0` (the `default=0.0` of the original scan); afterwards it is the true max.
+    max_sim = np.zeros(n, dtype=np.float64)
+    # Rank of each poi_id (ascending) so ties break deterministically on the smallest poi_id.
+    id_rank = np.argsort(np.argsort(np.array(poi_ids, dtype=object), kind="stable"), kind="stable")
+    for step in range(kk):
+        scores = lam * utility - (1.0 - lam) * max_sim
+        scores = np.where(available, scores, -np.inf)
+        best = scores.max()
+        tied = np.flatnonzero(available & (scores == best))
+        best_i = int(tied[np.argmin(id_rank[tied])])
         selected.append(best_i)
-        remaining.remove(best_i)
+        available[best_i] = False
+        max_sim = (
+            sim_matrix[best_i].copy() if step == 0 else np.maximum(max_sim, sim_matrix[best_i])
+        )
     return selected
 
 
-def mmr_rerank_trip(group: pd.DataFrame, cfg: DiversityConfig, lam: float, k: int) -> list[str]:
-    """MMR-reranked `poi_id` list (best-first) for ONE trip's candidate rows.
-    `group` must already be restricted to `hard_gate == 1` rows and carry `utility`,
+@dataclass(frozen=True)
+class MmrPool:
+    """One trip's top-`top_pool_size`-by-utility pool: poi_ids, utilities and the pairwise
+    similarity matrix. None of it depends on lambda or k, so a lambda sweep builds it ONCE per
+    trip instead of once per (trip, lambda)."""
+
+    poi_ids: list[str]
+    utility: FloatArray
+    sim: FloatArray
+
+
+def build_mmr_pool(group: pd.DataFrame, cfg: DiversityConfig) -> MmrPool:
+    """`group` must already be restricted to `hard_gate == 1` rows and carry `utility`,
     `poi_id`, `poi_category_raw`, and the `text_emb_*` columns."""
     pool = group.sort_values(["utility", "poi_id"], ascending=[False, True]).head(cfg.top_pool_size)
     emb_cols = sorted(c for c in pool.columns if c.startswith(TEXT_EMB_PREFIX))
@@ -90,22 +101,44 @@ def mmr_rerank_trip(group: pd.DataFrame, cfg: DiversityConfig, lam: float, k: in
     sim = pairwise_similarity(
         embeddings, categories, cfg.similarity_cosine_weight, cfg.similarity_category_weight
     )
-    utility = pool["utility"].to_numpy(dtype=np.float64)
-    poi_ids = pool["poi_id"].astype(str).tolist()
-    order_idx = mmr_select(utility, sim, poi_ids, lam, k)
-    return [poi_ids[i] for i in order_idx]
+    return MmrPool(
+        poi_ids=pool["poi_id"].astype(str).tolist(),
+        utility=pool["utility"].to_numpy(dtype=np.float64),
+        sim=sim,
+    )
+
+
+def build_mmr_pools(frame: pd.DataFrame, cfg: DiversityConfig) -> dict[str, MmrPool]:
+    return {
+        str(trip_id): build_mmr_pool(group, cfg)
+        for trip_id, group in frame.groupby("trip_id", sort=True)
+    }
+
+
+def mmr_rerank_trip(group: pd.DataFrame, cfg: DiversityConfig, lam: float, k: int) -> list[str]:
+    """MMR-reranked `poi_id` list (best-first) for ONE trip's candidate rows."""
+    pool = build_mmr_pool(group, cfg)
+    order_idx = mmr_select(pool.utility, pool.sim, pool.poi_ids, lam, k)
+    return [pool.poi_ids[i] for i in order_idx]
 
 
 def mmr_rerank_all_trips(
-    frame: pd.DataFrame, cfg: DiversityConfig, lam: float, k: int
+    frame: pd.DataFrame,
+    cfg: DiversityConfig,
+    lam: float,
+    k: int,
+    pools: dict[str, MmrPool] | None = None,
 ) -> pd.DataFrame:
     """`mmr_rerank_trip` applied per `trip_id`, returned as a long
-    `(trip_id, poi_id, mmr_rank)` frame, `mmr_rank` 1-indexed, best-first."""
+    `(trip_id, poi_id, mmr_rank)` frame, `mmr_rank` 1-indexed, best-first. Pass `pools`
+    (`build_mmr_pools`) to reuse the lambda-independent pools across a sweep."""
+    if pools is None:
+        pools = build_mmr_pools(frame, cfg)
     rows: list[dict[str, Any]] = []
-    for trip_id, group in frame.groupby("trip_id", sort=True):
-        ordered = mmr_rerank_trip(group, cfg, lam, k)
-        for rank, poi_id in enumerate(ordered, start=1):
-            rows.append({"trip_id": trip_id, "poi_id": poi_id, "mmr_rank": rank})
+    for trip_id, pool in pools.items():
+        order_idx = mmr_select(pool.utility, pool.sim, pool.poi_ids, lam, k)
+        for rank, i in enumerate(order_idx, start=1):
+            rows.append({"trip_id": trip_id, "poi_id": pool.poi_ids[i], "mmr_rank": rank})
     return pd.DataFrame(rows)
 
 
@@ -169,9 +202,16 @@ def lambda_sweep_report(
     outside-the-filter convention).
     """
     rows: list[LambdaSweepRow] = []
+    pools = build_mmr_pools(frame, cfg)  # lambda-independent; built once for the whole sweep
     for lam in lambdas:
-        reranked = mmr_rerank_all_trips(frame, cfg, lam, k)
-        rank_by_trip_poi = reranked.set_index(["trip_id", "poi_id"])["mmr_rank"]
+        reranked = mmr_rerank_all_trips(frame, cfg, lam, k, pools)
+        rank_by_trip_poi = dict(
+            zip(
+                zip(reranked["trip_id"], reranked["poi_id"], strict=True),
+                reranked["mmr_rank"],
+                strict=True,
+            )
+        )
 
         ndcg_vals: list[float] = []
         div_vals: list[float] = []

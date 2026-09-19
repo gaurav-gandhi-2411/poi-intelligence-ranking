@@ -126,10 +126,13 @@ def generate_candidates(
     dest_indices = build_destination_indices(
         pois_df, poi_features_df, cfg.traveler_segment_clusters
     )
-    cf = build_item_item_cf(pois_df, interactions_train)
+    # Disabled channels (quota 0) cost nothing: no CF matrix, no K-Means, no per-trip seeds.
+    use_cf = cfg.collaborative.quota > 0
+    use_archetype = cfg.archetype.quota > 0
+    cf = build_item_item_cf(pois_df, interactions_train) if use_cf else None
     segments = (
         segments_override
-        if segments_override is not None
+        if segments_override is not None or not use_archetype
         else assign_traveler_segments(
             travelers_df, n_clusters=cfg.traveler_segment_clusters, seed=cfg.seed
         )
@@ -154,12 +157,16 @@ def generate_candidates(
         sims = compute_semantic_similarity(taste_vec, idx.embeddings)
         is_cold_start = float(np.linalg.norm(taste_vec)) == 0.0
 
-        seed_poi_ids = cf_seed_poi_ids(
-            interactions_by_traveler, traveler_id, trip_id, row.start_date, remapped
+        seed_poi_ids = (
+            []
+            if not use_cf
+            else cf_seed_poi_ids(
+                interactions_by_traveler, traveler_id, trip_id, row.start_date, remapped
+            )
         )
 
         interests = set(row.interests)
-        seg_val = segments.get(traveler_id)
+        seg_val = segments.get(traveler_id) if segments is not None else None
         segment = int(seg_val) if seg_val is not None else 0
         rng = np.random.default_rng(trip_seed(cfg.seed, trip_id))
 
@@ -173,6 +180,7 @@ def generate_candidates(
         if cfg.semantic.quota > 0:
             selections["channel_semantic"] = channel_semantic(idx, sims, cfg.semantic.quota)
         if cfg.collaborative.quota > 0:
+            assert cf is not None
             selections["channel_cf"] = channel_cf(idx, cf, seed_poi_ids, cfg.collaborative)
         if cfg.longtail.quota > 0:
             selections["channel_longtail"] = channel_longtail(
@@ -197,7 +205,10 @@ def generate_candidates(
 
 
 def run_candidates(
-    cfg: CandidatesConfig, data_dir: Path, budget_target_price_level: BudgetTargetPriceLevel
+    cfg: CandidatesConfig,
+    data_dir: Path,
+    budget_target_price_level: BudgetTargetPriceLevel,
+    artifacts_dir: Path,
 ) -> dict[str, Any]:
     """Load Phase 2/3 parquet outputs, run `generate_candidates`, write
     `data/synthetic/candidates.parquet`, and return a CLI/test summary dict."""
@@ -219,7 +230,10 @@ def run_candidates(
             interactions_train,
             budget_target_price_level,
         )
-        scores = crossfit_retriever_scores(inputs, cfg.learned, cfg.seed, cfg.learned.num_threads)
+        scores, full_retriever = crossfit_retriever_scores(
+            inputs, cfg.learned, cfg.seed, cfg.learned.num_threads
+        )
+        full_retriever.save(artifacts_dir)
         learned_top_k = top_k_by_trip(scores, cfg.learned.quota)
 
     candidates_df = generate_candidates(

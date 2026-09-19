@@ -14,7 +14,7 @@ import math
 import numpy as np
 import numpy.typing as npt
 
-from poi_rank.datagen.sampling import pl_sample_without_replacement
+from poi_rank.datagen.sampling import choice_index, pl_sample_without_replacement
 
 INTERACTION_LABELS: dict[str, int] = {
     "booking": 3,
@@ -55,7 +55,7 @@ def sample_interaction_type(rng: np.random.Generator, rank: int, rank_decay: flo
         [strength * STRONG_DIST[t] + (1 - strength) * WEAK_DIST[t] for t in _ENGAGEMENT_TYPES]
     )
     probs = probs / probs.sum()
-    return str(rng.choice(_ENGAGEMENT_TYPES, p=probs))
+    return _ENGAGEMENT_TYPES[choice_index(rng, probs)]
 
 
 def simulate_slate_choices(

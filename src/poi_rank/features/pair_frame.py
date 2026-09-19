@@ -15,7 +15,6 @@ from poi_rank.features.config import BudgetTargetPriceLevel
 from poi_rank.features.reconcile import build_poi_id_canonical_map, remap_interaction_poi_ids
 from poi_rank.features.traveler_features import (
     cosine_similarity_taste_poi,
-    interest_match_score,
     localness_preference_gap,
     price_gap,
 )
@@ -40,13 +39,63 @@ def label_by_trip_poi(interactions: pd.DataFrame, canonical_map: dict[str, str])
     return remapped.groupby(["trip_id", "poi_id"])["label"].max()
 
 
+CATEGORY_DIST_PREFIX = "implicit_category_dist_"
+
+
+def category_affinity(frame: pd.DataFrame) -> FloatArray:
+    """Share of the traveler's engaged history that fell in THIS POI's category
+    (`implicit_category_dist_<category>` of the row's own POI category). The tree model can in
+    principle learn that lookup from the 12 raw distribution columns x the categorical column,
+    but only through deep 2-way interactions; exposing it as one column raised train-carved
+    validation NDCG@10 on both seeds tried (`results/parts/a3_pairfeat.json`)."""
+    out = np.zeros(len(frame), dtype=np.float64)
+    categories = frame["poi_category_raw"].astype(str).to_numpy()
+    for col in frame.columns:
+        if col.startswith(CATEGORY_DIST_PREFIX):
+            mask = categories == col.removeprefix(CATEGORY_DIST_PREFIX)
+            out[mask] = frame.loc[mask, col].to_numpy(dtype=np.float64)
+    return out
+
+
+def interest_match_vectorized(frame: pd.DataFrame) -> FloatArray:
+    """`interest_match_score` (coverage of a traveler's stated interests by the POI's
+    `{category} u {tags}`) for every row, computed on the UNIQUE trips x UNIQUE POIs as one
+    multi-hot matrix product and gathered back -- identical values to calling
+    `interest_match_score` row by row (guarded by `tests/test_pair_frame.py`), without
+    1.2M Python-level set intersections. The integer intersection count divided by the
+    interest-set size is exactly the row-wise ratio, so the float results are bit-equal."""
+    trips = frame[["trip_id", "interests"]].drop_duplicates("trip_id")
+    pois = frame[["poi_id", "poi_category_raw", "poi_tags_raw"]].drop_duplicates("poi_id")
+    trip_sets = [set(x) for x in trips["interests"]]
+    poi_sets = [
+        set(tags) | {str(cat)}
+        for cat, tags in zip(pois["poi_category_raw"], pois["poi_tags_raw"], strict=True)
+    ]
+    vocab = {t: i for i, t in enumerate(sorted(set().union(*trip_sets, *poi_sets)))}
+
+    def multi_hot(sets: list[set[str]]) -> npt.NDArray[np.float32]:
+        m = np.zeros((len(sets), len(vocab)), dtype=np.float32)
+        for row, terms in enumerate(sets):
+            for t in terms:
+                m[row, vocab[t]] = 1.0
+        return m
+
+    counts = (multi_hot(trip_sets) @ multi_hot(poi_sets).T).astype(np.float64)
+    sizes = np.array([len(s) for s in trip_sets], dtype=np.float64)
+    table = np.divide(counts, sizes[:, None], out=np.zeros_like(counts), where=sizes[:, None] > 0)
+    t_idx = pd.Index(trips["trip_id"]).get_indexer(frame["trip_id"])
+    p_idx = pd.Index(pois["poi_id"]).get_indexer(frame["poi_id"])
+    result: FloatArray = table[t_idx, p_idx]
+    return result
+
+
 def add_interaction_features(
     frame: pd.DataFrame, budget_target_price_level: BudgetTargetPriceLevel
 ) -> pd.DataFrame:
     """Add the 4 traveler x POI interaction features spec.md section 6 names
     explicitly, each reused directly from `features.traveler_features` (never
     reimplemented): `interact_cos_taste_poi`, `interact_localness_gap`,
-    `interact_interest_match`, `interact_price_gap`.
+    `interact_interest_match`, `interact_price_gap`, plus (A3) `interact_category_affinity`.
 
     **`interact_localness_gap` reading**: spec.md's literal formula is
     `|implicit_localness - touristiness_pref|`. Read here as the CANDIDATE POI's own
@@ -72,11 +121,8 @@ def add_interaction_features(
         out["explicit_touristiness_pref"].to_numpy(dtype=np.float64),
     )
 
-    out["interact_interest_match"] = interest_match_score(
-        [set(x) for x in out["interests"]],
-        out["poi_category_raw"].astype(str).tolist(),
-        [list(x) for x in out["poi_tags_raw"]],
-    )
+    out["interact_interest_match"] = interest_match_vectorized(out)
+    out["interact_category_affinity"] = category_affinity(out)
 
     out["interact_price_gap"] = price_gap(
         out["budget"].astype(str).tolist(),

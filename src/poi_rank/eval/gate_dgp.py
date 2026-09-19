@@ -107,7 +107,10 @@ def run_gate_dgp(
     Returns `{"payload": <gate result dict>, "output_path": <Path>,
     "diagnostics_payload": <the full underlying D1-D10 payload>}`.
     """
-    diagnostics_result = run_dgp_diagnostics(data_dir, results_dir, datagen_cfg, feature_cfg)
+    # Lean: only the quantities the gate reads (no MiniLM / candidate-level oracle / bias-gap).
+    diagnostics_result = run_dgp_diagnostics(
+        data_dir, results_dir, datagen_cfg, feature_cfg, lean=True
+    )
     diagnostics_payload = diagnostics_result["payload"]
     measured = _extract_measured_values(diagnostics_payload)
 

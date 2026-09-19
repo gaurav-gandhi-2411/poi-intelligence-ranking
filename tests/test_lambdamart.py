@@ -352,3 +352,28 @@ def test_save_and_load_boosters_roundtrip_scores_match(
         artifacts.categorical_columns,
     )
     np.testing.assert_allclose(score_before.to_numpy(), score_after.to_numpy(), rtol=1e-10)
+
+
+def test_lightgbm_fit_identical_at_1_and_8_threads(
+    real_train_frame: pd.DataFrame, fast_lambdamart_cfg: LambdaMartConfig
+) -> None:
+    """A4: production training runs at 16 threads (`configs/model.yaml`), so the trees must not
+    depend on the thread count. `deterministic=True` + `force_row_wise=True` guarantee that;
+    this is the byte-identity check at n_jobs=1 vs 8 (only the recorded `num_threads` in the
+    model footer may differ)."""
+    import dataclasses
+
+    from poi_rank.models.baselines import categorical_feature_columns, numeric_feature_columns
+    from poi_rank.models.lambdamart import fit_lambdamart_booster, train_val_split_by_trip
+
+    numeric = numeric_feature_columns(real_train_frame)
+    categorical = categorical_feature_columns(real_train_frame)
+    fit, val = train_val_split_by_trip(
+        real_train_frame, fast_lambdamart_cfg.val_fraction, fast_lambdamart_cfg.val_split_seed
+    )
+    trees = []
+    for threads in (1, 8):
+        cfg = dataclasses.replace(fast_lambdamart_cfg, num_threads=threads)
+        booster = fit_lambdamart_booster(fit, val, numeric, categorical, cfg, seed=42)
+        trees.append(booster.model_to_string().split("parameters:")[0])
+    assert trees[0] == trees[1]

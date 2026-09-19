@@ -392,13 +392,7 @@ def run_scoring_pipeline(
 
     # Confidence: ensemble std (5 seeds), trained/scored against this SAME
     # numeric/categorical column layout.
-    ensemble_boosters = conf.train_ensemble_boosters(
-        train_frame,
-        pd.read_parquet(data_dir / "interactions_train.parquet"),
-        pois_df,
-        model_cfg.lambdamart,
-        scoring_cfg.confidence.ensemble_seeds,
-    )
+    ensemble_boosters = conf.load_ensemble(scoring_cfg.confidence.ensemble_seeds, artifacts_dir)
     ensemble_std = conf.ensemble_std_scores(
         ensemble_boosters, holdout_frame, numeric_columns, categorical_columns
     )

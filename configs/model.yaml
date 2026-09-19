@@ -31,7 +31,13 @@ baselines:
     # a raised max_iter (the ~280-column one-hot-expanded design matrix needs more
     # than sklearn's default 100 lbfgs iterations to converge cleanly).
     max_iter: 2000
-    C: 1.0
+    C: 1.0 # fallback only; the CV grid below is what is used
+    # S2: L2 strength chosen by trip-grouped 3-fold CV log-loss on a 20% trip subsample
+    # (models/baselines.py::select_l2_strength). The original unregularised C=1.0 fit 308
+    # standardised columns on ~1.5k trips -- a possible straw-man baseline.
+    c_grid: [0.001, 0.01, 0.1, 1.0]
+    cv_folds: 3
+    cv_trip_fraction: 0.2
 
 lambdamart:
   # Systems 7/8 (spec.md section 8): LightGBM `objective="lambdarank"`, grouped by
@@ -40,7 +46,11 @@ lambdamart:
   # to inflate NDCG past what candidate_recall@250's ~0.44 ceiling supports is
   # explicitly out of scope).
   num_leaves: 31
-  learning_rate: 0.05
+  # A4 (scripts/a4_lgbm_bench.py, train-carved validation NDCG@10, two seeds): lr 0.1 + max_bin 63
+  # fit in 10.6-16.1 s vs 17.6-22.2 s for lr 0.05 + max_bin 255 at equal-or-better val NDCG@10
+  # (0.5727/0.5828 vs 0.5713/0.5811). lr 0.15 was faster still but lost ~0.004 NDCG.
+  learning_rate: 0.1
+  max_bin: 63
   # Upper bound on boosting rounds -- early stopping on the train-carved validation
   # split (below) almost always halts well before this.
   n_estimators: 1000
@@ -58,7 +68,7 @@ lambdamart:
   # CPU determinism (LightGBM docs: `deterministic: true` requires single-threaded
   # or `force_row_wise`/`force_col_wise` -- hardcoded alongside `deterministic` in
   # lambdamart.py, not duplicated here). See docs/DATA_CARD.md.
-  num_threads: 1
+  num_threads: 16 # deterministic=True makes the fit thread-count invariant (tests/test_lambdamart.py)
   # Validation split carved from TRAIN ONLY (never the holdout being reported on --
   # that would be leakage into the reported metric), by trip_id, for early stopping.
   val_fraction: 0.15

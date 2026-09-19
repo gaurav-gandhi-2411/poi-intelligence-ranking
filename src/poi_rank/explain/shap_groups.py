@@ -127,6 +127,8 @@ _EXACT_GROUP: dict[str, str] = {
     # traveler's stated touristiness preference these are measured against.
     "num_localness": LOCALNESS_FIT,
     "interact_localness_gap": LOCALNESS_FIT,
+    # Share of the traveler's engaged history in THIS POI's category (history-derived taste).
+    "interact_category_affinity": IMPLICIT_TASTE,
     "geo_dist_to_tourist_centroid_km": LOCALNESS_FIT,
     "explicit_touristiness_pref": LOCALNESS_FIT,
     # popularity: raw visitation/exposure volume -- distinct from implicit_taste's
@@ -235,7 +237,7 @@ def compute_grouped_shap(
     numeric block cast to float64, categorical block passed through as pandas
     `category` dtype), aggregated into the ~10 semantic groups (module docstring)."""
     feature_columns = [*numeric_columns, *categorical_columns]
-    numeric = frame[numeric_columns].astype(np.float64)
+    numeric = frame[numeric_columns].astype(np.float32)  # same dtype as lambdamart._feature_matrix
     categorical = frame[categorical_columns]
     x = pd.concat([numeric, categorical], axis=1)
 

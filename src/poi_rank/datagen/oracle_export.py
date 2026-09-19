@@ -19,6 +19,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
+from poi_rank.datagen.archetypes import ARCHETYPE_NAMES
 from poi_rank.datagen.utility import TermStandardization
 
 ORACLE_SUBDIR_NAME = "_oracle"
@@ -40,6 +41,25 @@ def write_traveler_taste(
         }
     )
     path = output_dir / "traveler_taste.parquet"
+    df.to_parquet(path, index=False)
+    return path
+
+
+def write_traveler_archetype(
+    output_dir: Path, mixtures: dict[str, npt.NDArray[np.float64]]
+) -> Path:
+    """Write each traveler's TRUE archetype mixture (Dirichlet weights over the 8 archetypes) and
+    its dominant archetype name. Eval-only: `eval/personalization.py` groups travelers by this,
+    instead of a K-Means clustering of the very features being evaluated."""
+    names = list(ARCHETYPE_NAMES)
+    df = pd.DataFrame(
+        {
+            "traveler_id": list(mixtures.keys()),
+            "archetype_mixture": [np.asarray(m).tolist() for m in mixtures.values()],
+            "dominant_archetype": [names[int(np.argmax(m))] for m in mixtures.values()],
+        }
+    )
+    path = output_dir / "traveler_archetype.parquet"
     df.to_parquet(path, index=False)
     return path
 

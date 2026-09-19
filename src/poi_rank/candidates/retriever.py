@@ -23,7 +23,9 @@ seed, output re-sorted; thread count changes scheduling only (asserted byte-iden
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import lightgbm as lgb
@@ -45,6 +47,9 @@ _NON_FEATURES = frozenset({"label", "trip_id", "poi_id", "traveler_id"})
 # Trips per scoring chunk: bounds peak memory of the full-catalog pair frame (~480 rows/trip).
 _SCORE_CHUNK_TRIPS = 250
 
+RETRIEVER_MODEL_FILENAME = "retriever.txt"
+RETRIEVER_COLUMNS_FILENAME = "retriever_columns.json"
+
 
 @dataclass(frozen=True)
 class Retriever:
@@ -58,6 +63,18 @@ class Retriever:
         pred = self.booster.predict(x, num_threads=num_threads)
         return np.asarray(pred, dtype=np.float32)
 
+    def save(self, artifacts_dir: Path) -> None:
+        self.booster.save_model(str(artifacts_dir / RETRIEVER_MODEL_FILENAME))
+        (artifacts_dir / RETRIEVER_COLUMNS_FILENAME).write_text(
+            json.dumps(self.feature_columns), encoding="utf-8"
+        )
+
+    @classmethod
+    def load(cls, artifacts_dir: Path) -> Retriever:
+        booster = lgb.Booster(model_file=str(artifacts_dir / RETRIEVER_MODEL_FILENAME))
+        cols = json.loads((artifacts_dir / RETRIEVER_COLUMNS_FILENAME).read_text(encoding="utf-8"))
+        return cls(booster=booster, feature_columns=cols)
+
 
 def retriever_feature_columns(frame: pd.DataFrame) -> list[str]:
     return sorted(
@@ -67,14 +84,6 @@ def retriever_feature_columns(frame: pd.DataFrame) -> list[str]:
         and not c.startswith(_DROP_PREFIXES)
         and (pd.api.types.is_numeric_dtype(frame[c]) or pd.api.types.is_bool_dtype(frame[c]))
     )
-
-
-def _ips_weights(p_expose: npt.NDArray[np.float64], clip_min: float) -> npt.NDArray[np.float64]:
-    """Clipped inverse-propensity weights normalised to mean 1 (same clipping idea as the
-    ranker's IPS; the clip bounds variance from rarely-exposed, i.e. unpopular, POIs)."""
-    w = 1.0 / np.clip(p_expose, clip_min, 1.0)
-    out: npt.NDArray[np.float64] = w / w.mean()
-    return out
 
 
 def impression_table(
@@ -112,25 +121,59 @@ def _pair_frame(inp: RetrieverInputs, pairs: pd.DataFrame, trip_ids: set[str]) -
     )
 
 
-def fit_retriever(
+@dataclass(frozen=True)
+class FitTable:
+    """Impression-level training table, built ONCE for all train trips; each cross-fit fold
+    is a row mask over it (building the pair frame is the expensive part, not the fit)."""
+
+    x: npt.NDArray[np.float32]
+    trip_codes: npt.NDArray[np.int64]  # integer code per row (fast fold masks)
+    trip_code_of: dict[str, int]
+    label: npt.NDArray[np.int64]
+    inv_propensity: npt.NDArray[np.float64]
+    columns: list[str]
+
+
+def build_fit_table(
     inp: RetrieverInputs,
     impressions: pd.DataFrame,
+    train_trip_ids: set[str],
+    cfg: LearnedChannelConfig,
+) -> FitTable:
+    imp = impressions.loc[impressions["trip_id"].isin(train_trip_ids)]
+    # Labels/propensities come from the impression log itself (the pair frame is built with
+    # an emptied interactions frame), attached by (trip, poi) key.
+    frame = _pair_frame(inp, imp, train_trip_ids)
+    keyed = imp.set_index(["trip_id", "poi_id"])
+    idx = pd.MultiIndex.from_frame(frame[["trip_id", "poi_id"]])
+    label = keyed["label"].reindex(idx).to_numpy(dtype=np.int64)
+    p_expose = keyed["p_expose"].reindex(idx).to_numpy(dtype=np.float64)
+    cols = retriever_feature_columns(frame)
+    codes, uniques = pd.factorize(frame["trip_id"], sort=True)
+    return FitTable(
+        x=frame[cols].to_numpy(dtype=np.float32),
+        trip_codes=codes.astype(np.int64),
+        trip_code_of={str(t): i for i, t in enumerate(uniques)},
+        label=label,
+        inv_propensity=1.0 / np.clip(p_expose, cfg.ips_clip_min, 1.0),
+        columns=cols,
+    )
+
+
+def fit_retriever(
+    table: FitTable,
     fit_trip_ids: set[str],
     cfg: LearnedChannelConfig,
     seed: int,
     num_threads: int,
 ) -> Retriever:
-    imp = impressions.loc[impressions["trip_id"].isin(fit_trip_ids)]
-    # Impression labels come from the log itself, not from a join on an emptied interactions
-    # frame, so build the frame on pairs and attach labels/weights by key.
-    frame = _pair_frame(inp, imp, fit_trip_ids)
-    keyed = imp.set_index(["trip_id", "poi_id"])
-    idx = pd.MultiIndex.from_frame(frame[["trip_id", "poi_id"]])
-    label = keyed["label"].reindex(idx).to_numpy()
-    weights = _ips_weights(
-        keyed["p_expose"].reindex(idx).to_numpy(dtype=np.float64), cfg.ips_clip_min
+    # A train trip with no logged impression has no rows in the table (nothing to fit on).
+    fit_codes = np.array(
+        [table.trip_code_of[t] for t in fit_trip_ids if t in table.trip_code_of], dtype=np.int64
     )
-    cols = retriever_feature_columns(frame)
+    mask = np.isin(table.trip_codes, fit_codes)
+    weights = table.inv_propensity[mask]
+    weights = weights / weights.mean()  # mean-1 IPS weights over THIS fit's rows
     params: dict[str, Any] = {
         "objective": "binary",
         "learning_rate": cfg.learning_rate,
@@ -144,11 +187,9 @@ def fit_retriever(
         "num_threads": num_threads,
         "verbose": -1,
     }
-    dtrain = lgb.Dataset(
-        frame[cols].astype(np.float32), label=(label >= 1).astype(int), weight=weights
-    )
+    dtrain = lgb.Dataset(table.x[mask], label=(table.label[mask] >= 1).astype(int), weight=weights)
     booster = lgb.train(params, dtrain, num_boost_round=cfg.n_estimators)
-    return Retriever(booster=booster, feature_columns=cols)
+    return Retriever(booster=booster, feature_columns=table.columns)
 
 
 def score_full_catalog(
@@ -172,25 +213,35 @@ def score_full_catalog(
 
 def crossfit_retriever_scores(
     inp: RetrieverInputs, cfg: LearnedChannelConfig, seed: int, num_threads: int
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, Retriever]:
     """Scores for EVERY trip: train trips cross-fitted K-fold by trip, holdout trips from the
-    full-train model (module docstring)."""
+    full-train model (module docstring). Also returns that full-train model (persisted by the
+    caller, used to score unseen trips e.g. the scenario profiles).
+
+    `num_threads` is the LightGBM thread budget; the sorted output is identical at any count."""
     canonical_map = build_poi_id_canonical_map(inp.pois_df)
     impressions = impression_table(inp.interactions_train, canonical_map)
     is_holdout = inp.trips_df.set_index("trip_id")["is_holdout"]
     train_ids = np.array(sorted(is_holdout.index[~is_holdout]))
     holdout_ids = sorted(is_holdout.index[is_holdout])
+    table = build_fit_table(inp, impressions, {str(t) for t in train_ids}, cfg)
 
     rng = np.random.default_rng(seed)
-    folds = np.array_split(rng.permutation(train_ids), cfg.n_folds)
+    folds = [
+        sorted(str(t) for t in f) for f in np.array_split(rng.permutation(train_ids), cfg.n_folds)
+    ]
+    # Measured (A4): 6 concurrent fits at 2 threads each took 41 s wall vs ~18 s for the same
+    # fits back to back at 12 threads (LightGBM already scales across the full thread budget,
+    # and the pandas side contends for the GIL), so the jobs run sequentially.
     parts: list[pd.DataFrame] = []
-    for k, fold in enumerate(folds):
+    for k in range(cfg.n_folds):
         fit_ids = {t for j, f in enumerate(folds) if j != k for t in f}
-        model = fit_retriever(inp, impressions, fit_ids, cfg, seed + k, num_threads)
-        parts.append(score_full_catalog(inp, model, [str(t) for t in fold], num_threads))
-    full = fit_retriever(inp, impressions, {str(t) for t in train_ids}, cfg, seed, num_threads)
+        model = fit_retriever(table, fit_ids, cfg, seed + k, num_threads)
+        parts.append(score_full_catalog(inp, model, folds[k], num_threads))
+    full = fit_retriever(table, {str(t) for t in train_ids}, cfg, seed, num_threads)
     parts.append(score_full_catalog(inp, full, [str(t) for t in holdout_ids], num_threads))
-    return pd.concat(parts, ignore_index=True).sort_values(["trip_id", "poi_id"], ignore_index=True)
+    scores = pd.concat(parts, ignore_index=True)
+    return scores.sort_values(["trip_id", "poi_id"], ignore_index=True), full
 
 
 def top_k_by_trip(scores: pd.DataFrame, quota: int) -> dict[str, list[str]]:

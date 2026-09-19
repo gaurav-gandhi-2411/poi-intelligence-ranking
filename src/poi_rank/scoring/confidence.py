@@ -32,13 +32,16 @@ std measures genuine training-stochasticity disagreement.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import lightgbm as lgb
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
+from poi_rank.features.config import FeatureBuildConfig
 from poi_rank.models.baselines import categorical_feature_columns, numeric_feature_columns
-from poi_rank.models.config import LambdaMartConfig
+from poi_rank.models.config import LambdaMartConfig, ModelConfig
 from poi_rank.models.lambdamart import (
     apply_behavioral_dropout,
     attach_train_ips_weight,
@@ -46,7 +49,8 @@ from poi_rank.models.lambdamart import (
     score_booster,
     train_val_split_by_trip,
 )
-from poi_rank.scoring.config import ConfidenceConfig
+from poi_rank.models.ranking_data import load_train_ranking_frame
+from poi_rank.scoring.config import ConfidenceConfig, ScoringConfig
 
 FloatArray = npt.NDArray[np.float64]
 
@@ -88,6 +92,55 @@ def train_ensemble_boosters(
         )
         for seed in seeds
     ]
+
+
+def run_train_ensemble(
+    data_dir: Path,
+    artifacts_dir: Path,
+    model_cfg: ModelConfig,
+    feature_cfg: FeatureBuildConfig,
+    scoring_cfg: ScoringConfig,
+) -> list[Path]:
+    """Fit + persist the confidence ensemble (`poi_rank.cli train`'s second half)."""
+    train_frame = load_train_ranking_frame(
+        data_dir, feature_cfg.traveler_features.budget_target_price_level
+    )
+    boosters = train_ensemble_boosters(
+        train_frame,
+        pd.read_parquet(data_dir / "interactions_train.parquet"),
+        pd.read_parquet(data_dir / "pois_prepared.parquet"),
+        model_cfg.lambdamart,
+        scoring_cfg.confidence.ensemble_seeds,
+    )
+    return save_ensemble(boosters, scoring_cfg.confidence.ensemble_seeds, artifacts_dir)
+
+
+ENSEMBLE_FILENAME_TEMPLATE = "ensemble_seed{seed}.txt"
+
+
+def save_ensemble(
+    boosters: list[lgb.Booster], seeds: tuple[int, ...], artifacts_dir: Path
+) -> list[Path]:
+    """Persist the ensemble at `poi_rank.cli train` time. Training 5 extra LightGBM boosters
+    inside every `evaluate` / `recommend` / `scenarios` run (the original design) was ~80 s of
+    pure repeated work per invocation -- the ensemble depends only on the train frame and the
+    seeds, never on what is being scored."""
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    paths = [artifacts_dir / ENSEMBLE_FILENAME_TEMPLATE.format(seed=s) for s in seeds]
+    for booster, path in zip(boosters, paths, strict=True):
+        booster.save_model(str(path))
+    return paths
+
+
+def load_ensemble(seeds: tuple[int, ...], artifacts_dir: Path) -> list[lgb.Booster]:
+    paths = [artifacts_dir / ENSEMBLE_FILENAME_TEMPLATE.format(seed=s) for s in seeds]
+    missing = [p.name for p in paths if not p.exists()]
+    if missing:
+        raise FileNotFoundError(
+            f"confidence-ensemble boosters missing from {artifacts_dir}: {missing}. "
+            "Run `poi_rank.cli train` first (it fits and saves them)."
+        )
+    return [lgb.Booster(model_file=str(p)) for p in paths]
 
 
 def ensemble_std_scores(

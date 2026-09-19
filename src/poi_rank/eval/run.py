@@ -48,7 +48,6 @@ produce a byte-identical `results/metrics.json` (`tests/test_determinism.py`).
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -56,7 +55,10 @@ import numpy as np
 import pandas as pd
 
 from poi_rank.candidates.config import CandidatesConfig, GeoChannelConfig
-from poi_rank.candidates.recall_metrics import overall_and_longtail_recall
+from poi_rank.candidates.recall_metrics import (
+    overall_and_longtail_recall,
+    recall_with_chance_lift,
+)
 from poi_rank.datagen.config import DatagenConfig
 from poi_rank.datagen.oracle_export import oracle_dir_from_output
 from poi_rank.eval import ablations as abl
@@ -67,6 +69,7 @@ from poi_rank.eval import longtail as lt
 from poi_rank.eval import new_poi_cohort
 from poi_rank.eval import oracle as oracle_reader
 from poi_rank.eval import personalization as pers
+from poi_rank.eval.compose import EVALUATE_PART, write_part
 from poi_rank.eval.config import EvalConfig
 from poi_rank.eval.metrics import (
     SystemMetrics,
@@ -88,8 +91,6 @@ from poi_rank.models.ranking_data import (
 )
 from poi_rank.scoring.config import ScoringConfig
 from poi_rank.scoring.output import run_scoring_pipeline
-
-METRICS_FILENAME = "metrics.json"
 
 BASELINE_SYSTEM_NAMES: tuple[str, ...] = (
     "random",
@@ -214,7 +215,7 @@ def _candidate_recall_payload(
     recall = overall_and_longtail_recall(
         pois_df, candidates_df, holdout_random, long_tail_pop_pct_cutoff
     )
-    return {
+    payload: dict[str, Any] = {
         name: {
             "recall_mean": r.recall_mean,
             "n_trips_evaluated": r.n_trips_evaluated,
@@ -222,6 +223,11 @@ def _candidate_recall_payload(
         }
         for name, r in recall.items()
     }
+    # Per popularity stratum, each with its OWN chance baseline (share of that stratum's
+    # destination POIs a random set of the same candidates would contain) and the absolute lift
+    # over it -- raw recall alone hid a near-chance failure for four phases.
+    payload["by_stratum"] = recall_with_chance_lift(pois_df, candidates_df, holdout_random)
+    return payload
 
 
 def _bias_gap_payload(
@@ -262,15 +268,25 @@ def _personalization_payload(
     trips_df: pd.DataFrame,
     travelers_df: pd.DataFrame,
     feature_cfg: FeatureBuildConfig,
+    oracle_dir: Path,
+    oracle_lists_by_trip: dict[str, list[str]],
 ) -> dict[str, Any]:
-    """spec.md section 11.2: mean pairwise Jaccard@10, within- vs cross-archetype-
-    proxy Jaccard@10, mean pairwise RBO(p=0.9). Archetype proxy = the SAME
-    observable K-Means traveler-segment K-Means already established in Phase 3
-    (`features.traveler_features.assign_traveler_segments`), never the oracle-only
-    latent archetype mixture (`eval/personalization.py`'s own module docstring)."""
+    """spec.md section 11.2 (+ spec-v2 RC4): mean pairwise Jaccard@10 / RBO(p=0.9) over
+    SAME-DESTINATION trip pairs, and within- vs cross-archetype Jaccard@10 using the DGP's TRUE
+    archetype labels (`eval/oracle.py`, eval-only). The observable K-Means traveler-segment
+    version is reported alongside as `archetype_kmeans_proxy` -- a proxy over the same features
+    being evaluated, kept only to show why it was misleading.
+
+    `*_all_pairs` values pool cross-destination pairs, which are 0 by construction (a POI
+    belongs to one destination); they are reported once for continuity with the pre-fix
+    number, not as the metric."""
     lists_by_trip = pers.top10_lists_from_payload(scoring_result["payload"])
-    mean_jaccard, n_pairs = pers.mean_pairwise_jaccard(lists_by_trip)
-    mean_rbo, n_pairs_rbo = pers.mean_pairwise_rbo(lists_by_trip)
+    trip_dest = {
+        str(t): str(d) for t, d in zip(trips_df["trip_id"], trips_df["destination"], strict=True)
+    }
+    mean_jaccard, n_pairs = pers.mean_pairwise_jaccard(lists_by_trip, trip_dest)
+    mean_rbo, n_pairs_rbo = pers.mean_pairwise_rbo(lists_by_trip, trip_destination=trip_dest)
+    mean_jaccard_all, n_pairs_all = pers.mean_pairwise_jaccard(lists_by_trip)
 
     segments = assign_traveler_segments(
         travelers_df,
@@ -283,15 +299,49 @@ def _personalization_payload(
         for trip_id in lists_by_trip
         if trip_id in trip_traveler and trip_traveler[trip_id] in segments.index
     }
-    archetype_result = pers.within_cross_archetype_jaccard(lists_by_trip, trip_segment)
+    proxy_result = pers.within_cross_archetype_jaccard(lists_by_trip, trip_segment, trip_dest)
+
+    arch = oracle_reader.load_traveler_archetype(oracle_dir).set_index("traveler_id")
+    trip_dominant = {
+        t: str(arch.loc[trip_traveler[t], "dominant_archetype"])
+        for t in lists_by_trip
+        if trip_traveler.get(t) in arch.index
+    }
+    trip_mixture = {t: arch.loc[trip_traveler[t], "archetype_mixture"] for t in trip_dominant}
+    true_result = pers.within_cross_true_archetype_jaccard(
+        lists_by_trip, trip_dominant, trip_mixture, trip_dest
+    )
+
+    # Reference: the SAME statistic for lists ranked by the DGP's true utility. It is the most
+    # archetype-clustered a perfect ranker could be, so it bounds what the ratio target can
+    # demand -- a diagnostic, never a system.
+    oracle_trip_dominant = {t: d for t, d in trip_dominant.items() if t in oracle_lists_by_trip}
+    oracle_result = pers.within_cross_true_archetype_jaccard(
+        oracle_lists_by_trip,
+        oracle_trip_dominant,
+        {t: trip_mixture[t] for t in oracle_trip_dominant},
+        trip_dest,
+    )
 
     return {
         "mean_pairwise_jaccard_at_10": mean_jaccard,
         "n_pairs": n_pairs,
         "mean_pairwise_rbo": mean_rbo,
         "n_pairs_rbo": n_pairs_rbo,
-        "archetype": archetype_result.to_dict(),
+        "mean_pairwise_jaccard_at_10_all_pairs": mean_jaccard_all,
+        "n_pairs_all_pairs": n_pairs_all,
+        "archetype": true_result.to_dict(),
+        "archetype_kmeans_proxy": proxy_result.to_dict(),
+        "archetype_ideal_ranker_reference": oracle_result.to_dict(),
     }
+
+
+def _top_k_lists(frame: pd.DataFrame, score: pd.Series, k: int = 10) -> dict[str, list[str]]:
+    """Top-`k` `poi_id` list per trip by `score` (ties -> poi_id ascending)."""
+    ranked = frame[["trip_id", "poi_id"]].assign(score=score.to_numpy())
+    ranked = ranked.sort_values(["trip_id", "score", "poi_id"], ascending=[True, False, True])
+    top = ranked.groupby("trip_id", sort=True).head(k)
+    return {str(t): g["poi_id"].tolist() for t, g in top.groupby("trip_id", sort=True)}
 
 
 def _popularity_top10_lists(
@@ -734,7 +784,12 @@ def run_evaluate(
 
     lists_by_trip = pers.top10_lists_from_payload(scoring_result["payload"])
     personalization_payload = _personalization_payload(
-        scoring_result, trips_df, travelers_df, feature_cfg
+        scoring_result,
+        trips_df,
+        travelers_df,
+        feature_cfg,
+        oracle_dir,
+        _top_k_lists(holdout_frame, oracle_score),
     )
     popularity_lists_by_trip = _popularity_top10_lists(
         holdout_frame, baseline_scores["popularity"].score
@@ -791,8 +846,8 @@ def run_evaluate(
         candidate_recall_payload,
     )
 
-    results_dir.mkdir(parents=True, exist_ok=True)
-    output_path = results_dir / METRICS_FILENAME
-    output_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    # This stage owns `results/parts/evaluate.json` only; `compose` is the sole writer of
+    # `results/metrics.json` (eval/compose.py).
+    output_path = write_part(results_dir, EVALUATE_PART, payload)
 
     return {"output_path": output_path, "payload": payload}

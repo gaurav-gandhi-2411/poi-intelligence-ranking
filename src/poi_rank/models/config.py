@@ -33,7 +33,11 @@ class LogisticRegressionConfig:
     """Baseline 6 (pointwise logistic regression, full feature set) sklearn knobs."""
 
     max_iter: int
-    C: float
+    C: float  # used as-is when `c_grid` is empty
+    # S2: non-empty => choose the L2 strength by trip-grouped CV on a trip subsample (below).
+    c_grid: tuple[float, ...] = ()
+    cv_folds: int = 3
+    cv_trip_fraction: float = 0.3
 
 
 @dataclass(frozen=True)
@@ -71,6 +75,9 @@ class LambdaMartConfig:
     ips_clip_high: float
     behavioral_dropout_rate: float
     behavioral_dropout_seed: int
+    # LightGBM histogram resolution (255 = library default; kept as the default so hand-built
+    # configs, e.g. the fast test config, are unchanged).
+    max_bin: int = 255
 
 
 @dataclass(frozen=True)
@@ -92,7 +99,12 @@ class ModelConfig:
             baselines=BaselinesConfig(
                 content_cosine=ContentCosineConfig(**b["content_cosine"]),
                 item_knn_cf=ItemKnnCfConfig(**b["item_knn_cf"]),
-                logistic_regression=LogisticRegressionConfig(**b["logistic_regression"]),
+                logistic_regression=LogisticRegressionConfig(
+                    **{
+                        **b["logistic_regression"],
+                        "c_grid": tuple(b["logistic_regression"].get("c_grid", ())),
+                    }
+                ),
             ),
             lambdamart=LambdaMartConfig(
                 num_leaves=lm["num_leaves"],
@@ -113,5 +125,6 @@ class ModelConfig:
                 ips_clip_high=lm["ips_clip_high"],
                 behavioral_dropout_rate=lm["behavioral_dropout_rate"],
                 behavioral_dropout_seed=lm["behavioral_dropout_seed"],
+                max_bin=lm.get("max_bin", 255),
             ),
         )

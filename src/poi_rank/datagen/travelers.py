@@ -109,12 +109,15 @@ def _make_explicit_preferences(
 
 def generate_travelers(
     rng: np.random.Generator, cfg: DatagenConfig
-) -> tuple[pd.DataFrame, dict[str, npt.NDArray[np.float64]]]:
-    """Generate the traveler table plus a dict of true latent taste vectors (oracle-only)."""
+) -> tuple[pd.DataFrame, dict[str, npt.NDArray[np.float64]], dict[str, npt.NDArray[np.float64]]]:
+    """Generate the traveler table plus two oracle-only dicts: true latent taste vectors and the
+    true archetype mixture weights (the latter is only ever exported for eval-side
+    personalization scoring; drawing it consumes no extra RNG)."""
     destinations = list(DEST_CENTERS)
     n_per_dest = cfg.scale.travelers_per_destination
     rows: list[dict[str, Any]] = []
     taste_vectors: dict[str, npt.NDArray[np.float64]] = {}
+    mixtures: dict[str, npt.NDArray[np.float64]] = {}
 
     traveler_idx = 0
     for dest in destinations:
@@ -123,6 +126,7 @@ def generate_travelers(
             traveler_id = f"U{traveler_idx:04d}"
 
             mixture = rng.dirichlet(np.full(len(ARCHETYPE_NAMES), ARCHETYPE_DIRICHLET_ALPHA))
+            mixtures[traveler_id] = mixture
             blended = mixture @ PROTOTYPE_MATRIX
             true_taste = blended + rng.normal(0, TASTE_NOISE_STD, size=blended.shape)
             norm = np.linalg.norm(true_taste)
@@ -179,7 +183,7 @@ def generate_travelers(
                 }
             )
 
-    return pd.DataFrame(rows), taste_vectors
+    return pd.DataFrame(rows), taste_vectors, mixtures
 
 
 PARTY_SIZE_RANGE: dict[str, tuple[int, int]] = {
