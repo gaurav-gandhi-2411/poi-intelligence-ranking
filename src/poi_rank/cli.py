@@ -186,11 +186,17 @@ def diagnose_dgp(
 
     d10 = payload["D10_description_conditioning"]
     typer.echo("\n=== D10: is POI text generation conditioned on poi_semantic? ===")
-    typer.echo(f"  code_reading_answer: {d10['code_reading_answer']['answer']}")
-    d10m = d10["measured"]
+    for variant in ("raw_tfidf", "canonical_svd64"):
+        v = d10[variant]
+        typer.echo(
+            f"  {variant}: rho={v['spearman_rho']:.4f} p={v['p_value']:.4g} "
+            f"n_pairs_sampled={v['n_pairs_sampled']} seed={v['seed']}"
+        )
+    dep = d10["text_dependency_check"]
     typer.echo(
-        f"  measured: rho={d10m['spearman_rho']:.4f} p={d10m['p_value']:.4g} "
-        f"n_pairs_sampled={d10m['n_pairs_sampled']} seed={d10m['seed']}"
+        f"  text_dependency_check: fraction_changed_with_permuted_semantic="
+        f"{dep['fraction_changed_with_permuted_semantic']:.4f} "
+        f"(control {dep['fraction_changed_same_semantic_control']:.4f}, n={dep['n_pois']})"
     )
 
 
@@ -208,7 +214,7 @@ def gate_dgp(
     ),
 ) -> None:
     """DGP acceptance gate (docs/DATA_CARD.md "DGP remediation, Block A"): reuses
-    `diagnose-dgp`'s D1-D10 computation and applies the 9 exact thresholds, writing
+    `diagnose-dgp`'s D1-D10 computation and applies the 8 Gate-A thresholds, writing
     `results/parts/dgp_gate.json`. Exits non-zero if any threshold fails. Requires
     `generate` -> `prepare` -> `features` to have already run (see
     `eval/gate_dgp.py::run_gate_dgp`'s docstring for the documented precondition

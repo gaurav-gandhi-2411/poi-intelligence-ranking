@@ -1,0 +1,304 @@
+{
+  "hypothesis_arms": {
+    "shipped_but_3to6_phrases_per_poi": {
+      "canonical_svd64": 0.5824194625871554,
+      "raw_tfidf": 0.5540466745538539,
+      "semantic_noise_ceiling": {
+        "n_pairs_sampled": 5000,
+        "spearman_rho": 0.9201898891120567
+      },
+      "text": {
+        "anchor_phrases": true,
+        "background_rate": 0.02,
+        "connective_rate": 0.25,
+        "max_fillers": 1,
+        "phrases_per_dimension": 20,
+        "phrases_per_poi_max": 6,
+        "phrases_per_poi_min": 3,
+        "sampling": "systematic",
+        "surface_variants": 2
+      },
+      "text_component_ablation": {
+        "description_only": 0.36532042935039394,
+        "full": 0.5540466745538539,
+        "name_only": 0.09399838159364754,
+        "tags_only": 0.744299277108506,
+        "tags_plus_category": 0.8386725865538381
+      }
+    },
+    "shipped_but_background_0.05": {
+      "canonical_svd64": 0.6945291077586723,
+      "raw_tfidf": 0.6676123475544458,
+      "semantic_noise_ceiling": {
+        "n_pairs_sampled": 5000,
+        "spearman_rho": 0.9165995636330455
+      },
+      "text": {
+        "anchor_phrases": true,
+        "background_rate": 0.05,
+        "connective_rate": 0.25,
+        "max_fillers": 1,
+        "phrases_per_dimension": 20,
+        "phrases_per_poi_max": 14,
+        "phrases_per_poi_min": 10,
+        "sampling": "systematic",
+        "surface_variants": 2
+      },
+      "text_component_ablation": {
+        "description_only": 0.562156356942545,
+        "full": 0.6676123475544458,
+        "name_only": 0.10877177096897205,
+        "tags_only": 0.7364235826799911,
+        "tags_plus_category": 0.8329585176900955
+      }
+    },
+    "shipped_but_full_surface_variety": {
+      "canonical_svd64": 0.6826671135957094,
+      "raw_tfidf": 0.6528652419421235,
+      "semantic_noise_ceiling": {
+        "n_pairs_sampled": 5000,
+        "spearman_rho": 0.9165995636330455
+      },
+      "text": {
+        "anchor_phrases": true,
+        "background_rate": 0.02,
+        "connective_rate": 0.25,
+        "max_fillers": 1,
+        "phrases_per_dimension": 20,
+        "phrases_per_poi_max": 14,
+        "phrases_per_poi_min": 10,
+        "sampling": "systematic",
+        "surface_variants": 4
+      },
+      "text_component_ablation": {
+        "description_only": 0.5464784963470715,
+        "full": 0.6528652419421235,
+        "name_only": 0.11551021323666019,
+        "tags_only": 0.7364235826799911,
+        "tags_plus_category": 0.8329585176900955
+      }
+    },
+    "shipped_but_multinomial_sampling": {
+      "canonical_svd64": 0.6220836042857447,
+      "raw_tfidf": 0.6104317346452983,
+      "semantic_noise_ceiling": {
+        "n_pairs_sampled": 5000,
+        "spearman_rho": 0.9190147557576336
+      },
+      "text": {
+        "anchor_phrases": true,
+        "background_rate": 0.02,
+        "connective_rate": 0.25,
+        "max_fillers": 1,
+        "phrases_per_dimension": 20,
+        "phrases_per_poi_max": 14,
+        "phrases_per_poi_min": 10,
+        "sampling": "multinomial",
+        "surface_variants": 2
+      },
+      "text_component_ablation": {
+        "description_only": 0.5148024240765176,
+        "full": 0.6104317346452983,
+        "name_only": 0.09426337102538691,
+        "tags_only": 0.742254038441628,
+        "tags_plus_category": 0.8347726683209246
+      }
+    },
+    "shipped_but_pure_synonym_phrases": {
+      "canonical_svd64": 0.5487990424286829,
+      "raw_tfidf": 0.510999120230667,
+      "semantic_noise_ceiling": {
+        "n_pairs_sampled": 5000,
+        "spearman_rho": 0.9165995636330455
+      },
+      "text": {
+        "anchor_phrases": false,
+        "background_rate": 0.02,
+        "connective_rate": 0.25,
+        "max_fillers": 1,
+        "phrases_per_dimension": 20,
+        "phrases_per_poi_max": 14,
+        "phrases_per_poi_min": 10,
+        "sampling": "systematic",
+        "surface_variants": 2
+      },
+      "text_component_ablation": {
+        "description_only": 0.38878312836977347,
+        "full": 0.510999120230667,
+        "name_only": 0.11551021323666019,
+        "tags_only": 0.7364235826799911,
+        "tags_plus_category": 0.8329585176900955
+      }
+    },
+    "spec_literal_3to6_multinomial_pure_synonym_full_surface": {
+      "canonical_svd64": 0.37948090403583945,
+      "raw_tfidf": 0.35267666400020575,
+      "semantic_noise_ceiling": {
+        "n_pairs_sampled": 5000,
+        "spearman_rho": 0.9148748603457832
+      },
+      "text": {
+        "anchor_phrases": false,
+        "background_rate": 0.05,
+        "connective_rate": 0.25,
+        "max_fillers": 1,
+        "phrases_per_dimension": 20,
+        "phrases_per_poi_max": 6,
+        "phrases_per_poi_min": 3,
+        "sampling": "multinomial",
+        "surface_variants": 4
+      },
+      "text_component_ablation": {
+        "description_only": 0.15034060880162714,
+        "full": 0.35267666400020575,
+        "name_only": 0.11392844836202771,
+        "tags_only": 0.7364664387925506,
+        "tags_plus_category": 0.8320307782424639
+      }
+    }
+  },
+  "note": "Full-scale (2,500 trips, 1,500 catalog rows/3 destinations) generate->prepare->features per setting; D10 = Spearman over 5,000 seeded within-destination POI pairs (seed 42). raw_tfidf is the Gate-A variant (no features/ import); canonical_svd64 goes through features/ (TF-IDF->SVD-64). Hypothesis arms override the shipped text config one lever at a time at the shipped phrases_per_dimension.",
+  "phrases_per_dimension_sweep": {
+    "15": {
+      "canonical_svd64": 0.7200139728946676,
+      "raw_tfidf": 0.6921978972286122,
+      "semantic_noise_ceiling": {
+        "n_pairs_sampled": 5000,
+        "spearman_rho": 0.9165995636330455
+      },
+      "text": {
+        "anchor_phrases": true,
+        "background_rate": 0.02,
+        "connective_rate": 0.25,
+        "max_fillers": 1,
+        "phrases_per_dimension": 15,
+        "phrases_per_poi_max": 14,
+        "phrases_per_poi_min": 10,
+        "sampling": "systematic",
+        "surface_variants": 2
+      },
+      "text_component_ablation": {
+        "description_only": 0.5965585603096393,
+        "full": 0.6921978972286122,
+        "name_only": 0.11551021323666019,
+        "tags_only": 0.7364235826799911,
+        "tags_plus_category": 0.8329585176900955
+      }
+    },
+    "20": {
+      "canonical_svd64": 0.7102448142437378,
+      "raw_tfidf": 0.6892341612959457,
+      "semantic_noise_ceiling": {
+        "n_pairs_sampled": 5000,
+        "spearman_rho": 0.9165995636330455
+      },
+      "text": {
+        "anchor_phrases": true,
+        "background_rate": 0.02,
+        "connective_rate": 0.25,
+        "max_fillers": 1,
+        "phrases_per_dimension": 20,
+        "phrases_per_poi_max": 14,
+        "phrases_per_poi_min": 10,
+        "sampling": "systematic",
+        "surface_variants": 2
+      },
+      "text_component_ablation": {
+        "description_only": 0.5901530658321986,
+        "full": 0.6892341612959457,
+        "name_only": 0.11551021323666019,
+        "tags_only": 0.7364235826799911,
+        "tags_plus_category": 0.8329585176900955
+      }
+    },
+    "25": {
+      "canonical_svd64": 0.7203832783822023,
+      "raw_tfidf": 0.690008676080525,
+      "semantic_noise_ceiling": {
+        "n_pairs_sampled": 5000,
+        "spearman_rho": 0.9165995636330455
+      },
+      "text": {
+        "anchor_phrases": true,
+        "background_rate": 0.02,
+        "connective_rate": 0.25,
+        "max_fillers": 1,
+        "phrases_per_dimension": 25,
+        "phrases_per_poi_max": 14,
+        "phrases_per_poi_min": 10,
+        "sampling": "systematic",
+        "surface_variants": 2
+      },
+      "text_component_ablation": {
+        "description_only": 0.58942373604152,
+        "full": 0.690008676080525,
+        "name_only": 0.11551021323666019,
+        "tags_only": 0.7364235826799911,
+        "tags_plus_category": 0.8329585176900955
+      }
+    },
+    "3": {
+      "canonical_svd64": 0.7279960869015959,
+      "raw_tfidf": 0.7097416802803711,
+      "semantic_noise_ceiling": {
+        "n_pairs_sampled": 5000,
+        "spearman_rho": 0.9190147557576336
+      },
+      "text": {
+        "anchor_phrases": true,
+        "background_rate": 0.02,
+        "connective_rate": 0.25,
+        "max_fillers": 1,
+        "phrases_per_dimension": 3,
+        "phrases_per_poi_max": 14,
+        "phrases_per_poi_min": 10,
+        "sampling": "systematic",
+        "surface_variants": 2
+      },
+      "text_component_ablation": {
+        "description_only": 0.6343343583352963,
+        "full": 0.7097416802803711,
+        "name_only": 0.11630295247015278,
+        "tags_only": 0.742254038441628,
+        "tags_plus_category": 0.8347726683209246
+      }
+    },
+    "8": {
+      "canonical_svd64": 0.7185544045772724,
+      "raw_tfidf": 0.692029981989549,
+      "semantic_noise_ceiling": {
+        "n_pairs_sampled": 5000,
+        "spearman_rho": 0.9165995636330455
+      },
+      "text": {
+        "anchor_phrases": true,
+        "background_rate": 0.02,
+        "connective_rate": 0.25,
+        "max_fillers": 1,
+        "phrases_per_dimension": 8,
+        "phrases_per_poi_max": 14,
+        "phrases_per_poi_min": 10,
+        "sampling": "systematic",
+        "surface_variants": 2
+      },
+      "text_component_ablation": {
+        "description_only": 0.6027770277712129,
+        "full": 0.692029981989549,
+        "name_only": 0.11551021323666019,
+        "tags_only": 0.7364235826799911,
+        "tags_plus_category": 0.8329585176900955
+      }
+    }
+  },
+  "shipped_text_config": {
+    "anchor_phrases": true,
+    "background_rate": 0.02,
+    "connective_rate": 0.25,
+    "max_fillers": 1,
+    "phrases_per_dimension": 20,
+    "phrases_per_poi_max": 14,
+    "phrases_per_poi_min": 10,
+    "sampling": "systematic",
+    "surface_variants": 2
+  }
+}

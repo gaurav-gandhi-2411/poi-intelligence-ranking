@@ -92,11 +92,14 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from scipy import stats
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 from poi_rank.data.categories import canonicalize_categories
+from poi_rank.datagen.catalog import DEST_CENTERS
 from poi_rank.datagen.config import DatagenConfig, UtilityWeights
 from poi_rank.datagen.oracle_export import oracle_dir_from_output
-from poi_rank.datagen.taxonomy import CATEGORY_INDEX
+from poi_rank.datagen.taxonomy import CATEGORY_INDEX, TAG_INDEX
+from poi_rank.datagen.text_templates import build_phrase_pools, generate_poi_text, poi_text_rngs
 from poi_rank.datagen.utility import (
     cosine_similarity_to_taste,
     party_fit_array,
@@ -624,6 +627,80 @@ def oracle_ndcg_candidate_level(
     }
 
 
+FULL_CATALOG_NDCG_CAVEAT = (
+    "Label-based full-catalog NDCG is exposure-capped: labels are structurally absent "
+    "(0) for catalog POIs the random-exposure holdout never showed the trip, so even the "
+    "true-utility oracle is scored against a label vector that under-counts its own "
+    "correct top ranks. Reported as a diagnostic, not a gate (docs/DATA_CARD.md A2)."
+)
+
+
+def oracle_ndcg_full_catalog(
+    holdout_utility_true: pd.DataFrame,
+    interactions_holdout_random: pd.DataFrame,
+    k: int = 10,
+) -> dict[str, Any]:
+    """Oracle NDCG@k over the FULL eligible catalog, no candidate generation: per holdout
+    trip, rank EVERY eligible catalog POI (`holdout_utility_true.parquet`, ~490/trip) by
+    true utility; label = the max label the trip realized on that POI across its
+    `interactions_holdout_random` rows, 0 for POIs never exposed to the trip. Reuses
+    `eval.metrics.ndcg_at_k`; trips with no positive label are excluded (counted).
+
+    Also returns the mechanism numbers explaining why this is exposure-capped:
+    `mean_exposed_fraction_of_catalog` (share of a trip's eligible POIs it was ever shown),
+    `mean_share_top10_by_true_utility_unexposed` (share of the oracle's own top-k the trip never
+    saw, so their labels are structurally 0), and `ndcg_at_10_restricted_to_exposed` (the same
+    oracle NDCG when only exposed POIs are ranked -- labels exist for all of them).
+    """
+    max_label = (
+        interactions_holdout_random.groupby(["trip_id", "poi_id"], sort=False)["label"]
+        .max()
+        .rename("label")
+        .reset_index()
+    )
+    merged = holdout_utility_true[["trip_id", "poi_id", "utility_true"]].merge(
+        max_label, on=["trip_id", "poi_id"], how="left"
+    )
+    merged["exposed"] = merged["label"].notna()
+    merged["label"] = merged["label"].fillna(0).astype(np.int64)
+
+    full_values: list[float] = []
+    exposed_values: list[float] = []
+    exposed_fractions: list[float] = []
+    unexposed_top_shares: list[float] = []
+    n_excluded = 0
+    for _trip_id, group in merged.groupby("trip_id", sort=True):
+        labels = group["label"].to_numpy(dtype=np.int64)
+        scores = group["utility_true"].to_numpy(dtype=np.float64)
+        poi_ids = group["poi_id"].to_numpy(dtype=object)
+        exposed = group["exposed"].to_numpy(dtype=bool)
+        exposed_fractions.append(float(exposed.mean()))
+        value = ndcg_at_k(labels, scores, poi_ids, k)
+        if value is None:
+            n_excluded += 1
+            continue
+        full_values.append(value)
+        top = np.argsort(-scores, kind="stable")[:k]
+        unexposed_top_shares.append(float((~exposed[top]).mean()))
+        restricted = ndcg_at_k(labels[exposed], scores[exposed], poi_ids[exposed], k)
+        if restricted is not None:
+            exposed_values.append(restricted)
+
+    return {
+        "mean_ndcg_at_10": float(np.mean(full_values)) if full_values else 0.0,
+        "n_trips_included": len(full_values),
+        "n_trips_excluded_zero_relevant": n_excluded,
+        "mean_exposed_fraction_of_catalog": float(np.mean(exposed_fractions)),
+        "mean_share_top10_by_true_utility_unexposed": (
+            float(np.mean(unexposed_top_shares)) if unexposed_top_shares else 0.0
+        ),
+        "ndcg_at_10_restricted_to_exposed": (
+            float(np.mean(exposed_values)) if exposed_values else 0.0
+        ),
+        "caveat": FULL_CATALOG_NDCG_CAVEAT,
+    }
+
+
 # -----------------------------------------------------------------------------------
 # D6: cold-start share.
 # -----------------------------------------------------------------------------------
@@ -1013,46 +1090,6 @@ def semantic_fidelity_minilm(
 # D10: are POI descriptions generated conditioned on poi_semantic?
 # -----------------------------------------------------------------------------------
 
-D10_CODE_READING_ANSWER: dict[str, Any] = {
-    "answer": (
-        "NO. `datagen/catalog.py::generate_destination_pois` generates `tags` "
-        "(line 369), `name` (line 370), and `description` (line 371) purely from "
-        "`category`/`destination`/`tags` template lookups (`text_templates.py`'s "
-        "`generate_tags`/`generate_name`/`generate_description`); none of those "
-        "three functions ever receives `poi_semantic` as an argument -- their "
-        "signatures literally do not have that parameter. `poi_semantic` is "
-        "computed SEPARATELY at line 375, AFTER the text fields, via "
-        "`_poi_semantic_vector(rng, cat, tags)` -- a fresh category one-hot + "
-        "tag-weight vector plus independent Gaussian noise (`noise_std=0.25`), "
-        "drawn from its own `rng` calls, never reading `name`/`description`. "
-        "Text generation and `poi_semantic` share exactly two upstream inputs "
-        "(`category`, `tags`, both fixed once per POI before either is computed) "
-        "but neither is derived FROM the other -- there is no dependency edge "
-        "from `poi_semantic` to the text fields, or vice versa."
-    ),
-    "citations": [
-        "src/poi_rank/datagen/catalog.py:369 -- "
-        "tags = generate_tags(rng, CATEGORY_TAG_AFFINITY[cat], n_tags=...)",
-        "src/poi_rank/datagen/catalog.py:370 -- name = generate_name(rng, destination, cat)",
-        "src/poi_rank/datagen/catalog.py:371 -- "
-        "description = generate_description(rng, destination, cat, tags)",
-        "src/poi_rank/datagen/catalog.py:375 -- "
-        "poi_semantic = _poi_semantic_vector(rng, cat, tags)  # computed AFTER the "
-        "text fields, from category+tags only",
-        "src/poi_rank/datagen/catalog.py:182-196 -- "
-        "_poi_semantic_vector(rng, category, tags, noise_std=0.25) signature has "
-        "no name/description parameter",
-        "src/poi_rank/datagen/text_templates.py:69 -- "
-        "generate_name(rng, destination, category) has no poi_semantic parameter",
-        "src/poi_rank/datagen/text_templates.py:77-79 -- "
-        "generate_description(rng, destination, category, tags) has no poi_semantic "
-        "parameter",
-        "src/poi_rank/datagen/text_templates.py:97-99 -- "
-        "generate_tags(rng, category_tag_affinity, n_tags) has no poi_semantic "
-        "parameter",
-    ],
-}
-
 
 def sample_within_destination_poi_pairs(
     poi_ids_by_destination: dict[str, list[str]], n_pairs: int, seed: int
@@ -1139,6 +1176,326 @@ def description_conditioning_fidelity(
     }
 
 
+# D10 raw TF-IDF variant: mirrors `configs/features.yaml`'s canonical text_embedding
+# settings (1-2-grams, 20,000 features) WITHOUT importing anything from `features/` -- it
+# must not depend on the feature pipeline it is meant to gate independently.
+D10_RAW_TFIDF_NGRAM_MAX = 2
+D10_RAW_TFIDF_MAX_FEATURES = 20000
+
+
+def _raw_poi_text(name: str, description: str, tags: list[str]) -> str:
+    """`name + description + tags` document, the same text the feature pipeline embeds
+    (reimplemented here on purpose -- see D10_RAW_TFIDF_* comment)."""
+    return f"{name} {description} {' '.join(tags)}"
+
+
+def description_conditioning_fidelity_raw_tfidf(
+    poi_latent: pd.DataFrame, pois_prepared: pd.DataFrame, n_pairs: int, seed: int
+) -> dict[str, Any]:
+    """D10, features-independent variant (Gate-A row): Spearman(`cos(poi_semantic_i,
+    poi_semantic_j)`, cosine of the RAW sparse TF-IDF vectors of the POIs' text) over the
+    same seeded within-destination pair sample as `description_conditioning_fidelity`.
+    TF-IDF is fit here, over the post-dedup catalog's `name + description + tags`; no SVD,
+    no `features/` import, so it is a pure property of the datagen output."""
+    merged = poi_latent[["poi_id", "destination", "poi_semantic"]].merge(
+        pois_prepared[["poi_id", "name", "description", "tags"]], on="poi_id", how="inner"
+    )
+    corpus = [
+        _raw_poi_text(str(n), str(d), [str(t) for t in tags])
+        for n, d, tags in zip(merged["name"], merged["description"], merged["tags"], strict=True)
+    ]
+    tfidf = TfidfVectorizer(
+        ngram_range=(1, D10_RAW_TFIDF_NGRAM_MAX), max_features=D10_RAW_TFIDF_MAX_FEATURES
+    ).fit_transform(corpus)
+
+    position_by_id = {str(p): i for i, p in enumerate(merged["poi_id"])}
+    poi_ids_by_destination: dict[str, list[str]] = {
+        str(dest): group["poi_id"].astype(str).tolist()
+        for dest, group in merged.groupby("destination")
+    }
+    pairs = sample_within_destination_poi_pairs(poi_ids_by_destination, n_pairs, seed)
+    idx_a = np.array([position_by_id[a] for a, _ in pairs])
+    idx_b = np.array([position_by_id[b] for _, b in pairs])
+
+    semantic = np.stack(merged["poi_semantic"].to_numpy())
+    semantic_cos = cosine_similarity_taste_poi(semantic[idx_a], semantic[idx_b])
+    # TfidfVectorizer L2-normalizes rows, so the row-wise dot product IS the cosine.
+    text_cos = np.asarray(tfidf[idx_a].multiply(tfidf[idx_b]).sum(axis=1)).ravel()
+
+    rho, p_value = stats.spearmanr(semantic_cos, text_cos)
+    return {
+        "spearman_rho": float(rho),
+        "p_value": float(p_value),
+        "n_pairs_sampled": len(pairs),
+        "n_pois_in_population": int(len(merged)),
+        "n_pairs_zero_text_cosine": int((text_cos == 0.0).sum()),
+        "seed": seed,
+        "destinations": sorted(poi_ids_by_destination),
+    }
+
+
+def text_dependency_check(
+    poi_latent: pd.DataFrame,
+    pois_raw: pd.DataFrame,
+    datagen_cfg: DatagenConfig,
+    seed: int,
+) -> dict[str, Any]:
+    """Computed replacement for the retired `D10.code_reading_answer` (which asserted
+    "no dependency edge" and went stale once RC2c/A2 added one): re-runs the REAL text
+    generator (`datagen.text_templates.generate_poi_text`) for every non-duplicate catalog
+    POI under its own per-POI seeded streams and reports
+
+    - `fraction_reproduced_from_own_semantic`: share whose regenerated description equals
+      the stored one (validates that this harness drives the same generator);
+    - `fraction_changed_same_semantic_control`: regenerating twice with identical inputs
+      (expected 0.0 -- determinism control);
+    - `fraction_changed_with_permuted_semantic`: share whose description CHANGES when the
+      only thing altered is `poi_semantic` (swapped with another POI's from the same
+      destination, same seeds/category) -- the dependency edge, as a number.
+    """
+    latent = poi_latent.set_index("poi_id")
+    unique = pois_raw.loc[~pois_raw["is_duplicate"].astype(bool)].copy()
+    unique["category_true"] = canonicalize_categories(unique["category"])["category"]
+    pools = build_phrase_pools(
+        datagen_cfg.text.phrases_per_dimension, datagen_cfg.text.anchor_phrases
+    )
+    destinations = sorted(unique["destination"].unique())
+    rng = np.random.default_rng(seed)
+
+    n = 0
+    reproduced = 0
+    control_changed = 0
+    permuted_changed = 0
+    for dest in destinations:
+        rows = unique.loc[unique["destination"] == dest]
+        dest_index = list(DEST_CENTERS).index(dest)
+        semantics = [latent.loc[p, "poi_semantic"] for p in rows["poi_id"]]
+        shuffle = rng.permutation(len(rows))
+        for j, (poi_id, category, description) in enumerate(
+            zip(rows["poi_id"], rows["category_true"], rows["description"], strict=True)
+        ):
+            poi_index = int(str(poi_id)[-4:]) - 1
+            args = (dest, str(category))
+            own = generate_poi_text(
+                *poi_text_rngs(datagen_cfg.seed, dest_index, poi_index),
+                *args,
+                semantics[j],
+                datagen_cfg.text,
+                pools,
+            )
+            again = generate_poi_text(
+                *poi_text_rngs(datagen_cfg.seed, dest_index, poi_index),
+                *args,
+                semantics[j],
+                datagen_cfg.text,
+                pools,
+            )
+            swapped = generate_poi_text(
+                *poi_text_rngs(datagen_cfg.seed, dest_index, poi_index),
+                *args,
+                semantics[int(shuffle[j])],
+                datagen_cfg.text,
+                pools,
+            )
+            n += 1
+            reproduced += own.description == description
+            control_changed += own.description != again.description
+            permuted_changed += own.description != swapped.description
+    return {
+        "n_pois": n,
+        "fraction_reproduced_from_own_semantic": reproduced / n if n else 0.0,
+        "fraction_changed_same_semantic_control": control_changed / n if n else 0.0,
+        "fraction_changed_with_permuted_semantic": permuted_changed / n if n else 0.0,
+        "seed": seed,
+    }
+
+
+def semantic_noise_ceiling(
+    poi_latent: pd.DataFrame, pois_prepared: pd.DataFrame, n_pairs: int, seed: int
+) -> dict[str, Any]:
+    """Hypothesis diagnostic "poi_semantic's own noise limits D10": Spearman between
+    `cos(poi_semantic_i, poi_semantic_j)` and the cosine of the NOISE-FREE reconstruction
+    of each vector (category one-hot 1.0 + 0.6 on each catalog tag -- exactly
+    `datagen/catalog.py::_poi_semantic_vector` at noise_std=0). No text can beat this
+    number, because a text that carried the category and tag set perfectly would reproduce
+    the noise-free cosine, not the noisy one."""
+    merged = poi_latent[["poi_id", "destination", "poi_semantic"]].merge(
+        pois_prepared[["poi_id", "category", "tags"]], on="poi_id", how="inner"
+    )
+    clean = np.zeros((len(merged), len(CATEGORY_INDEX) + len(TAG_INDEX)))
+    for i, (category, tags) in enumerate(zip(merged["category"], merged["tags"], strict=True)):
+        clean[i, CATEGORY_INDEX[str(category)]] = 1.0
+        for tag in tags:
+            clean[i, TAG_INDEX[str(tag)]] = 0.6
+    position_by_id = {str(p): i for i, p in enumerate(merged["poi_id"])}
+    by_destination = {
+        str(dest): group["poi_id"].astype(str).tolist()
+        for dest, group in merged.groupby("destination")
+    }
+    pairs = sample_within_destination_poi_pairs(by_destination, n_pairs, seed)
+    idx_a = np.array([position_by_id[a] for a, _ in pairs])
+    idx_b = np.array([position_by_id[b] for _, b in pairs])
+    semantic = np.stack(merged["poi_semantic"].to_numpy())
+    noisy_cos = cosine_similarity_taste_poi(semantic[idx_a], semantic[idx_b])
+    clean_cos = cosine_similarity_taste_poi(clean[idx_a], clean[idx_b])
+    rho, _ = stats.spearmanr(noisy_cos, clean_cos)
+    return {"spearman_rho": float(rho), "n_pairs_sampled": len(pairs)}
+
+
+def text_component_ablation(
+    poi_latent: pd.DataFrame, pois_prepared: pd.DataFrame, n_pairs: int, seed: int
+) -> dict[str, float]:
+    """Raw-TF-IDF D10 rho when the corpus is restricted to one text component at a time --
+    which observable column carries the semantic signal, and which dilutes it. Keys:
+    `full` (name+description+tags, the gate corpus), `tags_only`, `tags_plus_category`
+    (tags + the category word), `description_only`, `name_only`."""
+    merged = poi_latent[["poi_id", "destination", "poi_semantic"]].merge(
+        pois_prepared[["poi_id", "name", "description", "tags", "category"]],
+        on="poi_id",
+        how="inner",
+    )
+    tags = [" ".join(str(t) for t in ts) for ts in merged["tags"]]
+    category = [str(c).replace("_", " ") for c in merged["category"]]
+    corpora: dict[str, list[str]] = {
+        "full": [
+            _raw_poi_text(str(n), str(d), [str(t) for t in ts])
+            for n, d, ts in zip(merged["name"], merged["description"], merged["tags"], strict=True)
+        ],
+        "tags_only": tags,
+        "tags_plus_category": [f"{c} {t}" for c, t in zip(category, tags, strict=True)],
+        "description_only": [str(d) for d in merged["description"]],
+        "name_only": [str(n) for n in merged["name"]],
+    }
+    position_by_id = {str(p): i for i, p in enumerate(merged["poi_id"])}
+    by_destination = {
+        str(dest): group["poi_id"].astype(str).tolist()
+        for dest, group in merged.groupby("destination")
+    }
+    pairs = sample_within_destination_poi_pairs(by_destination, n_pairs, seed)
+    idx_a = np.array([position_by_id[a] for a, _ in pairs])
+    idx_b = np.array([position_by_id[b] for _, b in pairs])
+    semantic = np.stack(merged["poi_semantic"].to_numpy())
+    semantic_cos = cosine_similarity_taste_poi(semantic[idx_a], semantic[idx_b])
+    out: dict[str, float] = {}
+    for name, corpus in corpora.items():
+        tfidf = TfidfVectorizer(
+            ngram_range=(1, D10_RAW_TFIDF_NGRAM_MAX), max_features=D10_RAW_TFIDF_MAX_FEATURES
+        ).fit_transform(corpus)
+        text_cos = np.asarray(tfidf[idx_a].multiply(tfidf[idx_b]).sum(axis=1)).ravel()
+        rho, _ = stats.spearmanr(semantic_cos, text_cos)
+        out[name] = float(rho)
+    return out
+
+
+# -----------------------------------------------------------------------------------
+# A2 vocabulary-size sweep (results/parts/d10_vocab_sweep.json).
+# -----------------------------------------------------------------------------------
+
+D10_SWEEP_FILENAME = "d10_vocab_sweep.json"
+D10_SWEEP_PHRASE_POOL_SIZES: tuple[int, ...] = (3, 8, 15, 20, 25)
+# Named text-config variants measured at the shipped P, one lever changed at a time
+# against the shipped config, plus the spec-v3 section 2.1 literal reading. Each is a
+# `dataclasses.replace` override of `DatagenConfig.text`.
+D10_SWEEP_HYPOTHESIS_ARMS: dict[str, dict[str, Any]] = {
+    "spec_literal_3to6_multinomial_pure_synonym_full_surface": {
+        "phrases_per_poi_min": 3,
+        "phrases_per_poi_max": 6,
+        "background_rate": 0.05,
+        "anchor_phrases": False,
+        "sampling": "multinomial",
+        "surface_variants": 4,
+    },
+    "shipped_but_pure_synonym_phrases": {"anchor_phrases": False},
+    "shipped_but_multinomial_sampling": {"sampling": "multinomial"},
+    "shipped_but_3to6_phrases_per_poi": {"phrases_per_poi_min": 3, "phrases_per_poi_max": 6},
+    "shipped_but_full_surface_variety": {"surface_variants": 4},
+    "shipped_but_background_0.05": {"background_rate": 0.05},
+}
+
+
+def _measure_d10_variants(data_dir: Path, datagen_cfg: DatagenConfig) -> dict[str, Any]:
+    oracle_dir = oracle_dir_from_output(data_dir)
+    poi_latent = oracle_reader.load_poi_latent(oracle_dir)
+    pois_prepared = pd.read_parquet(data_dir / POIS_PREPARED_FILENAME)
+    poi_features = pd.read_parquet(data_dir / POI_FEATURES_FILENAME)
+    return {
+        "raw_tfidf": description_conditioning_fidelity_raw_tfidf(
+            poi_latent, pois_prepared, D10_N_SAMPLE_PAIRS, D10_SAMPLE_SEED
+        )["spearman_rho"],
+        "canonical_svd64": description_conditioning_fidelity(
+            poi_latent, poi_features, D10_N_SAMPLE_PAIRS, D10_SAMPLE_SEED
+        )["spearman_rho"],
+        "text_component_ablation": text_component_ablation(
+            poi_latent, pois_prepared, D10_N_SAMPLE_PAIRS, D10_SAMPLE_SEED
+        ),
+        "semantic_noise_ceiling": semantic_noise_ceiling(
+            poi_latent, pois_prepared, D10_N_SAMPLE_PAIRS, D10_SAMPLE_SEED
+        ),
+        "text": asdict(datagen_cfg.text),
+    }
+
+
+def run_d10_vocab_sweep(
+    datagen_cfg: DatagenConfig,
+    features_config_path: Path,
+    workdir: Path,
+    results_dir: Path,
+) -> dict[str, Any]:
+    """A2 evidence: full-scale `generate -> prepare -> features` at each phrase-pool size
+    in `D10_SWEEP_PHRASE_POOL_SIZES` (shipped config otherwise) plus the one-lever
+    hypothesis arms in `D10_SWEEP_HYPOTHESIS_ARMS`, each into its own scratch directory
+    under `workdir`, then both D10 variants (`raw_tfidf`, `canonical_svd64`) measured.
+    Writes `results/parts/d10_vocab_sweep.json`. Never touches `data/synthetic/` or
+    `artifacts/`: every run's data and embedding cache live under `workdir`."""
+    from dataclasses import replace
+
+    from poi_rank.data.config import FeaturesConfig
+    from poi_rank.data.prepare import run_prepare
+    from poi_rank.datagen.pipeline import run_generate
+    from poi_rank.features.build import run_features
+
+    features_data_cfg = FeaturesConfig.from_yaml(features_config_path)
+    features_build_cfg = FeatureBuildConfig.from_yaml(features_config_path)
+
+    def one_run(label: str, text_overrides: dict[str, Any]) -> dict[str, Any]:
+        cfg = replace(datagen_cfg, text=replace(datagen_cfg.text, **text_overrides))
+        data_dir = workdir / label
+        artifacts_dir = workdir / f"{label}_artifacts"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        run_generate(cfg, data_dir)
+        run_prepare(features_data_cfg, data_dir)
+        run_features(features_build_cfg, data_dir, artifacts_dir)
+        return _measure_d10_variants(data_dir, cfg)
+
+    size_sweep = {
+        str(p): one_run(f"P{p}", {"phrases_per_dimension": p}) for p in D10_SWEEP_PHRASE_POOL_SIZES
+    }
+    arms = {
+        name: one_run(f"arm_{i}", ov)
+        for i, (name, ov) in enumerate(D10_SWEEP_HYPOTHESIS_ARMS.items())
+    }
+    payload: dict[str, Any] = {
+        "note": (
+            "Full-scale (2,500 trips, 1,500 catalog rows/3 destinations) generate->prepare->"
+            "features per setting; D10 = Spearman over 5,000 seeded within-destination POI "
+            "pairs (seed 42). raw_tfidf is the Gate-A variant (no features/ import); "
+            "canonical_svd64 goes through features/ (TF-IDF->SVD-64). Hypothesis arms "
+            "override the shipped text config one lever at a time at the shipped "
+            "phrases_per_dimension."
+        ),
+        "shipped_text_config": asdict(datagen_cfg.text),
+        "phrases_per_dimension_sweep": size_sweep,
+        "hypothesis_arms": arms,
+    }
+    output_dir = results_dir / "parts"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / D10_SWEEP_FILENAME).write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return payload
+
+
 # -----------------------------------------------------------------------------------
 # Orchestration + CLI entry point.
 # -----------------------------------------------------------------------------------
@@ -1178,6 +1535,7 @@ def run_dgp_diagnostics(
     d4 = choice_sharpness(interactions_holdout_random, oracle_score, holdout_utility_true).to_dict()
     d5_slate = oracle_ndcg_slate_level(interactions_holdout_random, oracle_score).to_dict()
     d5_candidate = oracle_ndcg_candidate_level(data_dir, oracle_dir, budget_target_price_level)
+    d5_full_catalog = oracle_ndcg_full_catalog(holdout_utility_true, interactions_holdout_random)
 
     d6 = cold_start_share(data_dir)
 
@@ -1195,10 +1553,24 @@ def run_dgp_diagnostics(
 
     poi_latent = oracle_reader.load_poi_latent(oracle_dir)
     poi_features = pd.read_parquet(data_dir / POI_FEATURES_FILENAME)
-    d10_measured = description_conditioning_fidelity(
+    pois_raw = pd.read_parquet(data_dir / POIS_RAW_FILENAME)
+    d10_canonical = description_conditioning_fidelity(
         poi_latent, poi_features, D10_N_SAMPLE_PAIRS, D10_SAMPLE_SEED
     )
-    d10 = {"code_reading_answer": D10_CODE_READING_ANSWER, "measured": d10_measured}
+    d10_raw = description_conditioning_fidelity_raw_tfidf(
+        poi_latent, pois_prepared, D10_N_SAMPLE_PAIRS, D10_SAMPLE_SEED
+    )
+    d10 = {
+        # Gate-A reads `raw_tfidf` (features-independent); `canonical_svd64` (TF-IDF ->
+        # SVD-64 through features/) is reported alongside. `measured` kept as an alias of
+        # the canonical variant for backward compatibility with pre-A2 readers.
+        "raw_tfidf": d10_raw,
+        "canonical_svd64": d10_canonical,
+        "measured": d10_canonical,
+        "text_dependency_check": text_dependency_check(
+            poi_latent, pois_raw, datagen_cfg, D10_SAMPLE_SEED
+        ),
+    }
 
     wall_clock = perf_counter() - start
 
@@ -1221,7 +1593,11 @@ def run_dgp_diagnostics(
         "D2_taste_cosine_distribution": d2,
         "D3_spearman_utility_vs_label": d3,
         "D4_choice_sharpness": d4,
-        "D5_ndcg": {"slate_level": d5_slate, "candidate_level": d5_candidate},
+        "D5_ndcg": {
+            "slate_level": d5_slate,
+            "candidate_level": d5_candidate,
+            "full_catalog": d5_full_catalog,
+        },
         "D6_cold_start_share": d6,
         "D7_localness_vs_geo_generation": d7,
         "D8_bias_gap_popularity": d8,
@@ -1235,3 +1611,15 @@ def run_dgp_diagnostics(
     output_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     return {"payload": payload, "output_path": output_path}
+
+
+if __name__ == "__main__":
+    # A2 evidence entry point: `uv run python -m poi_rank.eval.dgp_diagnostics` (from the
+    # repo root) regenerates results/parts/d10_vocab_sweep.json in scratch directories.
+    with tempfile.TemporaryDirectory() as _workdir:
+        run_d10_vocab_sweep(
+            DatagenConfig.from_yaml(Path("configs/datagen.yaml")),
+            Path("configs/features.yaml"),
+            Path(_workdir),
+            Path("results"),
+        )

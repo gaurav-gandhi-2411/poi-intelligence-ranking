@@ -1,5 +1,5 @@
-"""`eval/gate_dgp.py` unit tests: hand-constructed diagnostics payloads straddling
-each of the 9 exact gate thresholds (docs/DATA_CARD.md "DGP remediation, Block A"),
+"""`eval/gate_dgp.py` (Gate-A) unit tests: hand-constructed diagnostics payloads straddling
+each of the 8 exact gate thresholds (docs/DATA_CARD.md "DGP remediation, Block A" / "A2"),
 verifying `run_gate_dgp`'s threshold application without needing a real pipeline run.
 """
 
@@ -25,14 +25,27 @@ def _base_payload(**overrides: Any) -> dict[str, Any]:
             "min_deterministic_term_share": 0.05,
         },
         "D3_spearman_utility_vs_label": {"spearman_rho": 0.45},
-        "D5_ndcg": {"candidate_level": {"mean_ndcg_at_10": 0.50}},
+        "D5_ndcg": {
+            "slate_level": {"mean_ndcg_at_10": 0.65},
+            # Present in the real payload but never a Gate-A row (candidate-level moves to
+            # Gate-B; full-catalog is an exposure-capped diagnostic).
+            "candidate_level": {"mean_ndcg_at_10": 0.10},
+            "full_catalog": {"mean_ndcg_at_10": 0.10},
+        },
         "D6_cold_start_share": {"holdout_only": {"share": 0.15}},
         "D7_localness_vs_geo_generation": {"spearman_rho": 0.60},
+        # D9 is not a Gate-A row any more: deliberately set failing-low to prove it is
+        # ignored by the gate.
         "D9_semantic_fidelity": {
-            "tfidf_path": {"spearman_rho": 0.55},
-            "minilm_path": {"spearman_rho": 0.30},
+            "tfidf_path": {"spearman_rho": 0.05},
+            "minilm_path": {"spearman_rho": 0.05},
         },
-        "D10_description_conditioning": {"measured": {"spearman_rho": 0.55}},
+        "D10_description_conditioning": {
+            "raw_tfidf": {"spearman_rho": 0.70},
+            # The canonical SVD variant is reported but never gated.
+            "canonical_svd64": {"spearman_rho": 0.10},
+            "measured": {"spearman_rho": 0.10},
+        },
     }
     for key, value in overrides.items():
         section, field = key.split(".", 1)
@@ -66,12 +79,33 @@ def test_extract_measured_values_all_gates_present() -> None:
     assert set(measured.keys()) == set(GATE_THRESHOLDS.keys())
 
 
-def test_extract_measured_values_d9_takes_the_higher_of_the_two_paths() -> None:
+def test_gate_a_has_exactly_the_eight_specified_rows_and_thresholds() -> None:
+    assert {k: (v["op"], v["threshold"]) for k, v in GATE_THRESHOLDS.items()} == {
+        "traveler_dependent_variance_share": (">=", 0.75),
+        "spearman_u_vs_label": (">=", 0.40),
+        "var_epsilon_over_var_u": ("<=", 0.15),
+        "min_non_epsilon_term_share": (">=", 0.02),
+        "spearman_localness_vs_geo": (">=", 0.55),
+        "d10_description_conditioning_raw_tfidf": (">=", 0.65),
+        "oracle_ndcg10_slate_level": (">=", 0.60),
+        "cold_start_trip_share": ("<=", 0.25),
+    }
+
+
+def test_d10_gate_reads_raw_tfidf_not_canonical_svd() -> None:
     payload = _base_payload()
-    payload["D9_semantic_fidelity"]["tfidf_path"]["spearman_rho"] = 0.20
-    payload["D9_semantic_fidelity"]["minilm_path"]["spearman_rho"] = 0.60
     measured = _extract_measured_values(payload)
-    assert measured["d9_semantic_fidelity_best"] == pytest.approx(0.60)
+    assert measured["d10_description_conditioning_raw_tfidf"] == pytest.approx(0.70)
+
+
+def test_oracle_gate_reads_slate_level_not_candidate_or_full_catalog() -> None:
+    payload = _base_payload()
+    measured = _extract_measured_values(payload)
+    assert measured["oracle_ndcg10_slate_level"] == pytest.approx(0.65)
+
+
+def test_d9_and_candidate_level_oracle_are_not_gate_rows() -> None:
+    assert not any("d9" in name or "candidate" in name for name in GATE_THRESHOLDS)
 
 
 @pytest.mark.parametrize(
@@ -82,9 +116,8 @@ def test_extract_measured_values_d9_takes_the_higher_of_the_two_paths() -> None:
         ("var_epsilon_over_var_u", 0.10, 0.20),
         ("min_non_epsilon_term_share", 0.03, 0.01),
         ("spearman_localness_vs_geo", 0.60, 0.40),
-        ("d9_semantic_fidelity_best", 0.55, 0.30),
-        ("d10_description_conditioning", 0.55, 0.30),
-        ("oracle_ndcg10_candidate_level", 0.50, 0.30),
+        ("d10_description_conditioning_raw_tfidf", 0.66, 0.60),
+        ("oracle_ndcg10_slate_level", 0.62, 0.55),
         ("cold_start_trip_share", 0.15, 0.40),
     ],
 )

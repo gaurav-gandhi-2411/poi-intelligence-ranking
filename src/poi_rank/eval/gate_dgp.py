@@ -1,5 +1,5 @@
-"""DGP acceptance gate (spec-v2-remediation.md section 3, thresholds superseded by
-the orchestrator's task prompt -- docs/DATA_CARD.md "DGP remediation, Block A").
+"""Gate-A: simulator-quality acceptance gate (spec-v3-representation-fix.md section 4;
+thresholds per docs/DATA_CARD.md "DGP remediation, Block A" and "A2").
 
 `poi_rank.cli gate-dgp`: reuses `eval/dgp_diagnostics.py::run_dgp_diagnostics`'s
 already-computed D1-D10 numbers directly (never reimplements a measurement) and
@@ -33,19 +33,23 @@ from poi_rank.features.config import FeatureBuildConfig
 
 OUTPUT_FILENAME = "dgp_gate.json"
 
-# Exact thresholds (supersedes spec-v2-remediation.md section 3's original table
-# entirely -- per the task prompt's explicit instruction to use ONLY this list).
-# Each entry: (gate name, comparison, threshold, path into the diagnostics payload
-# as a tuple of keys, plus an optional transform to derive the compared value).
+# Gate-A rows (spec-v3 section 4, with the user's A2 rulings): simulator quality only --
+# no row depends on `features/`, `candidates/`, `models/`, or `scoring/` code.
+#   - D10 uses the features-independent `raw_tfidf` variant (`canonical_svd64`, which runs
+#     through features/, is reported in the diagnostics payload but is not a gate row).
+#   - Oracle NDCG@10 is the SLATE-level number over the random-exposure holdout (threshold
+#     0.60). The full-catalog variant is an exposure-capped DIAGNOSTIC, not a gate row.
+#   - D9 (semantic fidelity) and candidate-level oracle NDCG measure representation /
+#     candidate-generation quality and move to Gate-B (A3); both are still computed in the
+#     diagnostics payload.
 GATE_THRESHOLDS: dict[str, dict[str, Any]] = {
     "traveler_dependent_variance_share": {"op": ">=", "threshold": 0.75},
     "spearman_u_vs_label": {"op": ">=", "threshold": 0.40},
     "var_epsilon_over_var_u": {"op": "<=", "threshold": 0.15},
     "min_non_epsilon_term_share": {"op": ">=", "threshold": 0.02},
     "spearman_localness_vs_geo": {"op": ">=", "threshold": 0.55},
-    "d9_semantic_fidelity_best": {"op": ">=", "threshold": 0.50},
-    "d10_description_conditioning": {"op": ">=", "threshold": 0.50},
-    "oracle_ndcg10_candidate_level": {"op": ">=", "threshold": 0.45},
+    "d10_description_conditioning_raw_tfidf": {"op": ">=", "threshold": 0.65},
+    "oracle_ndcg10_slate_level": {"op": ">=", "threshold": 0.60},
     "cold_start_trip_share": {"op": "<=", "threshold": 0.25},
 }
 
@@ -59,28 +63,23 @@ def _compare(op: str, value: float, threshold: float) -> bool:
 
 
 def _extract_measured_values(payload: dict[str, Any]) -> dict[str, float]:
-    """Pull the exact 9 gate quantities out of an already-computed
+    """Pull the exact Gate-A quantities out of an already-computed
     `run_dgp_diagnostics` payload -- no diagnostic is recomputed here."""
     d1 = payload["D1_variance_decomposition"]
     d3 = payload["D3_spearman_utility_vs_label"]
+    d5 = payload["D5_ndcg"]
     d6 = payload["D6_cold_start_share"]
     d7 = payload["D7_localness_vs_geo_generation"]
-    d9 = payload["D9_semantic_fidelity"]
     d10 = payload["D10_description_conditioning"]
-    d5 = payload["D5_ndcg"]
-
-    var_epsilon_over_var_u = d1["epsilon_variance_share"]
-    d9_best = max(d9["tfidf_path"]["spearman_rho"], d9["minilm_path"]["spearman_rho"])
 
     return {
         "traveler_dependent_variance_share": d1["traveler_dependent_variance_share"],
         "spearman_u_vs_label": d3["spearman_rho"],
-        "var_epsilon_over_var_u": var_epsilon_over_var_u,
+        "var_epsilon_over_var_u": d1["epsilon_variance_share"],
         "min_non_epsilon_term_share": d1["min_deterministic_term_share"],
         "spearman_localness_vs_geo": d7["spearman_rho"],
-        "d9_semantic_fidelity_best": d9_best,
-        "d10_description_conditioning": d10["measured"]["spearman_rho"],
-        "oracle_ndcg10_candidate_level": d5["candidate_level"]["mean_ndcg_at_10"],
+        "d10_description_conditioning_raw_tfidf": d10["raw_tfidf"]["spearman_rho"],
+        "oracle_ndcg10_slate_level": d5["slate_level"]["mean_ndcg_at_10"],
         "cold_start_trip_share": d6["holdout_only"]["share"],
     }
 

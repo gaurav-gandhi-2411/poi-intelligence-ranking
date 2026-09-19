@@ -137,6 +137,45 @@ class PretripHistoryConfig:
     lead_days_max: int
 
 
+# Valid range for the SHIPPED `text.phrases_per_dimension` (spec-v3 section 2.1: 15-25
+# distinct phrases per latent dimension). `TextConfig` itself only requires >= 1 so the
+# A2 vocabulary-size sweep can construct P in {3, 8} via `dataclasses.replace`.
+PHRASES_PER_DIMENSION_SHIPPED_RANGE: tuple[int, int] = (15, 25)
+
+
+@dataclass(frozen=True)
+class TextConfig:
+    """A2 (docs/DATA_CARD.md "A2"): phrase-pool text generation knobs
+    (`datagen/text_templates.py`)."""
+
+    phrases_per_dimension: int
+    phrases_per_poi_min: int
+    phrases_per_poi_max: int
+    background_rate: float
+    anchor_phrases: bool = True
+    sampling: str = "systematic"
+    # Surface-realization budget (docs/DATA_CARD.md A2): how many sentence-frame/opener
+    # alternatives are in play, how often a connective prefixes a sentence, and how many
+    # dimension-neutral filler sentences may be added. Independent of phrase choice.
+    surface_variants: int = 4
+    connective_rate: float = 0.25
+    max_fillers: int = 1
+
+    def __post_init__(self) -> None:
+        if self.phrases_per_dimension < 1:
+            raise ValueError("text.phrases_per_dimension must be >= 1")
+        if not 1 <= self.phrases_per_poi_min <= self.phrases_per_poi_max:
+            raise ValueError("text.phrases_per_poi_min/max must satisfy 1 <= min <= max")
+        if not 1 <= self.surface_variants <= 4:
+            raise ValueError("text.surface_variants must be in [1, 4]")
+        if not 0.0 <= self.connective_rate <= 1.0 or self.max_fillers < 0:
+            raise ValueError("text.connective_rate in [0, 1] and max_fillers >= 0 required")
+        if self.sampling not in ("systematic", "multinomial"):
+            raise ValueError("text.sampling must be systematic or multinomial")
+        if not 0.0 <= self.background_rate < 1.0:
+            raise ValueError("text.background_rate must be in [0, 1)")
+
+
 @dataclass(frozen=True)
 class DatagenConfig:
     """Full, typed view of `configs/datagen.yaml`."""
@@ -155,11 +194,19 @@ class DatagenConfig:
     interaction_generation: InteractionGenerationConfig
     novelty: NoveltyConfig
     pretrip_history: PretripHistoryConfig
+    text: TextConfig
 
     @classmethod
     def from_yaml(cls, path: Path) -> DatagenConfig:
         """Parse and validate `configs/datagen.yaml` into a `DatagenConfig`."""
         raw: dict[str, Any] = yaml.safe_load(path.read_text(encoding="utf-8"))
+        text = TextConfig(**raw["text"])
+        low, high = PHRASES_PER_DIMENSION_SHIPPED_RANGE
+        if not low <= text.phrases_per_dimension <= high:
+            raise ValueError(
+                f"text.phrases_per_dimension must be in [{low}, {high}] "
+                f"(spec-v3 section 2.1), got {text.phrases_per_dimension}"
+            )
         return cls(
             seed=raw["seed"],
             scale=ScaleConfig(**raw["scale"]),
@@ -175,4 +222,5 @@ class DatagenConfig:
             interaction_generation=InteractionGenerationConfig(**raw["interaction_generation"]),
             novelty=NoveltyConfig(**raw["novelty"]),
             pretrip_history=PretripHistoryConfig(**raw["pretrip_history"]),
+            text=text,
         )

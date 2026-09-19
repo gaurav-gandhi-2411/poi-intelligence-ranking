@@ -592,3 +592,23 @@ clean throughout. Determinism byte-identical, verified at every phase.**
 - `git status --short` after every dispatch, before staging — catches leftover
   scratch files (e.g. verifier's manual `_run1` comparison copies after Phase 3,
   deleted before commit).
+
+## A2 -- text vocabulary widening + Gate-A restructure (spec-v3 sections 2.1/3.1/4)
+
+- Done: per-dimension synonym-rich phrase pools (`datagen/text_templates.py`, config `text:`),
+  loading-proportional (systematic) sampling, surface realization from an independent stream;
+  D10 `raw_tfidf` (Gate-A) 0.4607 -> 0.6892, `canonical_svd64` 0.4522 -> 0.7102; Gate-A 8/8 PASS
+  (`results/parts/dgp_gate.json`). Evidence: `results/parts/d10_vocab_sweep.json`;
+  write-up: docs/DATA_CARD.md "A2".
+- Finding to carry forward: pool size (3..25) does not move D10 for a bag-of-words reader
+  (0.7097 -> 0.6900 raw); anchoring, systematic sampling, 10-14 mentions/POI and a small surface
+  budget did. 10-14 mentions is a deviation from spec-v3's 3-6 (3-6 reached only 0.5540).
+- DR4 caveat: the synonym-rich, anchored vocabulary design determines the TF-IDF-vs-MiniLM
+  outcome; DR4's conclusion is about this dataset, not encoders in general.
+- Full-catalog oracle NDCG@10 (0.3554) is a diagnostic only (exposure-capped; exposed fraction
+  0.4931). D9 and candidate-level oracle NDCG moved to Gate-B (A3); still computed.
+- Gotchas: text now uses per-POI seeded streams, so the main RNG stream shifted and every
+  downstream quantity is a new realization (holdout trips 620 -> 671); committed
+  `data/synthetic/*`, `artifacts/poi_emb.npy`, and `results/parts/*` were regenerated, but
+  `artifacts/model*.txt`, `calibrator.pkl`, `results/metrics.json`, figures are STALE until
+  Block B.

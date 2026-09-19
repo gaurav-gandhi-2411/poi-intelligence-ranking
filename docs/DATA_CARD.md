@@ -2662,3 +2662,149 @@ utility export is written only for holdout trips
 docstring, not silently narrowed. Interpretation of the 8 numbers against the
 section 0 falsifiable claim is explicitly reserved for the orchestrator/GG, not
 performed by this diagnostic harness itself.
+
+## A2 -- phrase-pool text generation, Gate-A restructure (spec-v3-representation-fix.md sections 2.1, 3.1, 4)
+
+Scope: `datagen/**`, `configs/datagen.yaml`, `eval/dgp_diagnostics.py`, `eval/gate_dgp.py`, one
+print block in `cli.py`, tests, docs. No `features/`, `candidates/`, `models/`, `scoring/`
+source touched. Data was regenerated (`generate` -> `prepare` -> `features`, plus `candidates`
+so the candidate-level diagnostics are not read from a stale file).
+
+### What changed in the generator
+
+`datagen/text_templates.py` was rewritten. Each of `poi_semantic`'s 32 latent dimensions
+(12 categories + 20 tags) owns a pool of `text.phrases_per_dimension` (P = 20 shipped; the
+config loader enforces 15-25) distinct phrases. Per POI, `text.phrases_per_poi_min..max` phrase
+mentions are drawn with expected mentions per dimension proportional to the POI's POSITIVE
+loading in its own noisy `poi_semantic` (the vector the utility uses), mixed with a uniform
+`background_rate` (0.02) so every phrase has nonzero probability for every POI. Name adjective
+is one more loading-proportional draw (a synonym of a dimension the POI loads on). Surface
+realization (sentence frames, order, connectives, filler, opener) comes from a SEPARATE seeded
+stream and never inspects which phrases were chosen
+(`tests/test_text_templates.py::test_surface_form_does_not_depend_on_which_phrases_were_chosen`).
+Text uses per-POI streams keyed by (seed, destination, POI index), so it consumes zero draws
+from the catalog's main RNG: changing any text knob leaves every other DGP quantity
+bit-identical. `tags` semantics are unchanged (sampled tags + the top-3 `poi_semantic` tag
+dimensions appended, as in RC2c).
+
+### Design choice, disclosed: phrase pools are synonym-rich, and anchored
+
+Phrases within a dimension are paraphrases of one another, not arbitrary words: 5
+hand-authored synonyms per dimension (e.g. romantic: romantic / intimate / candlelit /
+charming / dreamy) x 5 shared heads (atmosphere / charm / vibe / feel / character) = 25
+phrases. With `anchor_phrases: true` (shipped) each phrase also carries the trait's plain word
+("candlelit romantic charm"), the way real listings pair a descriptive paraphrase with the
+trait's name. Why: the user's ruling requires synonym-rich pools; a paraphrase pool is the
+realistic case and it lets a semantic encoder see relatedness a bag-of-words cannot.
+
+**This choice biases the later TF-IDF-vs-MiniLM comparison (DR4).** Anchoring hands TF-IDF a
+shared token per dimension; pure-synonym pools (`anchor_phrases: false`) take that away and cut
+raw-TF-IDF D10 from 0.6892 to 0.5110 (table below) while a semantic encoder is not similarly
+penalized by construction (not measured on the arms: NOT MEASURED). The synthetic vocabulary
+design determines the TF-IDF-vs-MiniLM outcome in DR4, so DR4's conclusion is about THIS
+dataset, not a general claim about encoders. Post-A2 D9 measured TF-IDF 0.3543 vs MiniLM 0.1666
+(`results/parts/dgp_diagnostics.json`), which must be read with that in mind.
+
+### D10 result (both variants; `results/parts/dgp_diagnostics.json`, `dgp_gate.json`)
+
+| variant | before (pre-A2) | after (A2) |
+|---|---|---|
+| `raw_tfidf` (Gate-A row; TF-IDF fit in `eval/`, no `features/` import) | 0.4607 (scratch measurement on the committed pre-A2 data, same 5,000-pair seed-42 sample; not persisted) | **0.6892** |
+| `canonical_svd64` (through `features/`, TF-IDF -> SVD-64) | 0.4522 (`dgp_diagnostics.json` at 1415dd7) | 0.7102 |
+
+The two variants differ by 0.021 (SVD-64 is slightly higher, not lower). Gate-A D10 threshold
+0.65 PASSES (0.6892, margin 0.039). The old `D10.code_reading_answer` ("no dependency edge",
+false after Block A) is deleted; it is replaced by a computed `text_dependency_check`: re-running
+the real generator for 1,443 non-duplicate POIs reproduces the stored description for 100.0%,
+changes 0.0% when nothing is changed (control), and changes **99.93%** when only `poi_semantic`
+is swapped with another same-destination POI's.
+
+### Vocabulary-size sweep (`results/parts/d10_vocab_sweep.json`)
+
+Full scale (2,500 trips, 1,500 catalog rows), `generate -> prepare -> features` per setting in
+scratch dirs, shipped config otherwise; 5,000 seed-42 within-destination pairs. Reproduce:
+`uv run python -m poi_rank.eval.dgp_diagnostics` (about 12 minutes).
+
+| phrases_per_dimension | raw_tfidf | canonical_svd64 |
+|---|---|---|
+| 3 | 0.7097 | 0.7280 |
+| 8 | 0.6920 | 0.7186 |
+| 15 | 0.6922 | 0.7200 |
+| 20 (shipped) | 0.6892 | 0.7102 |
+| 25 | 0.6900 | 0.7204 |
+
+**Honest finding: widening the vocabulary does NOT raise D10 for a bag-of-words reader; it is
+flat to slightly decreasing (3 -> 25: -0.0197 raw).** spec-v3 section 2.1's premise (a thin
+flavor vocabulary caused the plateau) is not what limited D10 here. Extra paraphrases add
+unshared tokens. The gain came from four other levers (below), with pool size a non-factor.
+Range 15-25 spans only 0.0030 (raw) / 0.0102 (SVD).
+
+### Why the spec-literal design missed, and what closed the gap (one lever at a time)
+
+Arms at P = 20 (same file). The first row is spec-v3 section 2.1 read literally.
+
+| arm | raw_tfidf | canonical_svd64 |
+|---|---|---|
+| spec literal: 3-6 phrases, multinomial, pure synonyms, bg 0.05, full surface variety | 0.3527 | 0.3795 |
+| shipped | 0.6892 | 0.7102 |
+| shipped but pure-synonym phrases | 0.5110 | 0.5488 |
+| shipped but multinomial sampling | 0.6104 | 0.6221 |
+| shipped but 3-6 phrases per POI | 0.5540 | 0.5824 |
+| shipped but full surface variety (`surface_variants: 4`) | 0.6529 | 0.6827 |
+| shipped but background 0.05 | 0.6676 | 0.6945 |
+
+Hypothesis diagnostics (raw TF-IDF, shipped P = 20 data):
+
+- **poi_semantic noise is not the limit**: Spearman(cos(noisy poi_semantic), cos(noise-free
+  category+tags reconstruction)) = 0.9166 (`semantic_noise_ceiling`).
+- **Which text column carries the signal**: tags only 0.7364; tags + category word 0.8330;
+  description only 0.5902; name only 0.1155; full corpus 0.6892 (`text_component_ablation`).
+  The observable `tags` column already carries most of the information (RC2c), so the
+  description helps only if it does not dilute it.
+- **Sampling proportionality / count**: multinomial mention counts are noisy; systematic
+  (floor/ceil of expectation) sampling is +0.079. 3-6 mentions cannot cover a POI's ~5.5 active
+  dimensions: 10-14 mentions is +0.135. This is a **deviation from spec-v3's "3-6 phrases"**,
+  forced by measurement: at 3-6 the best reachable raw D10 was 0.554 (< 0.65) with every other
+  lever pulled.
+- **Surface variance**: frame/opener variety is open-class lexical noise to a bag-of-words
+  reader (4 variants vs 2: -0.036). Shipped keeps 2 sentence-frame alternatives per slot,
+  connectives at 0.25, one filler; descriptions remain overwhelmingly unique
+  (`test_text_is_not_degenerate_within_a_category`: >95% unique per category).
+- **Background rate**: 0.02 vs 0.05 is +0.022.
+- **Category dimensions**: the description names the POI's own category in its opener;
+  `tags_plus_category` (0.8330) vs `tags_only` (0.7364) shows the category word is worth +0.097
+  to a bag-of-words reader.
+
+### Gate-A restructure (`eval/gate_dgp.py`, `results/parts/dgp_gate.json`)
+
+Rows (8): traveler_dependent_variance_share >= 0.75; Spearman(u, label) >= 0.40; Var(eps)/Var(u)
+<= 0.15; min non-eps term share >= 0.02; Spearman(latent_localness, geo) >= 0.55; D10 `raw_tfidf`
+>= 0.65; **slate-level** oracle NDCG@10 over the random-exposure holdout >= 0.60; cold-start <=
+0.25. Per the user's rulings the full-catalog oracle row is DROPPED as a gate and D9 and the
+candidate-level oracle row move to Gate-B (A3); all three are still computed in the diagnostics
+payload.
+
+Measured (post-A2): 0.7719 / 0.4634 / 0.1099 / 0.0553 / 0.6987 / 0.6892 / 0.6245 / 0.1073 --
+**8/8 PASS**.
+
+### Full-catalog oracle NDCG@10: diagnostic only (exposure-capped)
+
+`oracle_ndcg_full_catalog` ranks every eligible catalog POI per holdout trip by true utility;
+labels = max label over the trip's `interactions_holdout_random` rows, 0 for never-exposed POIs.
+Result 0.3554 (605 trips, 66 excluded for zero positives). Mechanism numbers: mean exposed
+fraction of the catalog 0.4931; mean share of the oracle's own top-10 that the trip was never
+shown 0.4474; NDCG restricted to exposed POIs 0.5898. Label-based full-catalog NDCG is
+exposure-capped: labels are structurally absent for unexposed POIs, so even a perfect ranker is
+scored against a label vector that under-counts its correct top ranks. Text vocabulary cannot
+move it (the oracle uses true utility). Not a gate.
+
+### Other rows moved slightly, and why
+
+Utility terms, weights, tau, and slate machinery are untouched. But the catalog no longer draws
+name/description text from the shared main RNG, so every stochastic quantity downstream of the
+catalog is a different realization of the same DGP (holdout trips 620 -> 671, impressions and
+positives shift). Pre-A2 (1415dd7) -> post-A2: traveler-dependent share 0.7720 -> 0.7719;
+Spearman(u, label) 0.4563 -> 0.4634; Var(eps)/Var(u) 0.1096 -> 0.1099; min term share 0.0572 ->
+0.0553; localness-geo 0.6929 -> 0.6987; cold-start 0.1032 -> 0.1073; slate-level oracle 0.619 ->
+0.6245; candidate-level oracle 0.4319 -> 0.4037 (Gate-B; stale-candidates issue avoided by
+re-running `candidates`); D9 TF-IDF 0.1873 -> 0.3543, MiniLM 0.133 -> 0.1666.

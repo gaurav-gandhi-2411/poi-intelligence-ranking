@@ -135,3 +135,24 @@ pretrip_history:
   max_interactions: 40
   lead_days_min: 46 # strictly older than any in-trip session's lead_days (0-45)
   lead_days_max: 180
+
+# A2 (spec-v3-representation-fix.md section 2.1, docs/DATA_CARD.md "A2"): POI text is a
+# noisy readout of poi_semantic via per-dimension phrase pools. Each of the 32 latent
+# dimensions owns `phrases_per_dimension` semantically-related paraphrases (valid range
+# 15-25; results/parts/d10_vocab_sweep.json shows the effect of P); each POI mentions
+# `phrases_per_poi_min..max` phrases with expected mentions per dimension proportional to
+# its positive loading, mixed with a uniform `background_rate` so no phrase is
+# deterministic. Spec-v3 section 2.1 suggested 3-6 phrases per POI; the shipped 10-14 is a
+# measured deviation (at 3-6 the best reachable raw-TF-IDF D10 was ~0.56 < 0.65, see the
+# "A2" hypothesis table in docs/DATA_CARD.md).
+text:
+  phrases_per_dimension: 20
+  phrases_per_poi_min: 10
+  phrases_per_poi_max: 14
+  background_rate: 0.02
+  anchor_phrases: true # keep the trait's plain word inside each paraphrase (DATA_CARD "A2")
+  sampling: systematic # low-variance realization of loading-proportional mentions
+  # Surface-realization budget, sampled independently of which phrases were chosen:
+  surface_variants: 2 # sentence-frame / opener alternatives in play (max 4)
+  connective_rate: 0.25
+  max_fillers: 1

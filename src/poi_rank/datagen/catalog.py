@@ -30,7 +30,12 @@ from poi_rank.datagen.taxonomy import (
     TAGS,
     TASTE_DIM,
 )
-from poi_rank.datagen.text_templates import generate_description, generate_name, generate_tags
+from poi_rank.datagen.text_templates import (
+    build_phrase_pools,
+    generate_poi_text,
+    generate_tags,
+    poi_text_rngs,
+)
 from poi_rank.datagen.timeline import Timeline
 
 DEST_CENTERS: dict[str, tuple[float, float]] = {
@@ -421,30 +426,38 @@ def generate_destination_pois(
             )
     del created_established
 
+    dest_index = list(DEST_CENTERS).index(destination)
+    phrase_pools = build_phrase_pools(cfg.text.phrases_per_dimension, cfg.text.anchor_phrases)
+
     rows: list[dict[str, Any]] = []
     for i in range(n_unique):
         cat = categories[i]
         tags = generate_tags(rng, CATEGORY_TAG_AFFINITY[cat], n_tags=int(rng.integers(3, 7)))
-        # RC2c: poi_semantic (and its OWN dominant flavor) computed BEFORE the text
-        # fields, then threaded INTO name/description generation -- fixes the
-        # confirmed zero-dependency-edge bug (D10, docs/DATA_CARD.md "DGP
-        # remediation, Block A"): the pre-remediation generator computed
-        # poi_semantic strictly AFTER text generation, from category+tags alone,
-        # so text had no way to reflect it.
+        # RC2c/A2: poi_semantic computed BEFORE the text fields, then threaded INTO
+        # name/description generation -- fixes the confirmed zero-dependency-edge bug
+        # (D10, docs/DATA_CARD.md "DGP remediation, Block A"): the pre-remediation
+        # generator computed poi_semantic strictly AFTER text generation, from
+        # category+tags alone, so text had no way to reflect it.
         poi_semantic = _poi_semantic_vector(rng, cat, tags)
         flavors = dominant_flavors_from_semantic(poi_semantic, k=3)
         # Guarantee the dominant flavors are themselves literal, observable tag
-        # words (RC2c) -- strengthens the text-corpus signal directly (both the
-        # `tags` column and the description's two primary highlighted tags),
-        # since they are otherwise only sometimes among the originally-sampled
-        # tags (poi_semantic's independent noise can make a DIFFERENT tag
-        # dimension dominant -- see `dominant_flavors_from_semantic`). Realistic:
-        # real POI listings commonly carry tags matching their most salient traits.
+        # words (RC2c, unchanged by A2) -- real POI listings commonly carry tags
+        # matching their most salient traits, and this makes the OBSERVABLE `tags`
+        # column genuinely track `poi_semantic` (poi_semantic's independent noise can
+        # make a DIFFERENT tag dimension dominant -- see
+        # `dominant_flavors_from_semantic`).
         for flavor_tag in flavors:
             if flavor_tag not in tags:
                 tags = [*tags, flavor_tag]
-        name = generate_name(rng, destination, cat, flavors[0])
-        description = generate_description(rng, destination, cat, tags, flavors)
+        # A2: text comes from per-POI seeded streams (`poi_text_rngs`), NOT the shared
+        # `rng` -- text-side knobs (phrase pool size, background rate) therefore cannot
+        # perturb any other DGP quantity.
+        phrase_rng, surface_rng = poi_text_rngs(cfg.seed, dest_index, i)
+        poi_text = generate_poi_text(
+            phrase_rng, surface_rng, destination, cat, poi_semantic, cfg.text, phrase_pools
+        )
+        name = poi_text.name
+        description = poi_text.description
         opening_hours = _sample_opening_hours(rng, cat)
         avg_crowd = _sample_avg_crowd_by_hour(rng, cat)
         seasonality = _sample_seasonality(rng, indoor_outdoor[i])

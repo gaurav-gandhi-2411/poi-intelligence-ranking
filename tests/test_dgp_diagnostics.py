@@ -20,7 +20,6 @@ from poi_rank.datagen.oracle_export import write_term_standardization
 from poi_rank.datagen.taxonomy import CATEGORY_INDEX, TASTE_DIM
 from poi_rank.datagen.utility import DestinationTermStats, TermStandardization
 from poi_rank.eval.dgp_diagnostics import (
-    D10_CODE_READING_ANSWER,
     ChoiceSharpnessResult,
     SlateLevelNdcgResult,
     _read_existing_bias_gap_popularity,
@@ -28,14 +27,19 @@ from poi_rank.eval.dgp_diagnostics import (
     cold_start_share,
     compute_utility_term_components,
     description_conditioning_fidelity,
+    description_conditioning_fidelity_raw_tfidf,
     localness_vs_geo_generation,
+    oracle_ndcg_full_catalog,
     oracle_ndcg_slate_level,
     run_dgp_diagnostics,
     sample_within_destination_poi_pairs,
     semantic_fidelity_spearman,
     semantic_fidelity_tfidf,
+    semantic_noise_ceiling,
     spearman_utility_vs_label,
     taste_cosine_distribution,
+    text_component_ablation,
+    text_dependency_check,
     variance_decomposition,
 )
 from poi_rank.features.config import (
@@ -638,12 +642,24 @@ def test_run_dgp_diagnostics_end_to_end_on_real_fixture_chain(
     assert "poi_emb_minilm_diagnostic" in d9["minilm_path"]["diagnostic_artifact_path"]
     assert "artifacts" not in d9["minilm_path"]["diagnostic_artifact_path"]
 
-    # D10: code-reading answer is a fixed, human-authored constant (not derived
-    # from this run); the measurement must be finite over a real, nonzero sample.
+    # D10: both variants finite over a real, nonzero sample; the stale code-reading
+    # constant is gone, replaced by a COMPUTED dependency check.
     d10 = payload["D10_description_conditioning"]
-    assert d10["code_reading_answer"] == D10_CODE_READING_ANSWER
-    assert np.isfinite(d10["measured"]["spearman_rho"])
-    assert d10["measured"]["n_pairs_sampled"] > 0
+    assert "code_reading_answer" not in d10
+    for variant in ("raw_tfidf", "canonical_svd64"):
+        assert np.isfinite(d10[variant]["spearman_rho"])
+        assert d10[variant]["n_pairs_sampled"] > 0
+    assert d10["measured"] == d10["canonical_svd64"]
+    dependency = d10["text_dependency_check"]
+    assert dependency["fraction_reproduced_from_own_semantic"] == pytest.approx(1.0)
+    assert dependency["fraction_changed_same_semantic_control"] == 0.0
+    assert dependency["fraction_changed_with_permuted_semantic"] > 0.9
+
+    # Full-catalog oracle NDCG: emitted as a diagnostic with its mechanism numbers + caveat.
+    full_catalog = payload["D5_ndcg"]["full_catalog"]
+    assert 0.0 < full_catalog["mean_ndcg_at_10"] <= 1.0
+    assert 0.0 < full_catalog["mean_exposed_fraction_of_catalog"] < 1.0
+    assert "exposure-capped" in full_catalog["caveat"]
 
 
 def test_novelty_residual_is_exactly_one_for_true_first_trips(
@@ -837,13 +853,6 @@ def test_semantic_fidelity_tfidf_reconciles_pre_dedup_poi_ids_and_computes_spear
 # -----------------------------------------------------------------------------------
 
 
-def test_d10_code_reading_answer_states_no_dependency_with_citations() -> None:
-    assert D10_CODE_READING_ANSWER["answer"].startswith("NO.")
-    assert len(D10_CODE_READING_ANSWER["citations"]) >= 4
-    assert any("catalog.py" in c for c in D10_CODE_READING_ANSWER["citations"])
-    assert any("text_templates.py" in c for c in D10_CODE_READING_ANSWER["citations"])
-
-
 def test_sample_within_destination_poi_pairs_never_crosses_destinations() -> None:
     poi_ids_by_destination = {
         "seoul": [f"S{i}" for i in range(10)],
@@ -936,3 +945,155 @@ def test_description_conditioning_fidelity_restricts_to_surviving_dedup_populati
     )
     result = description_conditioning_fidelity(poi_latent, poi_features, n_pairs=5, seed=3)
     assert result["n_pois_in_population"] == 2
+
+
+# -----------------------------------------------------------------------------------
+# A2: raw TF-IDF D10 variant, full-catalog oracle NDCG, text-dependency check.
+# -----------------------------------------------------------------------------------
+
+
+def _two_topic_catalog() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """4 POIs / 1 destination: A1, A2 share a topic word and semantic direction; B1, B2
+    share another. Text and semantics agree perfectly on which pairs are similar."""
+    latent = pd.DataFrame(
+        {
+            "poi_id": ["A1", "A2", "B1", "B2"],
+            "destination": ["seoul"] * 4,
+            "poi_semantic": [
+                np.array([1.0, 0.0]),
+                np.array([0.9, 0.1]),
+                np.array([0.0, 1.0]),
+                np.array([0.1, 0.9]),
+            ],
+        }
+    )
+    prepared = pd.DataFrame(
+        {
+            "poi_id": ["A1", "A2", "B1", "B2"],
+            "name": ["Alpha", "Alpha", "Beta", "Beta"],
+            "description": [
+                "quiet lantern garden",
+                "quiet lantern garden",
+                "loud neon arcade",
+                "loud neon arcade",
+            ],
+            "tags": [["lantern"], ["lantern"], ["neon"], ["neon"]],
+            "category": ["nature_park", "nature_park", "nightlife", "nightlife"],
+        }
+    )
+    return latent, prepared
+
+
+def test_raw_tfidf_d10_hand_built_two_topic_catalog_is_positive_and_feature_free() -> None:
+    latent, prepared = _two_topic_catalog()
+    result = description_conditioning_fidelity_raw_tfidf(latent, prepared, n_pairs=30, seed=1)
+    assert result["n_pois_in_population"] == 4
+    assert result["n_pairs_sampled"] == 30
+    # Same-topic pairs: text cos 1.0 and semantic cos ~1.0; cross-topic pairs: text cos
+    # exactly 0 and semantic cos ~0.1 -> monotone agreement, rho must be strongly positive.
+    assert result["spearman_rho"] > 0.8
+    assert result["n_pairs_zero_text_cosine"] > 0
+
+
+def test_raw_tfidf_d10_anti_aligned_text_gives_negative_rho() -> None:
+    latent, prepared = _two_topic_catalog()
+    # Swap the text of the two topics: text now says A1~B1, A2~B2 (wrong pairs).
+    prepared = prepared.assign(
+        description=["quiet lantern garden", "loud neon arcade"] * 2,
+        tags=[["lantern"], ["neon"], ["lantern"], ["neon"]],
+        name=["Alpha", "Beta", "Alpha", "Beta"],
+    )
+    result = description_conditioning_fidelity_raw_tfidf(latent, prepared, n_pairs=30, seed=1)
+    assert result["spearman_rho"] < 0.0
+
+
+def test_semantic_noise_ceiling_is_one_when_semantic_is_noise_free() -> None:
+    from poi_rank.datagen.taxonomy import CATEGORIES, TAG_INDEX, TAGS
+
+    vectors = []
+    cats = ["museum", "museum", "cafe", "cafe"]
+    tag_lists = [["cultural"], ["cultural", "artsy"], ["foodie"], ["foodie", "trendy"]]
+    for cat, tags in zip(cats, tag_lists, strict=True):
+        v = np.zeros(len(CATEGORIES) + len(TAGS))
+        v[CATEGORY_INDEX[cat]] = 1.0
+        for t in tags:
+            v[TAG_INDEX[t]] = 0.6
+        vectors.append(v)
+    latent = pd.DataFrame(
+        {"poi_id": ["P1", "P2", "P3", "P4"], "destination": ["seoul"] * 4, "poi_semantic": vectors}
+    )
+    prepared = pd.DataFrame({"poi_id": latent["poi_id"], "category": cats, "tags": tag_lists})
+    result = semantic_noise_ceiling(latent, prepared, n_pairs=40, seed=3)
+    assert result["spearman_rho"] == pytest.approx(1.0)
+
+
+def test_text_component_ablation_reports_all_components() -> None:
+    latent, prepared = _two_topic_catalog()
+    out = text_component_ablation(latent, prepared, n_pairs=30, seed=1)
+    assert set(out) == {
+        "full",
+        "tags_only",
+        "tags_plus_category",
+        "description_only",
+        "name_only",
+    }
+    assert out["tags_only"] > 0.8
+
+
+def test_oracle_ndcg_full_catalog_hand_computed() -> None:
+    """One trip, 4 eligible POIs with true utility u1>u2>u3>u4. The trip was exposed to
+    P2 (label 2) and P4 (label 1) only. Full-catalog ranking by u: P1 (unexposed, 0),
+    P2 (2), P3 (unexposed, 0), P4 (1). DCG@10 = 0/1 + 3/log2(3) + 0 + 1/log2(5) (gain
+    2^l - 1); ideal order (labels 2,1,0,0) gives 3 + 1/log2(3)."""
+    utility = pd.DataFrame(
+        {
+            "trip_id": ["T1"] * 4,
+            "traveler_id": ["U1"] * 4,
+            "poi_id": ["P1", "P2", "P3", "P4"],
+            "utility_true": [4.0, 3.0, 2.0, 1.0],
+        }
+    )
+    interactions = pd.DataFrame(
+        {"trip_id": ["T1", "T1", "T1"], "poi_id": ["P2", "P4", "P4"], "label": [2, 1, 0]}
+    )
+    result = oracle_ndcg_full_catalog(utility, interactions, k=10)
+    expected = (3.0 / np.log2(3) + 1.0 / np.log2(5)) / (3.0 + 1.0 / np.log2(3))
+    assert result["mean_ndcg_at_10"] == pytest.approx(expected)
+    assert result["mean_exposed_fraction_of_catalog"] == pytest.approx(0.5)
+    # Oracle top-10 is all 4 POIs; 2 of them (P1, P3) were never exposed.
+    assert result["mean_share_top10_by_true_utility_unexposed"] == pytest.approx(0.5)
+    # Restricted to exposed POIs {P2, P4}: oracle order P2, P4 = ideal order -> NDCG 1.0.
+    assert result["ndcg_at_10_restricted_to_exposed"] == pytest.approx(1.0)
+    assert result["n_trips_included"] == 1
+    assert "exposure-capped" in result["caveat"]
+
+
+def test_oracle_ndcg_full_catalog_excludes_trips_without_positives() -> None:
+    utility = pd.DataFrame(
+        {
+            "trip_id": ["T1", "T1", "T2", "T2"],
+            "traveler_id": ["U1", "U1", "U2", "U2"],
+            "poi_id": ["P1", "P2", "P1", "P2"],
+            "utility_true": [2.0, 1.0, 2.0, 1.0],
+        }
+    )
+    interactions = pd.DataFrame({"trip_id": ["T1"], "poi_id": ["P1"], "label": [3]})
+    result = oracle_ndcg_full_catalog(utility, interactions, k=10)
+    assert result["n_trips_included"] == 1
+    assert result["n_trips_excluded_zero_relevant"] == 1
+    assert result["mean_ndcg_at_10"] == pytest.approx(1.0)
+
+
+def test_text_dependency_check_on_real_catalog(
+    evaluate_ready_data_dir: Path, datagen_cfg: Any
+) -> None:
+    from poi_rank.datagen.oracle_export import oracle_dir_from_output
+    from poi_rank.eval import oracle as oracle_reader
+
+    poi_latent = oracle_reader.load_poi_latent(oracle_dir_from_output(evaluate_ready_data_dir))
+    pois_raw = pd.read_parquet(evaluate_ready_data_dir / "pois.parquet")
+    result = text_dependency_check(poi_latent, pois_raw, datagen_cfg, seed=42)
+    assert result["n_pois"] > 1000
+    assert result["fraction_reproduced_from_own_semantic"] == pytest.approx(1.0)
+    assert result["fraction_changed_same_semantic_control"] == 0.0
+    assert result["fraction_changed_with_permuted_semantic"] > 0.9
