@@ -3,20 +3,8 @@ spec.md section 9.5's exact field set (every required field present, correct typ
 calibration/beta-sensitivity/lambda-sweep diagnostics have the expected shape, and
 the confidence-decile monotonicity validation (spec.md section 9.3).
 
-**Confidence-decile monotonicity is a genuine, measured honest miss** (`xfail(strict
-=True)`, mirroring `tests/test_localness_oracle.py`'s established pattern for the
-localness-ρ honest miss) -- NOT the same category as `tests/test_hard_constraints.py`
-(build-blocking, must pass). Diagnosed in docs/DATA_CARD.md: every one of spec.md's 5
-named confidence inputs (n_interactions_traveler, poi_impression_count, review_count,
-ensemble_std, calibration_bin_width), individually AND under two different
-combination functions (weighted arithmetic mean -- the shipped `g` -- and geometric
-mean), shows no statistically significant correlation with per-trip NDCG@10 on this
-dataset (measured |Spearman rho| < 0.09, p > 0.24 for every individual input). A
-positive control (other model-internal signals NOT among spec's 5 named inputs, e.g.
-the top-ranked candidate's own utility score) DOES show a weak but significant
-correlation (rho ~0.16-0.18, p < 0.04), proving the measurement methodology itself
-detects real signal when present -- the miss is specific to spec's named 5 inputs on
-this dataset, not a broken evaluation harness.
+The confidence-decile monotonicity target is reported in the RESULTS scorecard, not
+asserted here (spec-v2 S5: no `xfail` for metric targets).
 """
 
 from __future__ import annotations
@@ -137,14 +125,13 @@ def test_output_schema_at_most_top_k_recommendations_per_trip(
 # -----------------------------------------------------------------------------------
 
 
-def test_calibration_ece_after_meets_target_on_real_data(
+def test_calibration_improves_ece_and_brier_on_real_data(
     scoring_pipeline_result: dict[str, Any],
 ) -> None:
-    """spec.md section 11.10's own success criterion: ECE after calibration <= 0.05.
-    Measured, not asserted in isolation from real data -- see docs/DATA_CARD.md for
-    the exact numbers."""
+    """Invariant: isotonic calibration must not make calibration worse. The ECE <= 0.05
+    TARGET is a scorecard row (`docs/RESULTS.md`), not a build-blocking test -- the fast-config
+    boosters this fixture trains land near it but are not the shipped model (spec-v2 S5)."""
     c = scoring_pipeline_result["calibration"]
-    assert c["ece_after"] <= 0.05
     assert c["ece_after"] < c["ece_before"]  # calibration demonstrably helps
     assert c["brier_after"] < c["brier_before"]
 
@@ -172,25 +159,5 @@ def test_lambda_sweep_has_every_configured_lambda_and_diversity_increases_as_lam
     assert by_lambda[1.0] == max(by_lambda.values())
 
 
-# -----------------------------------------------------------------------------------
-# Confidence-decile monotonicity (spec.md section 9.3) -- genuine, diagnosed honest
-# miss, see module docstring.
-# -----------------------------------------------------------------------------------
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Confidence-decile NDCG@10 monotonicity (Spearman rho >= 0.7, spec.md "
-        "section 9.3) is a genuine, measured miss on this dataset: every one of "
-        "spec.md's 5 named confidence inputs, individually and under 2 different "
-        "combination functions, shows no significant correlation with per-trip "
-        "NDCG@10 -- diagnosed in docs/DATA_CARD.md, not tuned to hide."
-    ),
-)
-def test_confidence_decile_ndcg_is_monotone_increasing(
-    scoring_pipeline_result: dict[str, Any],
-) -> None:
-    dv = scoring_pipeline_result["confidence_decile_validation"]
-    assert dv["spearman_rho"] is not None
-    assert dv["spearman_rho"] >= 0.7
+# The confidence-decile Spearman target is a scorecard row (`docs/RESULTS.md`), not a
+# build-blocking test (spec-v2 S5); the decile table's shape is still checked above.

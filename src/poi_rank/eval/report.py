@@ -26,6 +26,7 @@ from poi_rank.eval.report_sections import (
     render_decision_register,
     render_gates,
     render_headline,
+    render_seed_replication,
     render_timings,
 )
 
@@ -208,8 +209,8 @@ def render_success_criteria(
         ),
         ("ECE after calibration", "&le; 0.05", _fmt(ece_after), ece_after <= 0.05, None),
         (
-            "Confidence-decile NDCG monotonicity (Spearman)",
-            "&ge; 0.6",
+            "Confidence-decile NDCG rank correlation (Spearman; need not be strictly monotone)",
+            "&ge; 0.6 (spec-v2; spec.md section 11.10 said 0.7)",
             "N/A" if decile_rho is None else _fmt(decile_rho, 3),
             decile_rho is not None and decile_rho >= 0.6,
             "confidence_decile",
@@ -219,7 +220,7 @@ def render_success_criteria(
             "&ge; 0.25",
             _fmt(lt_share),
             lt_share >= 0.25,
-            None,
+            "longtail_share",
         ),
         (
             "Long-tail precision of top-10",
@@ -262,7 +263,7 @@ def render_success_criteria(
     for name, target, measured, met, _ in rows:
         lines.append(f"| {name} | {target} | {measured} | {_met(met)} |")
     lines.append("")
-    diag = diagnoses(metrics)
+    diag = diagnoses(metrics, scenarios)
     missed = [(name, key) for name, _, _, met, key in rows if not met]
     if missed:
         lines += ["### Diagnoses of the missed rows", ""]
@@ -813,6 +814,7 @@ def render_results_md(metrics: dict[str, Any], scenarios: dict[str, Any] | None 
         render_ablations(metrics),
         render_beta_sensitivity(metrics),
         render_decision_register(metrics),
+        render_seed_replication(metrics),
         render_timings(metrics),
         render_scenarios(scenarios),
     ]
@@ -836,6 +838,37 @@ def run_report(
     return output_path
 
 
+NARRATIVE_TEMPLATES: dict[str, str] = {
+    "docs/TECHNICAL.md.tmpl": "docs/TECHNICAL.md",
+    "README.md.tmpl": "README.md",
+}
+
+
+def run_narrative_docs(
+    metrics_path: Path = DEFAULT_METRICS_PATH,
+    scenarios_dir: Path = DEFAULT_SCENARIOS_DIR,
+    repo_root: Path = REPO_ROOT,
+) -> list[Path]:
+    """Render the hand-narrated documents from their templates (`report_templates.py`): the
+    prose is hand-written, every number and table is resolved from `results/metrics.json`."""
+    from poi_rank.eval.report_templates import render_template
+
+    metrics = load_metrics(metrics_path)
+    scenarios = load_scenarios(scenarios_dir)
+    written: list[Path] = []
+    for template, target in NARRATIVE_TEMPLATES.items():
+        template_path = repo_root / template
+        if not template_path.exists():
+            continue
+        rendered = render_template(template_path.read_text(encoding="utf-8"), metrics, scenarios)
+        out = repo_root / target
+        out.write_text(rendered, encoding="utf-8")
+        written.append(out)
+    return written
+
+
 if __name__ == "__main__":
     written = run_report()
     print(f"wrote {written}")
+    for path in run_narrative_docs():
+        print(f"wrote {path}")

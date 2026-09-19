@@ -302,6 +302,7 @@ def train_block_dropped_booster(
     pois_df: pd.DataFrame,
     model_cfg: ModelConfig,
     drop_prefix: str,
+    num_boost_round: int | None = None,
 ) -> tuple[Any, list[str], list[str]]:
     """Train ONE LambdaMART+IPS booster (system 8's exact recipe) with every
     numeric feature column starting with `drop_prefix` removed from the design
@@ -333,6 +334,7 @@ def train_block_dropped_booster(
         lm_cfg,
         model_cfg.seed,
         sample_weight=ips_weight_fit,
+        num_boost_round=num_boost_round,
     )
     return booster, numeric_columns, categorical_columns
 
@@ -350,9 +352,10 @@ def feature_block_row(
     seed: int,
     ci_low_pct: float,
     ci_high_pct: float,
+    num_boost_round: int | None = None,
 ) -> AblationRow:
     booster, numeric_columns, categorical_columns = train_block_dropped_booster(
-        train_frame, interactions_train, pois_df, model_cfg, drop_prefix
+        train_frame, interactions_train, pois_df, model_cfg, drop_prefix, num_boost_round
     )
     ablated_score = lm.score_booster(booster, holdout_frame, numeric_columns, categorical_columns)
     return _compare_ndcg10(

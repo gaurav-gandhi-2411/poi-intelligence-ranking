@@ -51,7 +51,10 @@ for cat, col in cat_cols.items():
 train["x_category_affinity"] = aff
 
 fit, val = lm.train_val_split_by_trip(train, mcfg.lambdamart.val_fraction, mcfg.lambdamart.val_split_seed)
-base_num, cat = numeric_feature_columns(train), categorical_feature_columns(train)
+# The pair frame now ships `interact_category_affinity`; the experiment measures its value, so the
+# baseline must EXCLUDE it (the `x_category_affinity` variants re-add it explicitly).
+base_num = [c for c in numeric_feature_columns(train) if c != "interact_category_affinity"]
+cat = categorical_feature_columns(train)
 
 
 ROWS: list[dict] = []

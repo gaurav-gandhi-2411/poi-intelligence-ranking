@@ -2808,3 +2808,79 @@ Spearman(u, label) 0.4563 -> 0.4634; Var(eps)/Var(u) 0.1096 -> 0.1099; min term 
 0.0553; localness-geo 0.6929 -> 0.6987; cold-start 0.1032 -> 0.1073; slate-level oracle 0.619 ->
 0.6245; candidate-level oracle 0.4319 -> 0.4037 (Gate-B; stale-candidates issue avoided by
 re-running `candidates`); D9 TF-IDF 0.1873 -> 0.3543, MiniLM 0.133 -> 0.1666.
+
+
+## Post-A2 record (A3, A4, Block B, Block C) — 2026-09-20
+
+**Status banner.** Everything above this heading describes the dataset and decisions up to and
+including A2. Numbers quoted in older sections (candidate recall 0.44, oracle ceilings, the old
+NDCG tables, ...) were measured on earlier realizations of the data or earlier candidate sets and
+are **historical**. The single source of truth for current numbers is `results/metrics.json`
+(composed from `results/parts/*.json`) and the generated `docs/RESULTS.md`.
+
+### A3 — measure before building
+
+Step 0 measured D9 (now WITHIN-trip Spearman), D11 (out-of-fold ridge R² and first canonical
+correlation from `poi_emb` to `poi_semantic`), both ablations (taste-estimator-alone with the true
+semantic vectors; text-alone with the true taste) and candidate recall on the A2 data before any
+representation code was written (`results/parts/a3_step0*.json`). Text was not the bottleneck, so
+the behavioural item embedding (item2vec / ALS) was **skipped** (Decision Register: measured, not
+needed at this text fidelity). Candidate recall was the real failure: the six heuristic channels
+recalled little more than chance at ~40% of the catalog while ranking by true utility would have
+recalled almost everything at that budget, i.e. the ceiling was the retrieval design.
+
+Resolved: a learned first-stage retriever (`candidates/retriever.py`), IPS-weighted LightGBM over
+the ranker's own pair features, scoring the full destination catalog, cross-fitted by trip for
+train trips. Selection rule and its honest caveat are in `results/parts/a3_retriever_grid.json`
+(the 0.90 validation margin was set after seeing that validation runs above the holdout, so the
+holdout gate result is not fully out-of-sample for that one knob). Legacy channels geo / semantic /
+CF / archetype have quota 0. Pair feature `interact_category_affinity` adopted on oracle-free
+validation NDCG@10 (`results/parts/a3_pairfeat.json`). Centred taste cosine was NOT adopted: the
+first measurement had it negative on one of two seeds; the re-measurement under the final training
+config is positive on both, recorded as an open follow-up (A3 was one iteration). The retriever's K
+selection audit (rule re-applied on the final feature set gives a smaller K than the one shipped)
+is in `results/parts/a3_retriever_grid.json` under `selection_audit`.
+
+### A4 — performance (same 16-logical-core laptop)
+
+What worked: persist the 5-seed confidence ensemble at `train` time (it was being retrained inside
+every `evaluate` / `recommend` / `scenarios` call); TreeSHAP only on returned rows; vectorised MMR
+with lambda-independent pools; vectorised interest-match; integer fold masks in the retriever;
+`choice_index` in the DGP (bit-identical to `Generator.choice(p=)`, dataset byte-identical);
+lr 0.1 + max_bin 63 (validation NDCG@10 equal on two seeds); 16 LightGBM threads
+(`deterministic=True` makes trees thread-count invariant, asserted at 1 vs 8). What did not:
+concurrent LightGBM fits (slower than sequential — LightGBM already saturates the cores). Per-stage
+timings: `results/parts/timings*.json`, rendered in RESULTS.md.
+
+### Block B — resolved ambiguities
+
+- **Personalization pairs are same-destination only.** POIs belong to one destination, so
+  cross-destination pairs have Jaccard = RBO = 0 by construction; pooling them (2/3 of pairs with
+  three destinations) measured the catalog partition. The old pooled value is kept in the payload
+  for continuity, labelled.
+- **True archetype labels** (oracle export `traveler_archetype.parquet`, eval-only): within = same
+  dominant archetype and mixture cosine > 0.8; cross = different dominant archetype. K-Means proxy
+  kept, labelled as a proxy. A perfect-ranker reference (lists ranked by true utility) bounds the
+  ratio target.
+- **`results/metrics.json` has one writer.** Stages write `results/parts/<stage>.json`;
+  `compose` merges. Enforced by a test and `make audit`.
+- **LR baseline** L2 strength chosen by trip-grouped CV log-loss on a 20% trip subsample.
+- **No `xfail` for metric targets** (spec-v2 S5): the localness-rho and confidence-decile tests
+  were removed; those targets live in the RESULTS scorecard with diagnoses.
+- **Gate-A runs lean** in `reproduce` (only the quantities the gate reads; no MiniLM subprocess,
+  no candidate-level oracle, no bias-gap frames). The full `diagnose-dgp` is on demand.
+- **Verifier subagent retired** for this project (it reported the baseline back as its result,
+  called an out-of-range number "within range", and reported "no anomalies" while a test was
+  failing). `poi_rank.cli audit` is a deterministic script that checks the invariants and emits
+  JSON. One subagent role remains: spot-checking generated prose against real data, and its
+  report is discarded unless it quotes the computed value it checked.
+
+### Block C — Decision Register
+
+`results/parts/dr/*.json` → `results/parts/decision_register.json`. Measured: DR1, DR2, DR3, DR4,
+DR6, DR7, DR8, DR9, DR10, DR11. NOT RUN (cut for time): DR5 (ANN benchmark). The 5-seed
+replication (`scripts/seed_replication.py`, whole pipeline regenerated per seed) was run; its
+between-seed table is in RESULTS.md.
+Two results worth flagging because they cut against the shipped choices: DR3 (pointwise objectives
+tie or beat `lambdarank`) and DR7 (less IPS clipping is better on the holdout). Neither was
+adopted, because selecting on the holdout would leak it into a decision.

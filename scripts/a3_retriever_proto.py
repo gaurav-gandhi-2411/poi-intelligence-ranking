@@ -208,8 +208,8 @@ for name in SUBSETS:
         val_raw = union_recall(val_fr, K, name)
         val = union_recall(val_fr, K, name, ips_val)
         hold = union_recall(h_fr, K, name)
-        grid.append({"channels": name, "learned_K": K, "val_ips_weighted_oracle_free": val,
-                     "val_unweighted_oracle_free": val_raw, "holdout_reporting_only": hold})
+        grid.append({"channels": name, "learned_K": K, "val_ips_weighted_selection": val,
+                     "val_unweighted_selection": val_raw, "holdout_reporting_only": hold})
         print(name, K, val, hold, flush=True)
 out = {
     "selection_rule": (
@@ -222,6 +222,29 @@ out = {
         "out-of-sample for this one knob. Holdout column is reporting-only."
     ),
     "grid": grid,
+}
+# The rule, applied mechanically to THIS grid (final feature set), vs the K actually shipped.
+_rule_rows = [
+    g
+    for g in grid
+    if g["channels"] == "longtail+interest" and g["val_ips_weighted_selection"]["recall"] >= 0.90
+]
+_rule_k = min(g["learned_K"] for g in _rule_rows)
+_shipped_k = 210  # configs/features.yaml candidates.learned.quota (chosen on the earlier grid)
+_hold = {g["learned_K"]: g["holdout_reporting_only"]["recall"] for g in grid if g["channels"] == "longtail+interest"}
+out["selection_audit"] = {
+    "rule_k_on_final_feature_grid": _rule_k,
+    "shipped_k": _shipped_k,
+    "holdout_recall_at_rule_k_reporting_only": _hold[_rule_k],
+    "holdout_recall_at_shipped_k_reporting_only": _hold[_shipped_k],
+    "note": (
+        "The shipped K was chosen with this rule on the grid computed BEFORE the "
+        "category-affinity pair feature was added to the retriever's inputs; re-running the same "
+        "rule on the final feature set gives the smaller rule_k above, whose holdout recall sits "
+        "on the 0.85 gate line. K was not re-selected after the fact (one A3 iteration), so the "
+        "Gate-B overall-recall pass is a knife-edge result that partly reflects a choice made "
+        "with knowledge of the holdout gap."
+    ),
 }
 (ROOT / "results" / "parts" / "a3_retriever_grid.json").write_text(json.dumps(out, indent=2))
 print("DONE")

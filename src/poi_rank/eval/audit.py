@@ -54,7 +54,20 @@ def _run_pytest(targets: list[str]) -> dict[str, Any]:
     if missing:
         return {"passed": False, "evidence": f"test target(s) missing: {missing}"}
     proc = subprocess.run(  # noqa: S603 -- fixed argv, no shell
-        [sys.executable, "-m", "pytest", "-q", "-p", "no:warnings", "--no-header", *existing],
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            # pyproject's addopts already carries -q; a second -q would suppress the
+            # "N passed" summary line this check parses.
+            "-o",
+            "addopts=",
+            "-q",
+            "-p",
+            "no:warnings",
+            "--no-header",
+            *existing,
+        ],
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,

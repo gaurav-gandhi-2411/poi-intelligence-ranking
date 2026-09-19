@@ -244,14 +244,17 @@ def test_every_number_in_results_md_traces_to_metrics_json_or_scenarios_json(
     )
 
 
-def test_render_success_criteria_has_nine_rows(fast_metrics_payload: dict[str, Any]) -> None:
+def test_render_success_criteria_rows_all_have_a_status(
+    fast_metrics_payload: dict[str, Any],
+) -> None:
     section = render_success_criteria(fast_metrics_payload)
     data_rows = [
         line
         for line in section.splitlines()
         if line.startswith("| ") and "Target" not in line and "---" not in line
     ]
-    assert len(data_rows) == 9
+    assert len(data_rows) >= 13  # the v2 scorecard (scenario row needs scenarios)
+    assert all("**MET**" in r or "**MISSED**" in r for r in data_rows)
 
 
 def test_load_metrics_missing_file_raises_actionable_error(tmp_path: Any) -> None:

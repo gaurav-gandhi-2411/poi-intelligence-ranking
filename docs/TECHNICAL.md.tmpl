@@ -1,0 +1,435 @@
+# TECHNICAL.md — `poi-intelligence-ranking`
+
+> **Generated document.** Prose is hand-written in `docs/TECHNICAL.md.tmpl`; every number and
+> table is resolved from `results/metrics.json` by `poi_rank.eval.report`
+> (`report_templates.py`) — a token that cannot be resolved fails the build, so no figure here
+> can be stale or hand-typed. `docs/RESULTS.md` is the fully generated results record;
+> `docs/DATA_CARD.md` is the append-only log of every dataset decision.
+
+This is the ML-reasoning and engineering-decision record. It covers what the audit checklist
+requires — problem formulation, the circularity defense, every architectural choice, why
+LambdaMART rather than a two-tower ranker, why the scoring layer is multiplicative rather than
+the brief's additive example — and, since the remediation, a **Decision Register** (section 12)
+in which every choice not dictated by the assignment carries a measured number or an explicit
+`NOT RUN`.
+
+## 0. What the simulator does and does not license
+
+All data is synthetic (three destinations; **Seoul leads**, the personas are inbound foreign
+travelers). Every result below is a property of *this* simulator. Three limits matter when
+reading it:
+
+1. The DGP's labels are generated from a utility that the simulator author wrote; a model
+   scoring well means it recovered that utility from observable columns, not that it would do
+   so on real behaviour. The defenses (section 2) make the number *non-circular*, not
+   *transferable*.
+2. POI text is generated from per-dimension phrase pools. Text-derived fidelity numbers (D10,
+   D9, D11, the TF-IDF-vs-MiniLM comparison) describe that synthetic text; whether they transfer to real POI
+   descriptions is untested, and they are not statements about encoders in general.
+3. The labels do not penalise a hard-constraint violation (a closed or inaccessible POI is
+   still "engaged with" if the simulator's utility says so), so NDCG cannot show the cost of
+   violations; the constraint guarantee is enforced and measured separately (section 7).
+
+## 1. Problem formulation
+
+The brief frames POI recommendation as a **two-factor** problem: a POI is a good
+recommendation only if it is both *preferred* (relevant to the traveler's taste) and
+*compatible* (it fits the trip's hard and soft constraints — budget, hours, accessibility,
+party, mobility, reservation lead time). This project is genuinely two-stage:
+`src/poi_rank/models/` produces relevance, `src/poi_rank/scoring/` produces compatibility and
+combines the two (section 7).
+
+**Exposure bias** is the second first-class concern. Logged interactions conflate "the
+traveler liked it" with "the serving policy showed it". The DGP simulates two exposure policies
+(a popularity-biased training log and a uniform-random evaluation log) so the bias is
+measurable and correctable rather than hand-waved. Measured on the bias-gap table below:
+popularity's NDCG@10 moves by {{bias_gap.popularity.gap|+.4f}} between the unbiased and biased
+holdouts (it is flattered by the biased log), the primary IPS-corrected model by
+{{bias_gap.lambdamart_ips.gap|+.4f}}.
+
+**The commercial objective is local / long-tail discovery, not raw NDCG.** The incumbents in
+inbound-travel already rank by popularity, so a popularity-shaped list is table stakes. The
+differentiating claim is surfacing the genuinely relevant, non-obvious POI, and it has to be
+backed by long-tail **precision**, not just share. Measured on the unbiased holdout, top-10
+lists: long-tail share {{longtail.share|.4f}} (popularity ranker:
+{{longtail.popularity_baseline.share|.4f}}), catalog coverage@10
+{{coverage.primary_system.catalog_coverage_at_10|.1%}} (popularity:
+{{coverage.popularity_baseline.catalog_coverage_at_10|.1%}}); long-tail precision
+{{longtail.precision|.4f}} on {{longtail.n_longtail_recommended}} long-tail recommendations —
+below the 0.40 target, diagnosed in the scorecard (section 10).
+
+## 2. DGP / circularity defense
+
+Synthetic data means the same team writes the generator and the model evaluated against it.
+Without a structural firewall a model can simply re-learn the generator. Defenses, all
+independently tested:
+
+1. **The DGP firewall.** `src/poi_rank/datagen/**` never imports `features/`, `models/`,
+   `candidates/` or `scoring/` (`tests/test_firewall.py`, AST-based). Each later phase has its
+   own firewall test (`tests/test_firewall_*.py`); `candidates/` in particular may import
+   `features/` but never `models/` or `scoring/`, which is why the shared pair-frame assembly
+   lives in `features/pair_frame.py`.
+2. **Oracle isolation.** The true taste vectors, POI latent quality/localness/semantic vectors,
+   the true archetype mixtures and the noise-free utility `u(t,p)` live only in
+   `data/synthetic/_oracle/`, readable solely by `eval/oracle.py`
+   (`tests/test_oracle_isolation.py` is a raw text scan that allow-lists exactly one writer and
+   one reader).
+3. **Stated interests are a lossy projection of latent taste** (top-k labels omitted or
+   replaced at random), so an explicit-only model cannot reach the ceiling.
+4. **Gate-A is frozen before any model work; Gate-B's blocking rows are oracle-free; the
+   oracle never touched a decision.** The simulator was calibrated against a blocking
+   acceptance gate (below) *before* features/candidates/models were touched, and that
+   calibration is documented in `docs/DATA_CARD.md` (it tunes the simulator, not the model).
+   Every representation and retrieval hyperparameter was then selected on a **train-carved
+   validation split** (`results/parts/a3_*.json`); the oracle-based numbers (D9, D11,
+   oracle-relevance recall, the ceiling) are reporting-only, computed once after the selection
+   was frozen.
+
+**Gate-A (simulator quality)** and **Gate-B (representation / candidate generation)**:
+
+{{@gates}}
+
+**Two exposure logs, one primary evaluation set.** `interactions_train.parquet` uses a
+popularity-biased policy; `interactions_holdout_random.parquet` uses uniform-random exposure
+over a wide slate and is the **primary** evaluation population
+({{meta.n_holdout_trips}} holdout trips); `interactions_holdout_logged.parquet` repeats the
+biased policy over the holdout window only to compute the bias gap. Every logged interaction
+carries its `p_expose`, which is what makes IPS possible.
+
+**The bias-gap table** (every system, biased vs unbiased holdout):
+
+{{@bias_gap}}
+
+**Oracle ceiling.** Ranking the same candidates by the true noise-free utility gives NDCG@10
+{{systems.oracle.metrics.ndcg@10.mean|.4f}}; the primary system reaches
+{{systems.lambdamart_ips.pct_of_ceiling_ndcg10|.1%}} of it. The ceiling is candidate-level and
+exposure-capped (unexposed candidates count as label 0), which is why it sits far below the
+slate-level oracle measured by Gate-A.
+
+## 3. Feature architecture
+
+**POI representation** is hybrid by necessity: structured columns (shrunk rating, log review
+count, `pop_pct`, localness index, price, duration, hours), categorical columns (native
+LightGBM category dtype), geo (H3 cell, distance to the tourist centroid / transit, local
+density), behavioural aggregates (CTR, save/visit/dismiss rates, archetype-affinity profile)
+and a text embedding (name + description + tags → TF-IDF → SVD-64).
+
+**Traveler representation** combines an explicit block (stated interests multi-hot, budget,
+party, mobility, touristiness preference, pace, accessibility, logistics) with an implicit
+block: a taste vector in the POI embedding space,
+`taste_t = normalize(Σ w(type_i)·exp(-Δt_i/τ)·emb(poi_i))`, plus history-derived category
+distribution and mean price/localness/popularity. Both blocks and their **pair features**
+(`interact_cos_taste_poi`, `interact_localness_gap`, `interact_interest_match`,
+`interact_price_gap`, `interact_category_affinity`) go to LambdaMART, which learns the blend
+conditioned on evidence volume.
+
+**What was measured about the representation** (oracle-free selection, oracle-based reporting):
+
+- *Is text the bottleneck?* No. Out-of-fold ridge R² from the text embedding to the latent
+  semantic space is {{representation.d11_text_only.ridge_r2_oof|.3f}} (first canonical
+  correlation {{representation.d11_text_only.cca_first_corr_oof|.3f}}); within-trip taste
+  fidelity with the TRUE taste and observable text is
+  {{representation.d9_within_trip.text_alone.mean_within_trip_spearman|.3f}}.
+- *Is the taste estimator?* It is the weak link: run over the TRUE semantic vectors it reaches
+  {{representation.d9_within_trip.taste_estimator_alone.mean_within_trip_spearman|.3f}}, and the
+  shipped chain {{representation.d9_within_trip.shipped_chain_d9.mean_within_trip_spearman|.3f}}
+  (D9, within-trip Spearman; pooled Spearman mixes between-trip scale differences into the
+  statistic).
+- *Behavioural item embedding (item2vec / ALS)*: **skipped.** The premise (a weak text channel)
+  did not hold at this text fidelity, and the item side was already not the limiting link
+  (`results/parts/a3_step0.json`).
+- *Pair features, oracle-free validation NDCG@10, two seeds* (`results/parts/a3_pairfeat.json`,
+  re-measured under the final training config): category-affinity mean delta
+  {{a3_pairfeat.summary.+category_affinity.mean_delta_val_ndcg@10|+.4f}} (both seeds positive) —
+  **adopted**; centred taste cosine mean delta
+  {{a3_pairfeat.summary.+cos_taste_centered.mean_delta_val_ndcg@10|+.4f}} — **not adopted**: an
+  earlier pass under the previous training config had it negative on one seed, the choice was made
+  then, and A3 was a single iteration; the re-measurement is recorded as an open follow-up rather
+  than acted on after the fact. The gains are small relative to the seed spread.
+
+**Feature-block ablation** (four full LightGBM retrains dropping one block each, plus the five
+cheaper ablations; deltas are against the full model on the unbiased holdout):
+
+{{@ablation_table}}
+
+Sign convention: delta = ablated minus full, so a POSITIVE delta means removing the block
+*improved* NDCG@10. Several block rows are positive, and one is significant: dropping the raw
+text-embedding block changes NDCG@10 by {{ablations.5.delta_ndcg@10|+.4f}}
+(p={{ablations.5.wilcoxon_p_value|.3g}}), the raw implicit-taste block by
+{{ablations.6.delta_ndcg@10|+.4f}} (p={{ablations.6.wilcoxon_p_value|.3g}}). Reading: the raw
+embedding and taste-vector columns add noise the trees fit; their information still reaches the
+model through the engineered `interact_cos_taste_poi` (which is not dropped with the raw block),
+so the ablation says the *raw blocks* are not earning their columns, not that taste is useless.
+Dropping them is a candidate improvement that was deliberately **not** applied: choosing it on
+this holdout number would be selecting on the holdout. Explicit interests and the behavioural
+block are within noise.
+
+## 4. Candidate generation
+
+**What failed first, measured.** The original six heuristic channels (geo, interest, semantic,
+item-item CF, long-tail, archetype) recalled only a little more than chance of the exposed
+holdout positives at roughly 40% of the catalog — while ranking by the true utility would have
+recalled {{decision_register.rows.10.results.true_utility_top_k_recall_diagnostic|.3f}} at the
+same budget. So the ceiling was the retrieval *design*, not the data
+(`results/parts/a3_step0_recall.json`, Decision Register DR11).
+
+**What ships.** A learned first-stage retriever (`candidates/retriever.py`): an IPS-weighted
+LightGBM over the same observable pair features the ranker uses, scoring the *full* destination
+catalog and taking the top-K per trip, unioned with the long-tail hard floor and the interest
+channel. Train trips are scored **cross-fitted** (K-fold by trip — no trip is scored by a model
+that saw it), holdout trips by the full-train model; a test asserts both the leakage discipline
+and thread-count invariance. Geo, semantic, CF and archetype quotas are set to 0 (their
+marginal recall was measured, not assumed; DR11). K was chosen on a train-carved validation
+split against IPS-weighted logged positives (smallest K with validation recall ≥ 0.90; the
+margin above the gate was set after seeing that validation runs above the holdout). **Selection
+audit:** that rule gave K={{a3_retriever_grid.selection_audit.shipped_k}} on the grid computed
+before the category-affinity feature entered the retriever; re-running the same rule on the final
+feature set gives K={{a3_retriever_grid.selection_audit.rule_k_on_final_feature_grid}}, whose
+holdout recall is {{a3_retriever_grid.selection_audit.holdout_recall_at_rule_k_reporting_only|.3f}}
+(vs {{a3_retriever_grid.selection_audit.holdout_recall_at_shipped_k_reporting_only|.3f}} at the
+shipped K, in the grid's simplified non-cross-fitted setup). K was not re-selected after the
+fact, so the overall-recall gate pass is a **knife-edge result** that partly reflects a choice
+made with knowledge of the holdout gap.
+
+{{@recall_strata}}
+
+Oracle-relevance recall (top 5% of the catalog by true utility; reporting-only):
+{{representation.oracle_relevance_recall.overall|.3f}} overall,
+{{representation.oracle_relevance_recall.long_tail|.3f}} long-tail.
+
+**Long-tail quota sweep (DR9)** — the quota barely moves ranking quality or long-tail share, so
+the share is set by the ranker, not the quota:
+
+{{@dr9}}
+
+## 5. Ranking model choice — LambdaMART justified over a two-tower ranker
+
+**Chosen:** LightGBM `objective="lambdarank"`, grouped by trip, IPS-weighted, behavioural-block
+dropout (designed for new-POI robustness; its measured effect is in section 10).
+
+**Measured against a two-tower neural ranker (DR2, learning curve).** A small two-tower model
+(traveler tower and POI tower into a shared space, dot-product score, same IPS weights, same
+train-carved early stopping) was trained on 10/25/50/100% of the training trips over three
+seeds each, and scored against LambdaMART on the unbiased holdout with 2000-resample trip
+bootstrap CIs. Note the two-tower can only use *separable* features; the `interact_*` pair
+features cannot enter a dot product, which is part of what is being compared.
+
+{{@dr2}}
+
+There is no crossover anywhere on the measured range. The extrapolation is a four-point
+log-linear fit and is an illustration of scale, not a forecast.
+
+**Honest result on the objective (DR3).** The listwise choice is *not* supported by
+measurement here: pointwise objectives tie or beat `lambdarank` on this data (CIs overlap
+widely). `lambdarank` stays because the assignment asks for a learning-to-rank model and the
+differences are within noise, not because it won.
+
+{{@dr3}}
+
+**All nine systems, unbiased holdout** ({{meta.n_holdout_trips}} trips, bootstrap 95% CI):
+
+{{@systems_table}}
+
+Paired Wilcoxon: `lambdamart_ips` vs popularity p={{wilcoxon.lambdamart_ips_vs_popularity.p_value|.3g}}
+(relative lift {{~lift_vs_popularity_pct|+.1f}}%); vs the best baseline (content cosine)
+p={{wilcoxon.lambdamart_ips_vs_content_cosine.p_value|.3g}}, {{~sig_vs_content}} (the simple
+interest-plus-price content baseline is strong on this data; the tested wins are over popularity and
+the no-IPS ranker; the logistic-regression baseline's CI sits below the primary's, but no paired
+test against it is stored); `lambdamart` vs `lambdamart_ips`
+p={{wilcoxon.lambdamart_vs_lambdamart_ips.p_value|.3g}}.
+The logistic-regression baseline is now regularised (L2 strength chosen by trip-grouped CV
+log-loss: C={{logistic_regression_cv.selected_c}}); the original unregularised fit on 300+
+columns risked being a straw man.
+
+## 6. IPS correction
+
+Training weight `clip(1/p_expose, 1, clip_high)` renormalised per trip, unexposed candidates at
+neutral weight 1.0 (dropping them would remove most negatives). Exposure rate of fit rows:
+{{train.ips_exposure_rate|.1%}}. Ablating IPS changes NDCG@10 by the `-IPS_weighting` row above.
+
+**The clip is not NDCG-optimal on the holdout (DR7).** Less clipping is monotonically better
+here, and no-clip is highest. Selecting the clip on the holdout would leak it into a decision,
+so the shipped value stays and this is reported as an open improvement:
+
+{{@dr7}}
+
+## 7. Scoring layer — multiplicative utility over the brief's additive formula
+
+```
+hard_gate     = 0 if closed_entire_trip or accessibility_need_unmet or unreachable else 1
+compatibility = (budget · mobility · hours · reservation · party · duration) ^ (1/6)
+utility       = hard_gate · relevance^α · compatibility^β          (α=1.0, β=0.7)
+```
+
+**DR1 (uncuttable): the additive formula lets violations through.** Same candidates, same
+relevance and compatibility; only the combination rule differs. The gate is applied *before*
+ranking in production; violations are rows with `hard_gate == 0` in a returned top-10.
+
+{{@dr1}}
+
+The production rule returns **{{constraint_compatibility.n_hard_constraint_violations}}**
+violations across {{constraint_compatibility.n_recommended}} recommended slots
+(build-blocking test + `make audit`). Additive scoring returns violations because a high
+relevance score can outvote a failed factor. NDCG does *not* show a cost for the violations
+(section 0, limit 3): the additive rule's NDCG@10
+({{decision_register.rows.0.results.additive_no_gate (brief).ndcg_at_10|.4f}}) is slightly above
+the gated production rule's ({{decision_register.rows.0.results.multiplicative_gated (production).ndcg_at_10|.4f}}),
+and the ungated multiplicative variant is higher still
+({{decision_register.rows.0.results.multiplicative_no_gate.ndcg_at_10|.4f}}) — i.e. the gate itself
+costs a little NDCG on these labels, by construction, and buys the guarantee. That the labels
+ignore constraints is a limitation of the simulator, not evidence for the additive rule.
+
+**DR6 — aggregator.** Geometric mean vs min / product / arithmetic mean:
+
+{{@dr6}}
+
+**DR10 — α×β grid** (gated multiplicative; shipped α=1.0, β=0.7 sits on a flat surface):
+
+{{@dr10}}
+
+## 8. Calibration
+
+Raw LambdaMART scores are unbounded and not comparable across travelers; the output's
+`planner_weight` needs calibrated scores. Isotonic regression is fit on a calibration split
+carved by trip from the fit frame (disjoint from the early-stopping validation trips and from
+the holdout). Measured on the holdout: ECE {{calibration.ece_before|.4f}} (naive min-max) →
+**{{calibration.ece_after|.4f}}** (isotonic), Brier {{calibration.brier_before|.4f}} →
+{{calibration.brier_after|.4f}}. The `-calibration` ablation is ~0 by construction (isotonic is
+monotone, so it cannot change within-trip ranking); calibration's job is cross-traveler
+comparability, which NDCG does not measure.
+
+## 9. Explainability
+
+Grouped TreeSHAP (`shap.TreeExplainer` on the primary booster; exact for a tree ensemble) maps
+every feature column to one of ~10 semantic groups (`explain/shap_groups.py`, fails closed on an
+unrecognised column); grouped values sum to the raw margin (asserted). TreeSHAP now runs **only
+on the rows actually returned** — we never explain a POI we do not return — which took
+`recommend` from minutes to seconds. `novelty` is a genuinely empty group and is excluded from
+`top_signals` rather than fabricated. No LLM anywhere in the explanation layer: deterministic
+templates with real numeric fill-ins; counterfactual lines re-score with the real
+compatibility/utility functions.
+
+## 10. Evaluation methodology
+
+**Bootstrap + paired Wilcoxon.** Per-trip means, 2000-resample trip bootstrap 95% CIs, paired
+Wilcoxon for every comparison; point estimates are never reported alone.
+
+**Selection vs reporting.** Everything tuned (retriever K, category-affinity feature, LR
+regularisation, learning rate/bin count) was selected on train-carved, oracle-free validation.
+The oracle-based statistics are computed once afterwards and can never fail a gate.
+
+**Personalization — three bugs in the old measurement, fixed.** (1) Pairs were pooled across
+destinations, but a POI belongs to exactly one destination, so 2/3 of the pairs were zero by
+construction; pairs are now same-destination only. (2) The within/cross-archetype groups were
+K-Means clusters of the very features being evaluated; they now use the DGP's TRUE archetype
+labels (dominant archetype, within-pairs also requiring mixture cosine > 0.8), with the K-Means
+version kept and labelled as a proxy. (3) The ratio target is now bounded by a reference: the
+same statistic for lists ranked by the true utility.
+
+- same-destination mean pairwise Jaccard@10: {{personalization.mean_pairwise_jaccard_at_10|.4f}}
+  ({{personalization.n_pairs}} pairs); all-pairs (pooled, structurally diluted):
+  {{personalization.mean_pairwise_jaccard_at_10_all_pairs|.4f}}
+- true-label within / cross Jaccard: {{personalization.archetype.within_archetype_jaccard_mean|.4f}}
+  / {{personalization.archetype.cross_archetype_jaccard_mean|.4f}}, ratio
+  **{{personalization.archetype.within_cross_ratio|.2f}}**
+- reference (perfect ranker): ratio
+  {{personalization.archetype_ideal_ranker_reference.within_cross_ratio|.2f}}
+- K-Means proxy ratio: {{personalization.archetype_kmeans_proxy.within_cross_ratio|.2f}}
+
+**Confidence.** The confidence-decile Spearman is now {{confidence_decile_validation.spearman_rho|.3f}}
+(previously negative on the broken simulator), passing the ≥0.6 target.
+
+**Cold start / new POIs / LODO.** New-POI cohort with vs without behavioural dropout: NDCG@10
+{{new_poi_cohort.ndcg@10_lambdamart_ips_with_dropout.mean|.4f}} vs {{new_poi_cohort.ndcg@10_lambdamart_ips_no_dropout.mean|.4f}}
+(paired Wilcoxon p={{new_poi_cohort.wilcoxon_with_vs_without_dropout.p_value|.3f}}: directionally
+consistent with the intent, not statistically significant at this cohort size).
+Leave-one-destination-out (three retrains): see the cold-start section of `docs/RESULTS.md`.
+
+**Scenarios** (Seoul; spec.md section 15's three required profiles plus the touristiness-flip
+diagnostic, narrated as inbound personas): the flip's top-10 overlap is
+{{scenarios.overlap_matrix.diagnostic_vs_base_jaccard|.3f}} (target ≤ 0.35), from candidate pools
+that overlap at {{scenarios.overlap_matrix.diagnostic_vs_base_candidate_pool_jaccard|.3f}}.
+
+### Scorecard — every miss carries a diagnosis
+
+{{@scorecard}}
+
+## 11. Production considerations
+
+Prose only; no implementation in this repository backs the items below.
+
+**What is different for an inbound-travel platform.** Most users are first-time visitors, so
+cold start is the norm, not the edge (behavioural-block dropout in training is aimed at
+this; an archetype-prior candidate channel was tried and disabled because it added no measured
+recall, DR11); language and locale features matter for both retrieval and
+explanation; seasonality (cherry blossom, festivals, extreme weather) shifts relevance and
+hours; and event / pop-up POIs have short lifecycles, so behavioural aggregates must decay and
+new-POI robustness is a first-class requirement.
+
+**Scale.** The retriever scores the full catalog per request today (fine at this catalog size);
+at production scale it becomes an ANN candidate stage plus H3 geo shards, with the ranker still
+scoring a few hundred candidates. DR5 (ANN latency/recall at 1M vectors) was **not run**; the
+claim "no ANN at this scale" is therefore reasoning, not evidence.
+
+**Online vs offline features.** Offline nightly: text embeddings, popularity percentiles,
+localness index, CF, archetype affinities. Online: distance from the stay location, open-now,
+live availability, session context. A shared transformation library prevents train/serve skew.
+
+**Retraining and promotion.** Weekly retrain, daily behavioural-aggregate refresh; promotion
+gated on offline NDCG over a fresh uniform-exposure slice plus interleaving, never on offline
+NDCG alone.
+
+**Feedback loop.** Log propensities from the live policy (as `p_expose` does here) and reserve
+a small share of traffic for uniform exposure — the production analogue of the random holdout.
+
+**Monitoring.** Feature drift (PSI), interleaved NDCG, calibration drift (ECE), catalog
+coverage / Gini / long-tail share, hard-constraint violation rate (must stay exactly 0), cold
+start share, p99 latency and a candidate-recall proxy.
+
+## 12. Decision Register
+
+Every design choice not dictated by the assignment, the alternative, the experiment and the
+measured result. Generated from `results/parts/dr/*.json`; an experiment that was not run says
+`NOT RUN`. The detail tables are in the sections above (DR1/DR6/DR10 section 7, DR2/DR3
+section 5, DR7 section 6, DR9/DR11 section 4) and DR4 below.
+
+{{@decision_register}}
+
+**DR4 (TF-IDF vs MiniLM) — read the caveat.** The synthetic corpus is generated from anchored,
+synonym-rich phrase pools over latent dimensions, so its vocabulary design determines the
+outcome: the conclusion is about *this dataset*, not a verdict on sentence encoders, and its
+transfer to real POI text is untested. Note also that the fidelity ordering does not carry
+through to the ranking metric: MiniLM's NDCG@10 is nominally *higher* than TF-IDF's with
+overlapping CIs, despite much lower D11 / D9.
+
+{{@dr4}}
+
+## 13. Reproduction, performance and integrity
+
+`make reproduce` is CPU-only, single-seed, no cloud, no API keys, and does not run pytest (that
+is CI). It runs both acceptance gates and ends in `compose`, the **only** writer of
+`results/metrics.json` (each stage writes `results/parts/<stage>.json`; a test and `make audit`
+enforce single-writer). `make reproduce-full` adds the inspection artifacts (`recommend`,
+capped at a seeded 300-trip sample; `scenarios`), leave-one-destination-out, and the docs.
+
+{{@timings}}
+
+Where the time went (measured): the confidence ensemble was being retrained inside every
+`evaluate` / `recommend` / `scenarios` call — it is now fit once in `train` and loaded; TreeSHAP
+runs on returned rows only; MMR and its lambda sweep are vectorised with lambda-independent
+pools; LightGBM uses all logical cores (`deterministic=True` makes the trees thread-count
+invariant — asserted at 1 vs 8 threads). What did **not** help: running several LightGBM fits
+concurrently (LightGBM already saturates the cores; concurrent fits were slower), so no
+thread-pool machinery was kept.
+
+`make audit` replaces the former verifier subagent with a deterministic script that emits
+JSON: firewalls and oracle isolation, single writer of `metrics.json` (static scan + compose
+twice), hard-constraint violations = 0, both gates, no hand-typed numbers in `docs/`,
+LightGBM thread determinism, and (`--deep`) byte-identical regeneration of the dataset.
+
+Cloud is *not* used for reproduction.
+
+**Seed replication** (the whole pipeline regenerated per seed; the bootstrap CIs above are
+within-seed, this is between-seed):
+
+{{@seed_table}}

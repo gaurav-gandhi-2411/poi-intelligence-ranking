@@ -264,6 +264,7 @@ def run_dr4(data_dir: Path, results_dir: Path, feature_cfg: FeatureBuildConfig, 
             "d11_cca": d11["cca_first_corr_oof"],
         }
     a, b = results["tfidf_svd64"], results["minilm_svd64"]
+    overlap = b["ndcg10"]["ci_low"] <= a["ndcg10"]["ci_high"]
     write_dr(
         results_dir,
         "DR4",
@@ -279,8 +280,9 @@ def run_dr4(data_dir: Path, results_dir: Path, feature_cfg: FeatureBuildConfig, 
         f"D9 {a['d9_within_trip']['mean_within_trip_spearman']:.3f}, "
         f"NDCG@10 {a['ndcg10']['mean']:.4f}. MiniLM: D11 {b['d11_ridge_r2']:.3f}, "
         f"D9 {b['d9_within_trip']['mean_within_trip_spearman']:.3f}, "
-        f"NDCG@10 {b['ndcg10']['mean']:.4f}. Dataset-specific (templated synonym-pool text); "
-        "would likely reverse on real POI text.",
+        f"NDCG@10 {b['ndcg10']['mean']:.4f} "
+        f"(CIs {'overlap' if overlap else 'are separated'}). "
+        "Dataset-specific (templated synonym-pool text); transfer to real POI text is untested.",
     )
 
 
@@ -387,8 +389,8 @@ def run_dr11(results_dir: Path) -> None:
         {
             "channels": g["channels"],
             "learned_K": g["learned_K"],
-            "val_ips_recall": g["val_ips_weighted_oracle_free"]["recall"],
-            "val_ips_lift": g["val_ips_weighted_oracle_free"]["lift"],
+            "val_ips_recall": g["val_ips_weighted_selection"]["recall"],
+            "val_ips_lift": g["val_ips_weighted_selection"]["lift"],
             "size": g["holdout_reporting_only"]["size"],
             "holdout_recall": g["holdout_reporting_only"]["recall"],
             "holdout_long_tail": g["holdout_reporting_only"]["lt"],
@@ -417,4 +419,102 @@ def run_dr11(results_dir: Path) -> None:
         "Ranking by true utility would recall "
         f"{legacy['oracle_topK_recall_ceiling_diagnostic']:.3f} "
         "at the same budget (diagnostic).",
+    )
+
+
+# -----------------------------------------------------------------------------------
+# DR8: taste half-life and interaction weights -- rebuild traveler features, refit, score
+# -----------------------------------------------------------------------------------
+
+
+def run_dr8(data_dir: Path, results_dir: Path, feature_cfg: FeatureBuildConfig, lab: Lab) -> None:
+    from poi_rank.eval.representation import (
+        _holdout_trip_pois,
+        _scores,
+        load_reference_inputs,
+        within_trip_spearman,
+    )
+    from poi_rank.features.config import TasteWeights
+    from poi_rank.features.pair_frame import build_ranking_frame
+    from poi_rank.features.traveler_features import assemble_traveler_features
+
+    pois = lab.pois_df
+    travelers = pd.read_parquet(data_dir / "travelers.parquet")
+    trips = pd.read_parquet(data_dir / "trips.parquet")
+    pretrip = pd.read_parquet(data_dir / "interactions_pretrip.parquet")
+    holdout_random = pd.read_parquet(data_dir / "interactions_holdout_random.parquet")
+    candidates = pd.read_parquet(data_dir / "candidates.parquet")
+    pf = pd.read_parquet(data_dir / "poi_features.parquet")
+    budget = feature_cfg.traveler_features.budget_target_price_level
+    emb = np.load(data_dir.parent.parent / "artifacts" / "poi_emb.npy").astype(np.float32)
+
+    inputs = load_reference_inputs(data_dir)
+    holdout_ids = set(trips.loc[trips["is_holdout"], "trip_id"].astype(str))
+    train_ids = set(trips.loc[~trips["is_holdout"], "trip_id"])
+    t2t = dict(zip(trips["trip_id"].astype(str), trips["traveler_id"].astype(str), strict=True))
+    trip_idx = {t: i for t, i in _holdout_trip_pois(data_dir, pois).items() if t in holdout_ids}
+    reference = _scores(
+        trip_idx, {t: inputs["taste_true"][t2t[t]] for t in trip_idx}, inputs["semantic"]
+    )
+
+    base = feature_cfg.traveler_features
+    uniform = TasteWeights(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
+    variants = {
+        "halflife_180d (shipped)": base,
+        "halflife_90d": dataclasses.replace(base, taste_halflife_days=base.taste_halflife_days / 2),
+        "halflife_360d": dataclasses.replace(
+            base, taste_halflife_days=base.taste_halflife_days * 2
+        ),
+        "uniform_weights": dataclasses.replace(base, taste_weights=uniform),
+    }
+    results: dict[str, Any] = {}
+    for name, tf_cfg in variants.items():
+        cfg_v = dataclasses.replace(feature_cfg, traveler_features=tf_cfg)
+        tf_all = assemble_traveler_features(
+            travelers, trips, lab.interactions_train, pois, emb, cfg_v, pretrip
+        )
+        cols = [f"implicit_taste_{i:02d}" for i in range(emb.shape[1])]
+        lookup = {
+            str(t): v
+            for t, v in zip(tf_all["trip_id"], tf_all[cols].to_numpy(np.float64), strict=True)
+        }
+        d9 = within_trip_spearman(
+            trip_idx,
+            reference,
+            _scores(trip_idx, {t: lookup[t] for t in trip_idx}, emb.astype(np.float64)),
+        )
+        train_frame = build_ranking_frame(
+            candidates,
+            train_ids,
+            lab.interactions_train,
+            trips,
+            travelers,
+            pois,
+            pf,
+            tf_all,
+            budget,
+        )
+        hold_frame = build_ranking_frame(
+            candidates, holdout_ids, holdout_random, trips, travelers, pois, pf, tf_all, budget
+        )
+        booster, num, cat, _, _ = fit_lgb(lab, train_frame=train_frame)
+        per = per_trip_ndcg10(hold_frame, score_lgb(booster, num, cat, hold_frame))
+        results[name] = {
+            "ndcg10": summarize_ndcg(per, lab.eval_cfg),
+            "d9_within_trip": d9,
+        }
+        print(f"DR8 {name}: {results[name]['ndcg10']['mean']:.4f}", flush=True)
+    write_dr(
+        results_dir,
+        "DR8",
+        "Rebuild the traveler features with a different taste half-life / interaction weights, "
+        "refit the ranker on the fixed candidate sets, and score the unbiased holdout; D9 "
+        "(within-trip, reporting-only) shows the effect on estimator fidelity.",
+        "within-trip D9; holdout NDCG@10",
+        results,
+        "; ".join(
+            f"{k}: NDCG@10 {v['ndcg10']['mean']:.4f}, D9 "
+            f"{v['d9_within_trip']['mean_within_trip_spearman']:.3f}"
+            for k, v in results.items()
+        ),
     )

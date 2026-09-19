@@ -39,6 +39,9 @@ COMPOSED_PARTS: dict[str, str | None] = {
     "representation": "representation",
     "decision_register": "decision_register",
     "seed_replication": "seed_replication",
+    "a3_step0": "a3_step0",
+    "a3_pairfeat": "a3_pairfeat",
+    "a3_retriever_grid": "a3_retriever_grid",
     "timings": "timings",
     "timings_full": "timings_full",
 }

@@ -125,8 +125,9 @@ def generated_candidates(
     interactions_train = pd.read_parquet(output_dir / "interactions_train.parquet")
 
     learned_top_k = None
+    retriever = None
     if candidates_cfg.learned is not None and candidates_cfg.learned.quota > 0:
-        scores, _ = crossfit_retriever_scores(
+        scores, retriever = crossfit_retriever_scores(
             RetrieverInputs(
                 pois_df,
                 travelers_df,
@@ -160,6 +161,7 @@ def generated_candidates(
         "interactions_train": interactions_train,
         "output_dir": output_dir,
         "cfg": candidates_cfg,
+        "retriever": retriever,
     }
 
 
@@ -221,6 +223,7 @@ def scoring_cfg() -> ScoringConfig:
 
 @pytest.fixture(scope="session")
 def trained_scoring_artifacts_dir(
+    generated_candidates: dict[str, Any],
     evaluate_ready_data_dir: Path,
     feature_build_cfg: FeatureBuildConfig,
     fast_model_cfg: ModelConfig,
@@ -241,6 +244,10 @@ def trained_scoring_artifacts_dir(
     )
     artifacts_dir = tmp_path_factory.mktemp("scoring_artifacts")
     save_boosters(artifacts, artifacts_dir)
+    # `poi_rank.cli candidates` persists the full-train retriever (scenarios score unseen trips
+    # with it).
+    if generated_candidates["retriever"] is not None:
+        generated_candidates["retriever"].save(artifacts_dir)
     # `poi_rank.cli train` also fits + persists the confidence ensemble; scoring loads it.
     seeds = ScoringConfig.from_yaml(SCORING_CONFIG_PATH).confidence.ensemble_seeds
     save_ensemble(

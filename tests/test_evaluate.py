@@ -29,6 +29,7 @@ from poi_rank.models.config import (
     ModelConfig,
 )
 from poi_rank.models.lambdamart import run_train_lambdamart
+from poi_rank.scoring.confidence import run_train_ensemble
 from poi_rank.scoring.config import ScoringConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -101,6 +102,14 @@ def trained_artifacts_dir(
     module reads from -- `run_evaluate` only ever LOADS boosters, never retrains."""
     artifacts_dir = tmp_path_factory.mktemp("artifacts")
     run_train_lambdamart(evaluate_ready_data_dir, artifacts_dir, fast_model_cfg, feature_build_cfg)
+    # `poi_rank.cli train` also fits + saves the confidence ensemble; scoring only loads it.
+    run_train_ensemble(
+        evaluate_ready_data_dir,
+        artifacts_dir,
+        fast_model_cfg,
+        feature_build_cfg,
+        ScoringConfig.from_yaml(SCORING_CONFIG_PATH),
+    )
     return artifacts_dir
 
 
@@ -160,7 +169,7 @@ def test_run_evaluate_payload_structure(
         assert 0.0 <= w["p_value"] <= 1.0
 
     assert payload["meta"]["n_holdout_trips"] > 0
-    assert "candidate_recall@250" in payload["meta"]["note"] or "0.44" in payload["meta"]["note"]
+    assert "candidate recall" in payload["meta"]["note"]
 
     cohort = payload["new_poi_cohort"]
     assert cohort["n_new_pois_in_catalog"] > 0

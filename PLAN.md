@@ -612,3 +612,31 @@ clean throughout. Determinism byte-identical, verified at every phase.**
   `data/synthetic/*`, `artifacts/poi_emb.npy`, and `results/parts/*` were regenerated, but
   `artifacts/model*.txt`, `calibrator.pkl`, `results/metrics.json`, figures are STALE until
   Block B.
+
+
+## Session 2 (2026-09-20) — A3 / A4 / B / C / D
+
+Tier: T1 portfolio project (take-home for konnect.kr; due 2026-09-21 21:00 KST).
+
+Decisions taken autonomously (each with the number behind it; details in `docs/DATA_CARD.md`
+"Post-A2 record", `results/parts/*.json` and RESULTS.md):
+
+- **A3 step 0 -> behavioural item embedding SKIPPED.** Text D11 ridge R² 0.865 (>= 0.45); text-alone
+  within-trip D9 0.927; taste-estimator-alone 0.572; shipped chain 0.473. Candidate recall was the
+  real failure (6-channel union 0.596 at ~40% of the catalog, chance 0.394; true-utility top-K
+  would recall 0.991) -> learned cross-fitted retriever. Gate-B blocking rows pass.
+- **A4** reproduce (data -> gates -> train -> evaluate -> compose) and reproduce-full timings are in
+  `results/parts/timings*.json`; the 5-minute reproduce target was NOT met on this laptop (see
+  README/RESULTS for the measured numbers). Biggest wins: persisted confidence ensemble, TreeSHAP on
+  returned rows, vectorised MMR. Concurrent LightGBM fits did not help.
+- **B**: parts + compose; LR CV-L2; personalization same-destination + true archetype labels
+  (+ perfect-ranker reference); per-stratum chance lift; Gate-B; make audit; xfail removed (S5).
+- **C**: DR1-DR4, DR6-DR11 measured; DR5 (ANN benchmark) NOT RUN; 5-seed replication run
+  (`scripts/seed_replication.py`).
+- **D**: RESULTS.md leads with local/long-tail discovery + bias gap; TECHNICAL.md and README.md are
+  now templates (`*.tmpl`) whose numbers resolve from metrics.json.
+
+Open items / follow-ups (not blocking): DR3 and DR7 suggest a pointwise objective and less IPS
+clipping may do better on this data (not adopted: selecting on the holdout would leak); the
+localness index weights predate the geo fix and are now below the best single input (not re-tuned:
+would leak the oracle); long-tail precision 0.4 target unmet (hypothesis untested).

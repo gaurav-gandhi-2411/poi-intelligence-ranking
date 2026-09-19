@@ -48,6 +48,7 @@ produce a byte-identical `results/metrics.json` (`tests/test_determinism.py`).
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -466,6 +467,18 @@ def _cold_start_payload(
     }
 
 
+def _train_best_iteration(results_dir: Path) -> int | None:
+    """Primary booster's early-stopped round count from `results/parts/train.json` (None if
+    `train` has not written it). The feature-block ablation retrains use exactly this many
+    rounds: same capacity as the full model they are compared against, and no validation scoring
+    or early-stopping tail (~1/3 of a fit)."""
+    path = results_dir / "parts" / "train.json"
+    if not path.exists():
+        return None
+    best = json.loads(path.read_text(encoding="utf-8")).get("best_iteration_lambdamart_ips")
+    return int(best) if best is not None else None
+
+
 def _ablations_payload(
     system_metrics: dict[str, SystemMetrics],
     scoring_result: dict[str, Any],
@@ -478,6 +491,7 @@ def _ablations_payload(
     model_cfg: ModelConfig,
     scoring_cfg: ScoringConfig,
     eval_cfg: EvalConfig,
+    ablation_rounds: int | None = None,
 ) -> list[dict[str, Any]]:
     """The 9-row ablation table (spec.md section 11.9, module docstring). Every row
     is measured -- see `eval/ablations.py`'s module docstring for the cost-tiered
@@ -563,6 +577,7 @@ def _ablations_payload(
                 eval_cfg.seed,
                 b.ci_low_pct,
                 b.ci_high_pct,
+                num_boost_round=ablation_rounds,
             )
         )
 
@@ -823,6 +838,7 @@ def run_evaluate(
         model_cfg,
         scoring_cfg,
         eval_cfg,
+        ablation_rounds=_train_best_iteration(results_dir),
     )
 
     candidate_recall_payload = _candidate_recall_payload(
@@ -856,8 +872,27 @@ def run_evaluate(
         "selected_c": lr_diag["selected_c"],
         "cv_logloss_by_c": lr_diag["cv_logloss_by_c"],
     }
-    localness = oracle_reader.validate_localness_against_oracle(pois_df, oracle_dir)
-    payload["localness_validation"] = {"spearman_rho": localness.spearman_rho, "n": localness.n}
+    localness = oracle_reader.validate_geo_feature_against_latent_localness(
+        pois_df, oracle_dir, "poi_id", "localness"
+    )
+    # Component-level correlations with the latent localness: which observable input carries
+    # the signal (the composite index can be no better than a weighted blend of these).
+    components = {
+        col: oracle_reader.validate_geo_feature_against_latent_localness(
+            pois_df, oracle_dir, "poi_id", col
+        ).spearman_rho
+        for col in (
+            "pop_pct",
+            "foreign_review_ratio",
+            "dist_to_tourist_centroid_km",
+            "local_tag_hits",
+        )
+    }
+    payload["localness_validation"] = {
+        "spearman_rho": localness.spearman_rho,
+        "n": localness.n,
+        "component_spearman_rho": components,
+    }
 
     # This stage owns `results/parts/evaluate.json` only; `compose` is the sole writer of
     # `results/metrics.json` (eval/compose.py).

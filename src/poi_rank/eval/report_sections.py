@@ -135,7 +135,7 @@ def render_candidate_recall(metrics: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def diagnoses(metrics: dict[str, Any]) -> dict[str, str]:
+def diagnoses(metrics: dict[str, Any], scenarios: dict[str, Any] | None = None) -> dict[str, str]:
     """A diagnosis (mechanism + the diagnostic number that ruled it in/out) for every scorecard
     row that can be missed. A missed row WITHOUT an entry here renders as UNDIAGNOSED -- loudly."""
     out: dict[str, str] = {}
@@ -162,8 +162,7 @@ def diagnoses(metrics: dict[str, Any]) -> dict[str, str]:
             "quality (see the ceiling diagnosis: taste-estimator fidelity)."
             if target_ok
             else "so the target is NOT attainable even by a perfect ranker in this simulator: "
-            "the miss is a property of the DGP (archetype explains only part of a traveler's "
-            "utility), not of the model."
+            "the shortfall is a property of the simulator under this target, not of the model."
         )
         out["archetype_ratio"] = (
             "Within/cross-archetype list similarity ratio for lists ranked by the TRUE utility "
@@ -173,20 +172,71 @@ def diagnoses(metrics: dict[str, Any]) -> dict[str, str]:
             f"{_f(ideal['cross_archetype_jaccard_mean'])}); {verdict}"
         )
     lt = metrics["longtail"]
+    dr9_row = {r["id"]: r for r in metrics.get("decision_register", {}).get("rows", [])}.get(
+        "DR9", {}
+    )
+    raw = ((dr9_row.get("results") or {}).get("50") or {}).get("longtail_at_10")
+    tail = (
+        f" The raw ranker's top-10 long-tail precision (DR9, quota 50, before the compatibility "
+        f"gate, utility and MMR re-rank) is {_f(raw['precision'])} at share {_f(raw['share'])}, "
+        f"against {_f(lt['precision'])} at share {_f(lt['share'])} in the served list: precision "
+        "is lost AFTER ranking while share rises. Which of the three scoring-layer steps is "
+        "responsible is not isolated (untested)."
+        if raw
+        else ""
+    )
     out["longtail_precision"] = (
         f"Long-tail precision is {_f(lt['precision'])} over "
         f"{lt['n_longtail_recommended']} long-tail recommendations, with candidate recall "
         f"{_f(metrics['candidate_recall']['long_tail']['recall_mean'], 3)} in that stratum, so "
-        "retrieval is not the bottleneck. UNVERIFIED hypothesis: long-tail POIs have a lower "
-        "positive base rate under exposure-uniform labels, capping precision mechanically; "
-        "test = long-tail vs head positive rate among candidates (not yet run)."
+        "retrieval is not the bottleneck." + tail
     )
+    reg = {r["id"]: r for r in metrics.get("decision_register", {}).get("rows", [])}
+    dr9 = reg.get("DR9", {}).get("results")
+    if dr9:
+        shares = {q: v["longtail_at_10"]["share"] for q, v in dr9.items()}
+        out["longtail_share"] = (
+            f"Long-tail share of the served top-10 is {_f(lt['share'])}. Decision Register DR9 "
+            "varies the long-tail candidate quota and measures the raw ranker's top-10 share: "
+            + ", ".join(f"quota {q} -> {_f(v, 3)}" for q, v in shares.items())
+            + ". The candidate quota is therefore not the lever; the share is set by the "
+            "ranker's scores (and the MMR re-rank) over a candidate set that already contains "
+            "long-tail POIs."
+        )
+    loc = metrics.get("localness_validation", {})
+    comps = loc.get("component_spearman_rho")
+    if comps:
+        best_name, best_rho = max(comps.items(), key=lambda kv: abs(kv[1]))
+        stale = abs(best_rho) > loc["spearman_rho"]
+        out["localness"] = (
+            f"The composite index reaches rho {_f(loc['spearman_rho'], 3)}; its observable "
+            "inputs correlate with the latent localness at "
+            + ", ".join(f"{k} {_f(v, 3)}" for k, v in comps.items())
+            + (
+                f". The composite is BELOW its best single input ({best_name}, "
+                f"|rho| {_f(abs(best_rho), 3)}): the blend weights were fixed earlier, when the "
+                "geo input carried almost no signal (before the simulator's geo/localness fix). "
+                "Re-weighting against the latent value would leak the oracle into a decision, "
+                "so the index is left as shipped and the gap is reported."
+                if stale
+                else ". The index is a weighted blend of these signed correlations, so it "
+                "cannot exceed what its inputs carry."
+            )
+        )
+    if scenarios is not None:
+        ov = scenarios["overlap_matrix"]
+        cj = ov.get("diagnostic_vs_base_candidate_pool_jaccard")
+        out["scenario4"] = (
+            f"Top-10 overlap {_f(ov['diagnostic_vs_base_jaccard'], 3)} with candidate-pool "
+            f"Jaccard {_f(cj, 3)} between the two profiles (measured from the candidate "
+            "generator's own output)."
+        )
     dv = metrics["confidence_decile_validation"]
     out["confidence_decile"] = (
         f"Confidence-decile Spearman is {_f(dv['spearman_rho'], 3)}. UNVERIFIED hypothesis: the "
         "evidence-volume terms dominate the ensemble-sd term, so deciles separate by evidence "
-        "volume rather than correctness; test = per-component Spearman vs decile NDCG (not yet "
-        "run)."
+        "volume rather than correctness; test = per-component Spearman vs decile NDCG "
+        "(untested)."
     )
     return out
 
@@ -235,4 +285,195 @@ def render_timings(metrics: dict[str, Any]) -> str:
         lines.append("")
     if not found:
         lines += ["Not recorded (run `scripts/time_reproduce.py`).", ""]
+    return "\n".join(lines)
+
+
+# -----------------------------------------------------------------------------------
+# Blocks used by the narrative templates (docs/TECHNICAL.md.tmpl, README.md.tmpl)
+# -----------------------------------------------------------------------------------
+
+_SYSTEM_NAMES = {
+    "random": "1. Random",
+    "popularity": "2. Popularity",
+    "popularity_geo_filter": "3. Popularity + geo filter",
+    "content_cosine": "4. Content cosine",
+    "item_knn_cf": "5. Item-kNN CF",
+    "logistic_regression": "6. Logistic regression (CV-tuned L2)",
+    "lambdamart": "7. LambdaMART (no IPS)",
+    "lambdamart_ips": "8. **LambdaMART + IPS (primary)**",
+    "oracle": "9. Oracle (ceiling)",
+}
+
+
+def systems_rows(metrics: dict[str, Any]) -> str:
+    lines = ["| System | NDCG@10 (95% CI) | % of oracle ceiling |", "|---|---|---|"]
+    for key, name in _SYSTEM_NAMES.items():
+        s = metrics["systems"][key]
+        m = s["metrics"]["ndcg@10"]
+        lines.append(
+            f"| {name} | {_f(m['mean'])} [{_f(m['ci_low'])}, {_f(m['ci_high'])}] | "
+            f"{_pct(s['pct_of_ceiling_ndcg10'])} |"
+        )
+    return "\n".join(lines)
+
+
+def bias_gap_rows(metrics: dict[str, Any]) -> str:
+    lines = [
+        "| System | NDCG@10 (unbiased) | NDCG@10 (biased) | Gap |",
+        "|---|---|---|---|",
+    ]
+    for key, name in _SYSTEM_NAMES.items():
+        r = metrics["bias_gap"][key]
+        lines.append(
+            f"| {name} | {_f(r['ndcg@10_unbiased'])} | {_f(r['ndcg@10_biased'])} | "
+            f"{r['gap']:+.4f} |"
+        )
+    return "\n".join(lines)
+
+
+def ablation_rows(metrics: dict[str, Any]) -> str:
+    lines = [
+        "| Ablation | Delta NDCG@10 | Wilcoxon p | n pairs |",
+        "|---|---|---|---|",
+    ]
+    for a in metrics["ablations"]:
+        p = a["wilcoxon_p_value"]
+        lines.append(
+            f"| `{a['ablation']}` | {a['delta_ndcg@10']:+.4f} | "
+            f"{'N/A' if p is None else f'{p:.3g}'} | {a['wilcoxon_n_pairs']} |"
+        )
+    return "\n".join(lines)
+
+
+def _ci(m: dict[str, Any]) -> str:
+    return f"{_f(m['mean'])} [{_f(m['ci_low'])}, {_f(m['ci_high'])}]"
+
+
+def dr_block(metrics: dict[str, Any], dr_id: str) -> str:
+    """A compact markdown table of one Decision-Register experiment's measured results."""
+    row = next(
+        (r for r in metrics.get("decision_register", {}).get("rows", []) if r["id"] == dr_id), None
+    )
+    if row is None or row["results"] is None:
+        return f"_{dr_id}: NOT RUN._"
+    res = row["results"]
+    if dr_id == "DR1":
+        lines = [
+            "| Rule | Hard violations in top-10 | Trips with >= 1 | Mean compat@10 | NDCG@10 |",
+            "|---|---|---|---|---|",
+        ]
+        for name, v in res.items():
+            lines.append(
+                f"| {name} | {v['hard_constraint_violations_in_top10']} | "
+                f"{v['trips_with_violation']} / {v['n_trips']} | {_f(v['mean_compat_at_10'])} | "
+                f"{_f(v['ndcg_at_10'])} |"
+            )
+    elif dr_id == "DR2":
+        lines = [
+            "| Train fraction | Train trips | LambdaMART + IPS NDCG@10 | Two-tower NDCG@10 |",
+            "|---|---|---|---|",
+        ]
+        for r in res["curve"]:
+            lines.append(
+                f"| {_pct(r['fraction'], 0)} | {r['n_train_trips']} | {_ci(r['lambdamart_ips'])} | "
+                f"{_ci(r['two_tower'])} |"
+            )
+        cx = res["extrapolated_crossover_train_trips"]
+        lines += [
+            "",
+            "Log-linear extrapolated crossover: "
+            + (
+                "none (the two-tower's fitted slope does not exceed LambdaMART's)."
+                if cx is None
+                else f"~{cx:,.0f} training trips ({cx / res['n_train_trips_full']:.1f}x the "
+                f"{res['n_train_trips_full']} available; 4-point fit, low confidence)."
+            ),
+        ]
+    elif dr_id in ("DR3", "DR7"):
+        lines = ["| Variant | NDCG@10 (95% CI) |", "|---|---|"]
+        for name, v in res.items():
+            lines.append(f"| {name} | {_ci(v)} |")
+    elif dr_id == "DR4":
+        lines = [
+            "| Encoder | D11 ridge R2 | D9 within-trip Spearman | NDCG@10 (95% CI) |",
+            "|---|---|---|---|",
+        ]
+        for name, v in res.items():
+            lines.append(
+                f"| {name} | {_f(v['d11_ridge_r2'], 3)} | "
+                f"{_f(v['d9_within_trip']['mean_within_trip_spearman'], 3)} | {_ci(v['ndcg10'])} |"
+            )
+    elif dr_id == "DR6":
+        lines = [
+            "| Aggregator | NDCG@10 (gated) | Hard violations (ungated) | compat@10 (ungated) |",
+            "|---|---|---|---|",
+        ]
+        for name, v in res.items():
+            lines.append(
+                f"| {name} | {_f(v['gated']['ndcg_at_10'])} | "
+                f"{v['ungated']['hard_constraint_violations_in_top10']} | "
+                f"{_f(v['ungated']['mean_compat_at_10'])} |"
+            )
+    elif dr_id == "DR9":
+        lines = [
+            "| Long-tail quota | NDCG@10 | Long-tail share@10 | Long-tail precision@10 | "
+            "Candidate recall | Long-tail recall |",
+            "|---|---|---|---|---|---|",
+        ]
+        for q, v in res.items():
+            lt = v["longtail_at_10"]
+            lines.append(
+                f"| {q} | {_ci(v['ndcg10'])} | {_f(lt['share'], 3)} | {_f(lt['precision'], 3)} | "
+                f"{_f(v['candidate_recall_overall'], 3)} | "
+                f"{_f(v['candidate_recall_long_tail'], 3)} |"
+            )
+    elif dr_id == "DR10":
+        lines = ["| alpha | beta | NDCG@10 | compat@10 |", "|---|---|---|---|"]
+        for r in res:
+            lines.append(
+                f"| {r['alpha']} | {r['beta']} | {_f(r['ndcg_at_10'])} | "
+                f"{_f(r['mean_compat_at_10'])} |"
+            )
+    elif dr_id == "DR8":
+        lines = ["| Variant | D9 within-trip | NDCG@10 (95% CI) |", "|---|---|---|"]
+        for name, v in res.items():
+            lines.append(
+                f"| {name} | {_f(v['d9_within_trip']['mean_within_trip_spearman'], 3)} | "
+                f"{_ci(v['ndcg10'])} |"
+            )
+    elif dr_id == "DR11":
+        lines = [
+            "| Channels unioned with the learned top-210 | Val recall (IPS) | Holdout recall | "
+            "Holdout long-tail | Holdout lift | Size |",
+            "|---|---|---|---|---|---|",
+        ]
+        for r in res["K210_rows"]:
+            lines.append(
+                f"| {r['channels']} | {_f(r['val_ips_recall'], 3)} | "
+                f"{_f(r['holdout_recall'], 3)} | {_f(r['holdout_long_tail'], 3)} | "
+                f"{r['holdout_lift']:+.3f} | {r['size']:.0f} |"
+            )
+    else:
+        lines = [row["verdict"]]
+    return "\n".join(lines)
+
+
+def render_seed_replication(metrics: dict[str, Any]) -> str:
+    rep = metrics.get("seed_replication")
+    lines = ["## Seed replication", ""]
+    if rep is None:
+        return "\n".join([*lines, "NOT RUN (single-seed results only).", ""])
+    lines += [
+        f"The full pipeline was regenerated end to end for seeds {rep['seeds']} (a new synthetic "
+        "dataset, retriever, boosters and calibration each time; `scripts/seed_replication.py`). "
+        "Seed 42 is the committed run.",
+        "",
+        "| Metric | Mean | SD | Min | Max |",
+        "|---|---|---|---|---|",
+    ]
+    for name, v in rep["metrics"].items():
+        lines.append(
+            f"| {name} | {_f(v['mean'])} | {_f(v['sd'])} | {_f(v['min'])} | {_f(v['max'])} |"
+        )
+    lines.append("")
     return "\n".join(lines)

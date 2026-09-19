@@ -1,4 +1,4 @@
-.PHONY: reproduce reproduce-full generate prepare features candidates gate-dgp train evaluate \
+.PHONY: reproduce reproduce-full decision-register generate prepare features candidates gate-dgp train evaluate \
 	representation gate-representation compose lodo recommend scenarios docs audit test \
 	test-fast test-slow lint
 
@@ -61,6 +61,11 @@ scenarios:
 
 docs:
 	$(PY) -m poi_rank.eval.report
+
+# Decision Register experiments (DR1-DR11; ~25 min, refits models). Evidence generation only --
+# results are committed under results/parts/dr/, so reproduce/reproduce-full do not run it.
+decision-register:
+	$(PY) -m poi_rank.cli dr
 
 # Deterministic invariant audit (replaces the verifier subagent); JSON on stdout, non-zero on
 # any failed check. `--deep` also regenerates the dataset twice and compares SHA-256s.

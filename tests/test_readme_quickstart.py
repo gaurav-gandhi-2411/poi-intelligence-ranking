@@ -157,7 +157,15 @@ def test_readme_quickstart_command_sequence_runs_end_to_end(tmp_path: Path) -> N
     # Step 4: candidates
     result = runner.invoke(
         app,
-        ["candidates", "--config-path", str(FEATURES_CONFIG), "--data-dir", str(data_dir)],
+        [
+            "candidates",
+            "--config-path",
+            str(FEATURES_CONFIG),
+            "--data-dir",
+            str(data_dir),
+            "--artifacts-dir",
+            str(artifacts_dir),
+        ],
     )
     assert result.exit_code == 0, result.output
     assert (data_dir / "candidates.parquet").exists()
@@ -175,6 +183,8 @@ def test_readme_quickstart_command_sequence_runs_end_to_end(tmp_path: Path) -> N
             str(data_dir),
             "--artifacts-dir",
             str(artifacts_dir),
+            "--results-dir",
+            str(results_dir),
         ],
     )
     assert result.exit_code == 0, result.output

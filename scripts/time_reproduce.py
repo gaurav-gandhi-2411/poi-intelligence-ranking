@@ -63,7 +63,21 @@ if full:
     rows.append({"stage": "docs", "seconds": round(time.perf_counter() - t0, 1), "returncode": proc.returncode})
 total = round(time.perf_counter() - t_all, 1)
 print(f"TOTAL {total}s")
+parts = ROOT / "results" / "parts"
 out = {"target": "reproduce-full" if full else "reproduce", "total_seconds": total, "stages": rows}
-(ROOT / "results" / "parts" / ("timings_full.json" if full else "timings.json")).write_text(
+(parts / ("timings_full.json" if full else "timings.json")).write_text(
     json.dumps(out, indent=2) + "\n", encoding="utf-8"
 )
+if full:
+    # `reproduce` is the first len(REPRODUCE) stages of the same run; record it too so both
+    # targets are timed from one execution.
+    base = rows[: len(REPRODUCE)]
+    reproduce_out = {
+        "target": "reproduce",
+        "total_seconds": round(sum(float(r["seconds"]) for r in base), 1),  # type: ignore[arg-type]
+        "stages": base,
+    }
+    (parts / "timings.json").write_text(json.dumps(reproduce_out, indent=2) + "\n", encoding="utf-8")
+# Fold the fresh timings into metrics.json and the docs.
+for cmd in (["-m", "poi_rank.cli", "compose"], ["-m", "poi_rank.eval.report"]):
+    subprocess.run([sys.executable, *cmd], cwd=ROOT, env=env, check=False)  # noqa: S603
