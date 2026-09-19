@@ -1,0 +1,61 @@
+{
+  "checks": {
+    "cold_start_trip_share": {
+      "measured": 0.1032258064516129,
+      "op": "<=",
+      "passed": true,
+      "threshold": 0.25
+    },
+    "d10_description_conditioning": {
+      "measured": 0.4521863539573896,
+      "op": ">=",
+      "passed": false,
+      "threshold": 0.5
+    },
+    "d9_semantic_fidelity_best": {
+      "measured": 0.18725470025396448,
+      "op": ">=",
+      "passed": false,
+      "threshold": 0.5
+    },
+    "min_non_epsilon_term_share": {
+      "measured": 0.05723608480772244,
+      "op": ">=",
+      "passed": true,
+      "threshold": 0.02
+    },
+    "oracle_ndcg10_candidate_level": {
+      "measured": 0.4318970445365075,
+      "op": ">=",
+      "passed": false,
+      "threshold": 0.45
+    },
+    "spearman_localness_vs_geo": {
+      "measured": 0.6929320040701642,
+      "op": ">=",
+      "passed": true,
+      "threshold": 0.55
+    },
+    "spearman_u_vs_label": {
+      "measured": 0.4562962830559041,
+      "op": ">=",
+      "passed": true,
+      "threshold": 0.4
+    },
+    "traveler_dependent_variance_share": {
+      "measured": 0.7720465012009217,
+      "op": ">=",
+      "passed": true,
+      "threshold": 0.75
+    },
+    "var_epsilon_over_var_u": {
+      "measured": 0.10960675488636627,
+      "op": "<=",
+      "passed": true,
+      "threshold": 0.15
+    }
+  },
+  "n_passed": 6,
+  "n_total": 9,
+  "overall_pass": false
+}

@@ -1,0 +1,139 @@
+{
+  "D10_description_conditioning": {
+    "code_reading_answer": {
+      "answer": "NO. `datagen/catalog.py::generate_destination_pois` generates `tags` (line 369), `name` (line 370), and `description` (line 371) purely from `category`/`destination`/`tags` template lookups (`text_templates.py`'s `generate_tags`/`generate_name`/`generate_description`); none of those three functions ever receives `poi_semantic` as an argument -- their signatures literally do not have that parameter. `poi_semantic` is computed SEPARATELY at line 375, AFTER the text fields, via `_poi_semantic_vector(rng, cat, tags)` -- a fresh category one-hot + tag-weight vector plus independent Gaussian noise (`noise_std=0.25`), drawn from its own `rng` calls, never reading `name`/`description`. Text generation and `poi_semantic` share exactly two upstream inputs (`category`, `tags`, both fixed once per POI before either is computed) but neither is derived FROM the other -- there is no dependency edge from `poi_semantic` to the text fields, or vice versa.",
+      "citations": [
+        "src/poi_rank/datagen/catalog.py:369 -- tags = generate_tags(rng, CATEGORY_TAG_AFFINITY[cat], n_tags=...)",
+        "src/poi_rank/datagen/catalog.py:370 -- name = generate_name(rng, destination, cat)",
+        "src/poi_rank/datagen/catalog.py:371 -- description = generate_description(rng, destination, cat, tags)",
+        "src/poi_rank/datagen/catalog.py:375 -- poi_semantic = _poi_semantic_vector(rng, cat, tags)  # computed AFTER the text fields, from category+tags only",
+        "src/poi_rank/datagen/catalog.py:182-196 -- _poi_semantic_vector(rng, category, tags, noise_std=0.25) signature has no name/description parameter",
+        "src/poi_rank/datagen/text_templates.py:69 -- generate_name(rng, destination, category) has no poi_semantic parameter",
+        "src/poi_rank/datagen/text_templates.py:77-79 -- generate_description(rng, destination, category, tags) has no poi_semantic parameter",
+        "src/poi_rank/datagen/text_templates.py:97-99 -- generate_tags(rng, category_tag_affinity, n_tags) has no poi_semantic parameter"
+      ]
+    },
+    "measured": {
+      "destinations": [
+        "barcelona",
+        "kyoto",
+        "seoul"
+      ],
+      "n_pairs_sampled": 5000,
+      "n_pois_in_population": 1448,
+      "p_value": 1.3620864182214733e-250,
+      "seed": 42,
+      "spearman_rho": 0.4521863539573896
+    }
+  },
+  "D1_variance_decomposition": {
+    "epsilon_variance_share": 0.10960675488636627,
+    "min_deterministic_term_share": 0.05723608480772244,
+    "n_pairs_excluded_missing_price_level": 21667,
+    "n_pairs_total": 303941,
+    "n_pairs_valid_for_price_and_novelty": 282274,
+    "share_sum_all_8": 0.8856314944216797,
+    "term_variance_shares": {
+      "category": 0.12003111961533142,
+      "latent_quality": 0.09227604291371205,
+      "localness": 0.14354834995517168,
+      "novelty": 0.05723608480772244,
+      "party_fit": 0.07549024001674907,
+      "price_fit": 0.08391806425770804,
+      "taste": 0.20352483796891868
+    },
+    "term_variances_weighted": {
+      "category": 0.1314051250736301,
+      "latent_quality": 0.10102001047091135,
+      "localness": 0.15715082005752795,
+      "novelty": 0.0626597078073327,
+      "party_fit": 0.08264360495036344,
+      "price_fit": 0.0918700397451975,
+      "taste": 0.2228106084039231
+    },
+    "traveler_dependent_variance_share": 0.7720465012009217,
+    "var_epsilon_analytical_from_config_sigma": 0.11999296,
+    "var_u_total_deterministic_plus_noise": 1.094758805006147,
+    "var_u_true_deterministic_only": 0.9747658450061469
+  },
+  "D2_taste_cosine_distribution": {
+    "mean": 0.17135345589127107,
+    "n": 303941,
+    "p5": -0.10710738309311976,
+    "p95": 0.44758300232707326,
+    "sd": 0.16791287130320254
+  },
+  "D3_spearman_utility_vs_label": {
+    "n": 222300,
+    "n_excluded_no_ceiling_score": 0,
+    "p_value": 0.0,
+    "spearman_rho": 0.4562962830559041
+  },
+  "D4_choice_sharpness": {
+    "mean_global_percentile": 96.90719582994714,
+    "mean_within_slate_rank": 4.910256410256411,
+    "n_slates_excluded_no_engagement": 0,
+    "n_slates_included": 1482,
+    "slate_size": 150
+  },
+  "D5_ndcg": {
+    "candidate_level": {
+      "mean_ndcg_at_10": 0.4318970445365075,
+      "n_trips_excluded_zero_relevant": 63,
+      "n_trips_included": 557
+    },
+    "slate_level": {
+      "mean_ndcg_at_10": 0.6193519567561516,
+      "n_slates_excluded_zero_relevant": 0,
+      "n_slates_included": 1482
+    }
+  },
+  "D6_cold_start_share": {
+    "holdout_only": {
+      "n_cold_start": 64,
+      "n_trips": 620,
+      "share": 0.1032258064516129
+    },
+    "overall": {
+      "n_cold_start": 64,
+      "n_trips": 2500,
+      "share": 0.0256
+    }
+  },
+  "D7_localness_vs_geo_generation": {
+    "n": 1448,
+    "p_value": 1.1421379141764527e-207,
+    "spearman_rho": 0.6929320040701642
+  },
+  "D8_bias_gap_popularity": {
+    "existing_metrics_json_gap": 0.10986330642180774,
+    "gap": 0.10845986239540592,
+    "n_trips_biased_included": 594,
+    "n_trips_unbiased_included": 557,
+    "ndcg@10_biased_logged_holdout": 0.1823727979369589,
+    "ndcg@10_unbiased_random_holdout": 0.07391293554155298
+  },
+  "D9_semantic_fidelity": {
+    "minilm_path": {
+      "diagnostic_artifact_path": "C:\\Users\\gaura\\ml-projects\\poi-intelligence-ranking\\results\\parts\\poi_emb_minilm_diagnostic.npy",
+      "encode_wall_clock_seconds": 9.284388400003081,
+      "n": 303941,
+      "n_excluded_no_canonical_poi_id": 0,
+      "n_excluded_no_embedding_or_taste": 0,
+      "p_value": 0.0,
+      "spearman_rho": 0.13302638026389463
+    },
+    "tfidf_path": {
+      "n": 303941,
+      "n_excluded_no_canonical_poi_id": 0,
+      "n_excluded_no_embedding_or_taste": 0,
+      "p_value": 0.0,
+      "spearman_rho": 0.18725470025396448
+    }
+  },
+  "meta": {
+    "n_ceiling_score_missing_fallback": 0,
+    "note": "Diagnostic-only harness (spec-v2-remediation.md section 1). D1/D2/D9 are restricted to the 202 holdout trips (~99k same-destination pairs), not all 800 trips (~1.2M pairs), because the DGP's own noise-free true-utility export -- the only source that isolates the novelty term via residual -- is written only for holdout trips by datagen/pipeline.py itself; see module docstring for the full explanation. D10 uses the full ~1,446-POI catalog instead (a POI-pair question, not a trip-pair question).",
+    "wall_clock_seconds": 55.22545009999885
+  }
+}

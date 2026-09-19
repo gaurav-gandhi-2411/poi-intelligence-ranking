@@ -13,7 +13,14 @@ import pandas as pd
 import pytest
 
 from poi_rank.features.confidence import confidence_shrinkage_alpha
-from poi_rank.features.config import BudgetTargetPriceLevel, TasteWeights
+from poi_rank.features.config import (
+    BudgetTargetPriceLevel,
+    FeatureBuildConfig,
+    PoiFeaturesConfig,
+    TasteWeights,
+    TextEmbeddingConfig,
+    TravelerFeaturesConfig,
+)
 from poi_rank.features.traveler_features import (
     EXPLICIT_PREFIX,
     IMPLICIT_PREFIX,
@@ -196,6 +203,38 @@ def test_taste_vector_unaffected_by_interactions_after_as_of() -> None:
     assert vec_filtered[1] == pytest.approx(0.0)
 
 
+def test_traveler_history_before_includes_earlier_same_trip_impressions() -> None:
+    """Block A RC3.1 (docs/DATA_CARD.md "DGP remediation, Block A"): the exact
+    scenario the task requires -- a trip with 3+ sequential impressions. The
+    taste-relevant history at impression 3's own timestamp must include
+    impressions 1 and 2 (SAME trip, strictly earlier timestamps) plus any
+    earlier-trip history, but NOT impression 3's own row or anything at/after it."""
+    interactions = pd.DataFrame(
+        {
+            "traveler_id": ["U1", "U1", "U1", "U1", "U1"],
+            "trip_id": ["T0", "T1", "T1", "T1", "T1"],
+            "poi_id": ["P0", "P1", "P2", "P3", "P4"],
+            "interaction_type": ["visit", "click", "click", "click", "click"],
+            "label": [3, 1, 1, 1, 1],
+            "timestamp": [
+                pd.Timestamp("2025-01-01"),  # earlier trip -> always included
+                pd.Timestamp("2025-06-01"),  # trip T1, impression 1
+                pd.Timestamp("2025-06-05"),  # trip T1, impression 2
+                pd.Timestamp("2025-06-10"),  # trip T1, impression 3 (the "as-of" one)
+                pd.Timestamp("2025-06-15"),  # trip T1, impression 4 (after impression 3)
+            ],
+        }
+    )
+    by_traveler = {tid: g for tid, g in interactions.groupby("traveler_id")}
+
+    as_of_impression_3 = pd.Timestamp("2025-06-10")
+    history = traveler_history_before(by_traveler, "U1", "T1", as_of_impression_3, interactions)
+
+    assert set(history["poi_id"]) == {"P0", "P1", "P2"}
+    assert "P3" not in set(history["poi_id"])  # impression 3's own row
+    assert "P4" not in set(history["poi_id"])  # after impression 3
+
+
 def test_traveler_history_before_excludes_current_trip_and_future_timestamps() -> None:
     interactions = pd.DataFrame(
         {
@@ -319,6 +358,110 @@ def test_interest_match_score_is_coverage_not_jaccard() -> None:
 def test_interest_match_score_empty_interests_is_zero() -> None:
     score = interest_match_score([set()], ["restaurant"], [["local"]])
     assert score[0] == 0.0
+
+
+def test_assemble_traveler_features_includes_pretrip_history_in_implicit_taste() -> None:
+    """Block A RC3.2 (docs/DATA_CARD.md "DGP remediation, Block A"): a traveler
+    whose ONLY history is a pre-trip interaction (dated well before their first
+    trip's start date) must get a NONZERO implicit taste vector and
+    `n_interactions > 0` -- proving `interactions_pretrip` genuinely flows into
+    the assembled feature table, not silently ignored."""
+    from poi_rank.features.traveler_features import assemble_traveler_features
+
+    travelers_df = pd.DataFrame(
+        {
+            "traveler_id": ["U1"],
+            "interests": [["foodie"]],
+            "budget": ["medium"],
+            "party_type": ["solo"],
+            "mobility": ["walk"],
+            "touristiness_pref": [0.0],
+            "pace": ["moderate"],
+            "accessibility_needs": [[]],
+        }
+    )
+    trips_df = pd.DataFrame(
+        {
+            "trip_id": ["T1"],
+            "traveler_id": ["U1"],
+            "start_date": [pd.Timestamp("2025-06-01")],
+            "trip_duration_days": [5],
+        }
+    )
+    pois_df = pd.DataFrame(
+        {
+            "poi_id": ["P1"],
+            "category": ["restaurant"],
+            "price_level_imputed": [2.0],
+            "localness": [0.5],
+            "pop_pct": [0.5],
+            "merged_poi_ids": [["P1"]],
+        }
+    )
+    poi_embeddings = np.array([[1.0, 0.0]], dtype=np.float32)
+
+    interactions_train = pd.DataFrame(
+        columns=["traveler_id", "trip_id", "poi_id", "interaction_type", "label", "timestamp"]
+    )
+    interactions_pretrip = pd.DataFrame(
+        {
+            "traveler_id": ["U1"],
+            "trip_id": ["T1"],
+            "poi_id": ["P1"],
+            "interaction_type": ["visit"],
+            "label": [3],
+            "timestamp": [pd.Timestamp("2025-02-01")],  # ~120 days before trip start
+        }
+    )
+
+    cfg = FeatureBuildConfig(
+        seed=42,
+        text_embedding=TextEmbeddingConfig(
+            method="tfidf",
+            svd_dim=2,
+            tfidf_max_features=100,
+            tfidf_ngram_max=1,
+            sentence_transformer_model="x",
+            cache_path="x",
+        ),
+        poi_features=PoiFeaturesConfig(
+            ctr_smoothing_alpha=1.0, density_radius_km=1.0, traveler_segment_clusters=2
+        ),
+        traveler_features=TravelerFeaturesConfig(
+            taste_halflife_days=180.0,
+            taste_weights=TasteWeights(
+                booking=1.0,
+                visit=1.0,
+                navigate=0.7,
+                save=0.6,
+                share=0.5,
+                click=0.2,
+                view=0.05,
+                dismiss=-0.8,
+            ),
+            confidence_shrinkage_k=5.0,
+            budget_target_price_level=BudgetTargetPriceLevel(low=1.3, medium=2.5, high=3.7),
+        ),
+    )
+
+    result_without_pretrip = assemble_traveler_features(
+        travelers_df, trips_df, interactions_train, pois_df, poi_embeddings, cfg
+    )
+    result_with_pretrip = assemble_traveler_features(
+        travelers_df,
+        trips_df,
+        interactions_train,
+        pois_df,
+        poi_embeddings,
+        cfg,
+        interactions_pretrip,
+    )
+
+    assert result_without_pretrip[f"{IMPLICIT_PREFIX}interaction_count"].iloc[0] == 0.0
+    assert result_with_pretrip[f"{IMPLICIT_PREFIX}interaction_count"].iloc[0] == 1.0
+    taste_cols = [f"{IMPLICIT_PREFIX}taste_{i:02d}" for i in range(2)]
+    taste_with = result_with_pretrip[taste_cols].to_numpy(dtype=float)[0]
+    assert np.linalg.norm(taste_with) == pytest.approx(1.0)
 
 
 def test_price_gap_uses_independent_config_not_datagen_targets() -> None:

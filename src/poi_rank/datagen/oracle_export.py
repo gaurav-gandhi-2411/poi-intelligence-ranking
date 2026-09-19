@@ -12,11 +12,14 @@ rather than being silently violated by the write path.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+
+from poi_rank.datagen.utility import TermStandardization
 
 ORACLE_SUBDIR_NAME = "_oracle"
 
@@ -68,4 +71,21 @@ def write_holdout_utility(output_dir: Path, holdout_utility_df: pd.DataFrame) ->
     """
     path = output_dir / "holdout_utility_true.parquet"
     holdout_utility_df.to_parquet(path, index=False)
+    return path
+
+
+def write_term_standardization(output_dir: Path, standardization: TermStandardization) -> Path:
+    """Write the Block A RC2a utility-term standardization reference (per-destination
+    mean/std for 6 terms + the global `novelty` a priori reference,
+    `datagen/utility.py::compute_term_standardization`) so `eval/dgp_diagnostics.py`
+    can recompute the EXACT SAME standardized+weighted terms `datagen/pipeline.py`
+    used at generation time, without recomputing (and risking a mismatched)
+    population-level fit itself. These are aggregate mean/std scalars derived from
+    oracle-only latent fields (`poi_semantic`, `latent_quality`, `latent_localness`,
+    traveler taste vectors) -- never per-POI/per-traveler values -- so this lives in
+    `_oracle/` under the same isolation contract as every other file here."""
+    path = output_dir / "term_standardization.json"
+    path.write_text(
+        json.dumps(standardization.to_dict(), indent=2, sort_keys=True), encoding="utf-8"
+    )
     return path

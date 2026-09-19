@@ -10,22 +10,43 @@ discounting *individual events* by recency) -- unrelated to
 shrinkage applied only in the cold-start fallback path and the confidence score).
 Never shared code.
 
-**Temporal leakage discipline (the load-bearing design decision of this module):**
-every implicit-block quantity computed here for a given `(traveler_id, trip_id)` row
-uses ONLY `interactions_train.parquet` rows satisfying BOTH `timestamp <
-trip.start_date` AND `trip_id != <this trip's trip_id>` -- i.e. only interactions
-from the traveler's own EARLIER trips (mirrors `datagen/pipeline.py`'s own "novelty
-computed from earlier trips only" convention). This is deliberately coarser than a
-true per-impression as-of cutoff (spec.md explicitly permits this coarser
-approximation as long as it is leakage-safe and documented -- see docs/DATA_CARD.md):
-it is safe by construction because every one of a trip's own train-window
-interactions has `timestamp <= trip.start_date` (datagen's `session_base_ts =
-trip.start_date`, `lead_days >= 0`), so the timestamp filter alone already excludes
-the current trip's own sessions; the redundant `trip_id != ...` filter is kept anyway
-for defense-in-depth against a future datagen change to that invariant. For a
-traveler's FIRST trip (`trip_sequence == 1`) this window is always empty by
-construction -- the correct, unavoidable cold-start case (`n_interactions=0`, zero
-taste vector, `confidence_shrinkage_alpha == 0`), not a bug.
+**Temporal leakage discipline (the load-bearing design decision of this module,
+rewritten for DGP remediation Block A RC3.1 -- docs/DATA_CARD.md "DGP remediation,
+Block A"):** every implicit-block quantity computed here for a given `(traveler_id,
+trip_id)` row now uses a genuine PER-IMPRESSION as-of cutoff: every one of the
+traveler's own interaction rows (any trip, INCLUDING earlier impressions in the SAME
+trip's own browsing session, plus pre-trip history -- see below) with `timestamp <
+as_of` (strict). No `trip_id` exclusion is needed: `datagen/travelers.py::
+generate_trips` guarantees a traveler's trips never overlap (>=60-day minimum gap
+between trips vs. a <=45-day max in-trip session lead time), so a trip's own EARLIER
+impressions (this trip's other slates, dated `trip.start_date - lead_days`,
+`lead_days>=0`, i.e. always `< trip.start_date` except an exact `lead_days=0` tie,
+correctly excluded by strict `<`) pass the pure timestamp filter, while any
+CURRENT-OR-LATER impression (including this same trip's own `as_of`-time slate, or a
+later trip) is correctly excluded by `timestamp < as_of` alone.
+
+**Why this replaces the pre-remediation per-TRIP cutoff:** the old implementation
+additionally excluded `trip_id == <this trip>` rows even when their timestamp was
+already `< as_of` -- treating a trip's own earlier browsing sessions as forbidden
+"future" information, which was over-conservative (Phase 3's own "future work,
+deferred" note) and the direct cause of the pre-remediation 79%/68% cold-start rate
+(`poi_rank.cli diagnose-dgp` D6): a traveler's FIRST trip could never see ANY of its
+own in-trip history, regardless of how many earlier-in-session impressions it had.
+Dropping the trip-scoped exclusion, keeping only the (already-correct) timestamp
+comparison, is what makes "the taste vector at impression i uses impressions < t_i,
+INCLUDING earlier impressions in the same trip" true by construction -- verified
+directly against a hand-built multi-impression-per-trip fixture in
+`tests/test_traveler_features.py`.
+
+**Pre-trip history** (`datagen/pipeline.py`'s Block A RC3.2 pre-trip seeding,
+`interactions_pretrip.parquet`) is concatenated into the SAME history pool this
+module reads before grouping -- it needs no special-casing at all: every pre-trip row
+is dated 46-180 days before the traveler's FIRST trip's start date, strictly earlier
+than any of that traveler's own in-trip session timestamps (0-45 days before their
+respective trip's start), so it always satisfies the same `timestamp < as_of` filter.
+~15% of travelers deliberately get ZERO pre-trip rows (the intentional cold-start
+cohort, `pretrip_history.cold_start_fraction`), so `n_interactions=0` remains a real,
+expected outcome for that cohort's first trip -- not a bug.
 
 `explicit_days_remaining` and `implicit_days_since_last_interaction` reduce to the
 same underlying quantity in this implementation (see docs/DATA_CARD.md) since the
@@ -262,13 +283,17 @@ def traveler_history_before(
     as_of: pd.Timestamp,
     template: pd.DataFrame,
 ) -> pd.DataFrame:
-    """As-of-safe interaction history for one `(traveler_id, trip_id)` row: only
-    rows strictly before `as_of` and not belonging to `trip_id` itself (see module
-    docstring for why both filters are applied)."""
+    """Per-impression as-of-safe interaction history (Block A RC3.1): every row for
+    `traveler_id` with `timestamp < as_of`, from ANY trip -- including this SAME
+    `trip_id`'s own earlier impressions and pre-trip history (module docstring
+    explains why a pure timestamp filter is sufficient and correct; `trip_id` is
+    kept as a parameter for call-site clarity/API stability but is no longer used
+    to filter)."""
+    del trip_id  # kept for call-site clarity; filtering is timestamp-only (see docstring)
     sub = interactions_by_traveler.get(traveler_id)
     if sub is None:
         return _empty_interactions_like(template)
-    mask = (sub["timestamp"] < as_of) & (sub["trip_id"] != trip_id)
+    mask = sub["timestamp"] < as_of
     return sub.loc[mask]
 
 
@@ -452,20 +477,31 @@ def assemble_traveler_features(
     pois_df: pd.DataFrame,
     poi_embeddings: npt.NDArray[np.float32],
     cfg: FeatureBuildConfig,
+    interactions_pretrip: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Assemble the full traveler feature table (spec.md section 6), keyed by
     `(traveler_id, trip_id)` -- one row per trip, since trip-conditional fields
     (season, trip_duration, the implicit block's as-of cutoff) vary per trip even for
     the same traveler.
+
+    `interactions_pretrip` (Block A RC3.2, `datagen/pipeline.py`'s
+    `interactions_pretrip.parquet`) is concatenated into the SAME history pool as
+    `interactions_train` before grouping -- optional (defaults to `None`/empty) so
+    existing callers built against pre-remediation datasets without that file (e.g.
+    `eval/dgp_diagnostics.py`'s MiniLM-path rebuild) keep working unchanged.
     """
     merged = trips_df.merge(travelers_df, on="traveler_id", how="left")
     vocab = build_interest_vocabulary(travelers_df)
     explicit_static = build_explicit_block(merged, vocab)
 
     canonical_map = build_poi_id_canonical_map(pois_df)
-    remapped = remap_interaction_poi_ids(
-        interactions_train[list(_INTERACTIONS_COLUMNS)], canonical_map
-    )
+    history_source = interactions_train[list(_INTERACTIONS_COLUMNS)]
+    if interactions_pretrip is not None and len(interactions_pretrip) > 0:
+        history_source = pd.concat(
+            [history_source, interactions_pretrip[list(_INTERACTIONS_COLUMNS)]],
+            ignore_index=True,
+        )
+    remapped = remap_interaction_poi_ids(history_source, canonical_map)
     interactions_by_traveler = group_interactions_by_traveler(remapped)
 
     poi_emb_by_id = dict(zip(pois_df["poi_id"], poi_embeddings, strict=True))

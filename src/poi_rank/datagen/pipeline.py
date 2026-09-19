@@ -24,12 +24,18 @@ from poi_rank.datagen.oracle_export import (
     oracle_dir_from_output,
     write_holdout_utility,
     write_poi_latent,
+    write_term_standardization,
     write_traveler_taste,
 )
 from poi_rank.datagen.taxonomy import CATEGORY_INDEX
 from poi_rank.datagen.timeline import build_timeline
 from poi_rank.datagen.travelers import generate_travelers, generate_trips
-from poi_rank.datagen.utility import novelty_array, true_utility_noise_free
+from poi_rank.datagen.utility import (
+    TermStandardization,
+    compute_term_standardization,
+    novelty_array,
+    true_utility_noise_free,
+)
 
 
 @dataclass(frozen=True)
@@ -101,6 +107,8 @@ def _eligible_indices(
 
 def _noise_free_utility_for_indices(
     weights: UtilityWeights,
+    standardization: TermStandardization,
+    destination: str,
     taste_vec: npt.NDArray[np.float64],
     touristiness_pref: float,
     party_type: str,
@@ -111,6 +119,8 @@ def _noise_free_utility_for_indices(
 ) -> npt.NDArray[np.float64]:
     return true_utility_noise_free(
         weights=weights,
+        standardization=standardization,
+        destination=destination,
         taste_vec=taste_vec,
         touristiness_pref=touristiness_pref,
         party_type=party_type,
@@ -128,10 +138,32 @@ def _noise_free_utility_for_indices(
     )
 
 
+def _sample_ordered_lead_days(
+    rng: np.random.Generator, n_slates: int, lead_days_min: int, lead_days_max: int
+) -> npt.NDArray[np.intp]:
+    """Block A RC3.1 (docs/DATA_CARD.md "DGP remediation, Block A"): draw `n_slates`
+    DISTINCT lead-day offsets (when the range allows it) and return them sorted
+    DESCENDING -- i.e. slate generation order == real chronological order within a
+    trip's own browsing session (earliest calendar date generated first, closest to
+    the reference date generated last). This is what makes a per-impression as-of
+    cutoff genuinely unambiguous: two slates of the SAME trip never tie on calendar
+    day AND disagree with generation order, unlike the pre-remediation independent
+    `rng.integers(0, 46)` draw per slate."""
+    span = lead_days_max - lead_days_min + 1
+    if n_slates <= span:
+        offsets = rng.choice(span, size=n_slates, replace=False)
+    else:
+        offsets = rng.choice(span, size=n_slates, replace=True)
+    lead_days = np.sort(offsets)[::-1] + lead_days_min
+    result: npt.NDArray[np.intp] = lead_days.astype(np.intp)
+    return result
+
+
 def _generate_policy_slates(
     rng: np.random.Generator,
     policy: str,
     n_slates: int,
+    slate_size: int,
     arrays: CatalogArrays,
     eligible_idx: npt.NDArray[np.intp],
     stay_lat: float,
@@ -142,19 +174,36 @@ def _generate_policy_slates(
     cfg: DatagenConfig,
     utility_noise_free_eligible: npt.NDArray[np.float64],
     counter: _SlateCounter,
+    lead_days_min: int = 0,
+    lead_days_max: int = 45,
 ) -> tuple[list[dict[str, Any]], set[str]]:
     """Generate `n_slates` slates of a given policy for one trip. Returns rows plus
-    the set of POI ids that received a real engagement (used to update novelty)."""
+    the set of POI ids that received a real engagement (used to update novelty).
+
+    `slate_size` is now an explicit parameter (Block A RC1, docs/DATA_CARD.md "DGP
+    remediation, Block A") -- callers pass `cfg.slate.slate_size` for biased slates
+    and `cfg.slate.random_holdout_slate_size` for the primary random-holdout policy,
+    rather than this function reading one fixed config field internally.
+
+    `lead_days_min`/`lead_days_max` (Block A RC3.1/RC3.2) let a caller generate a
+    PRE-TRIP history batch (dated well before the trip's own in-trip sessions,
+    default `(0, 45)`) using this exact same machinery, never a parallel one.
+    """
     rows: list[dict[str, Any]] = []
     engaged_poi_ids: set[str] = set()
-    slate_size = cfg.slate.slate_size
     sigma = cfg.noise.sigma
-    tau = cfg.choice.tau
-    engage_lambda = cfg.interaction_generation.engage_lambda
-    dismiss_lambda = cfg.interaction_generation.dismiss_lambda
+    if policy == "random":
+        tau = cfg.choice.random_holdout_tau
+        engage_lambda = cfg.interaction_generation.random_holdout_engage_lambda
+        dismiss_lambda = cfg.interaction_generation.random_holdout_dismiss_lambda
+    else:
+        tau = cfg.choice.tau
+        engage_lambda = cfg.interaction_generation.engage_lambda
+        dismiss_lambda = cfg.interaction_generation.dismiss_lambda
     rank_decay = cfg.interaction_generation.rank_decay
+    lead_days_arr = _sample_ordered_lead_days(rng, n_slates, lead_days_min, lead_days_max)
 
-    for _ in range(n_slates):
+    for slate_num in range(n_slates):
         if policy == "biased":
             slate = build_biased_slate(
                 rng,
@@ -173,7 +222,7 @@ def _generate_policy_slates(
         u_true = utility_noise_free_eligible[slate.indices]
         u_choice = u_true + rng.normal(0, sigma, size=len(u_true))
 
-        lead_days = int(rng.integers(0, 46))
+        lead_days = int(lead_days_arr[slate_num])
         timestamp = max(session_base_ts - pd.Timedelta(days=lead_days), pd.Timestamp("2000-01-01"))
         slate_id = counter.next_id()
 
@@ -223,15 +272,28 @@ def run_generate(cfg: DatagenConfig, output_dir: Path) -> dict[str, Any]:
     trips_df = generate_trips(rng, travelers_df, cfg, timeline)
     trips_df["is_holdout"] = trips_df["start_date"] >= timeline.split
 
+    # Block A RC2a: fit the utility-term standardization ONCE, before any
+    # trip/slate simulation, over the full generation population (deterministic,
+    # no interaction simulation needed -- docs/DATA_CARD.md "DGP remediation,
+    # Block A").
+    standardization = compute_term_standardization(poi_true_df, travelers_df, taste_vectors)
+
     n_train_trips = int((~trips_df["is_holdout"]).sum())
     n_holdout_trips = int(trips_df["is_holdout"].sum())
-    slate_size = cfg.slate.slate_size
-    mean_slates_train = cfg.scale.target_train_impressions / max(n_train_trips * slate_size, 1)
+    train_slate_size = cfg.slate.slate_size
+    # Block A RC1: the primary random holdout uses a WIDER slate size than the
+    # biased train/secondary-logged-holdout slates (docs/DATA_CARD.md "DGP
+    # remediation, Block A").
+    random_holdout_slate_size = cfg.slate.random_holdout_slate_size
+    logged_holdout_slate_size = cfg.slate.slate_size
+    mean_slates_train = cfg.scale.target_train_impressions / max(
+        n_train_trips * train_slate_size, 1
+    )
     mean_slates_holdout_random = cfg.scale.target_holdout_random_impressions / max(
-        n_holdout_trips * slate_size, 1
+        n_holdout_trips * random_holdout_slate_size, 1
     )
     mean_slates_holdout_logged = cfg.scale.target_holdout_logged_impressions / max(
-        n_holdout_trips * slate_size, 1
+        n_holdout_trips * logged_holdout_slate_size, 1
     )
 
     traveler_row_by_id = travelers_df.set_index("traveler_id")
@@ -241,11 +303,13 @@ def run_generate(cfg: DatagenConfig, output_dir: Path) -> dict[str, Any]:
     train_rows: list[dict[str, Any]] = []
     holdout_random_rows: list[dict[str, Any]] = []
     holdout_logged_rows: list[dict[str, Any]] = []
+    pretrip_rows: list[dict[str, Any]] = []
     oracle_utility_rows: list[dict[str, Any]] = []
 
     weights = cfg.utility_weights
     same_poi_pen = cfg.novelty.same_poi_repeat_penalty
     similar_pen = cfg.novelty.similar_category_repeat_penalty
+    pretrip_cfg = cfg.pretrip_history
 
     for trip in trips_df.itertuples(index=False):
         traveler = traveler_row_by_id.loc[trip.traveler_id]
@@ -264,6 +328,8 @@ def run_generate(cfg: DatagenConfig, output_dir: Path) -> dict[str, Any]:
         )
         u_true_eligible = _noise_free_utility_for_indices(
             weights,
+            standardization,
+            trip.destination,
             taste_vec,
             traveler.touristiness_pref,
             traveler.party_type,
@@ -273,6 +339,43 @@ def run_generate(cfg: DatagenConfig, output_dir: Path) -> dict[str, Any]:
             novelty,
         )
 
+        # Block A RC3.2: pre-trip synthetic interaction history, seeded once per
+        # traveler on their FIRST trip, using the SAME exposure+choice machinery as
+        # in-trip sessions (never a parallel mechanism) -- docs/DATA_CARD.md "DGP
+        # remediation, Block A". Runs BEFORE this trip's own slates so `hist` (and
+        # therefore this trip's own novelty, computed above from PRIOR trips only)
+        # is unaffected -- pre-trip history informs LATER trips and, via the
+        # per-impression as-of cutoff in `features/traveler_features.py`, this
+        # same first trip's own feature row.
+        if trip.trip_sequence == 1:
+            is_cold_start_cohort = rng.random() < pretrip_cfg.cold_start_fraction
+            if not is_cold_start_cohort:
+                target_engaged = int(
+                    rng.integers(pretrip_cfg.min_interactions, pretrip_cfg.max_interactions + 1)
+                )
+                n_pretrip_slates = max(
+                    1, round(target_engaged / cfg.interaction_generation.engage_lambda)
+                )
+                pretrip_batch, _pretrip_engaged = _generate_policy_slates(
+                    rng,
+                    "biased",
+                    n_pretrip_slates,
+                    train_slate_size,
+                    arrays,
+                    eligible_idx,
+                    trip.stay_lat,
+                    trip.stay_lon,
+                    trip.trip_id,
+                    trip.traveler_id,
+                    trip.start_date,
+                    cfg,
+                    u_true_eligible,
+                    counter,
+                    lead_days_min=pretrip_cfg.lead_days_min,
+                    lead_days_max=pretrip_cfg.lead_days_max,
+                )
+                pretrip_rows.extend(pretrip_batch)
+
         newly_engaged: set[str] = set()
 
         if not trip.is_holdout:
@@ -281,6 +384,7 @@ def run_generate(cfg: DatagenConfig, output_dir: Path) -> dict[str, Any]:
                 rng,
                 "biased",
                 n_slates,
+                train_slate_size,
                 arrays,
                 eligible_idx,
                 trip.stay_lat,
@@ -300,6 +404,7 @@ def run_generate(cfg: DatagenConfig, output_dir: Path) -> dict[str, Any]:
                 rng,
                 "random",
                 n_slates_r,
+                random_holdout_slate_size,
                 arrays,
                 eligible_idx,
                 trip.stay_lat,
@@ -319,6 +424,7 @@ def run_generate(cfg: DatagenConfig, output_dir: Path) -> dict[str, Any]:
                 rng,
                 "biased",
                 n_slates_b,
+                logged_holdout_slate_size,
                 arrays,
                 eligible_idx,
                 trip.stay_lat,
@@ -353,6 +459,7 @@ def run_generate(cfg: DatagenConfig, output_dir: Path) -> dict[str, Any]:
     interactions_train = pd.DataFrame(train_rows)
     interactions_holdout_random = pd.DataFrame(holdout_random_rows)
     interactions_holdout_logged = pd.DataFrame(holdout_logged_rows)
+    interactions_pretrip = pd.DataFrame(pretrip_rows)
     oracle_utility_df = pd.DataFrame(oracle_utility_rows)
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -372,6 +479,13 @@ def run_generate(cfg: DatagenConfig, output_dir: Path) -> dict[str, Any]:
     _write_parquet(interactions_train, "interactions_train.parquet")
     _write_parquet(interactions_holdout_random, "interactions_holdout_random.parquet")
     _write_parquet(interactions_holdout_logged, "interactions_holdout_logged.parquet")
+    # Block A RC3.2: pre-trip history in its OWN file, never merged into
+    # interactions_train.parquet -- keeps that file's existing "one row = one real
+    # exposure event belonging to a TRAIN trip's own session" semantics and its
+    # "zero holdout trip_id rows" invariant fully intact for downstream consumers
+    # (docs/DATA_CARD.md "DGP remediation, Block A"). Read only by
+    # `features/traveler_features.py`, for history purposes.
+    _write_parquet(interactions_pretrip, "interactions_pretrip.parquet")
 
     destinations_df = pd.DataFrame(
         [{"destination": d} for d in sorted(trips_df["destination"].unique())]
@@ -382,6 +496,7 @@ def run_generate(cfg: DatagenConfig, output_dir: Path) -> dict[str, Any]:
         "traveler_taste.parquet": write_traveler_taste(oracle_dir, taste_vectors),
         "poi_latent.parquet": write_poi_latent(oracle_dir, poi_true_df),
         "holdout_utility_true.parquet": write_holdout_utility(oracle_dir, oracle_utility_df),
+        "term_standardization.json": write_term_standardization(oracle_dir, standardization),
     }
     for name, path in oracle_paths.items():
         files[f"{oracle_dir.name}/{name}"] = path
@@ -398,6 +513,10 @@ def run_generate(cfg: DatagenConfig, output_dir: Path) -> dict[str, Any]:
         "n_train_impressions": len(interactions_train),
         "n_holdout_random_impressions": len(interactions_holdout_random),
         "n_holdout_logged_impressions": len(interactions_holdout_logged),
+        "n_pretrip_impressions": len(interactions_pretrip),
+        "n_pretrip_positives": int((interactions_pretrip["label"] > 0).sum())
+        if len(interactions_pretrip)
+        else 0,
         "n_train_positives": int((interactions_train["label"] > 0).sum())
         if len(interactions_train)
         else 0,

@@ -7,8 +7,11 @@ section 11.10 success criteria, which are reported honestly on a miss (section
 0/11.10), not build-blocking invariants like the hard-constraint-violation-rate=0
 check in section 11.5 ("enforced by a test that fails the build"). After a genuine,
 documented iteration attempt (see `configs/features.yaml`'s `localness:` block and
-docs/DATA_CARD.md), the honestly-measured rho for this DGP realization is ~0.4757 --
-below target. Marked xfail(strict=True) rather than deleted or silently downgraded:
+docs/DATA_CARD.md), the honestly-measured rho for this DGP realization is ~0.579
+(updated from ~0.4757 by DGP remediation Block A's RC2b geo-conditioning fix --
+docs/DATA_CARD.md "DGP remediation, Block A" -- a genuine, non-circular improvement
+to `datagen/`'s POI lat/lon generation, not a change to this index's own formula) --
+still below target. Marked xfail(strict=True) rather than deleted or silently downgraded:
 the miss stays visible in every test run with its exact number and root cause, the
 overall suite (and `make reproduce`) stays green per the engineering-reproducibility
 contract, and strict=True means an unexpected pass (e.g. from someone loosening the
@@ -29,7 +32,8 @@ from poi_rank.eval.oracle import TARGET_LOCALNESS_RHO, validate_localness_agains
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "Honest, documented miss: measured Spearman rho ~0.4757 vs spec.md section 4 "
+        "Honest, documented miss: measured Spearman rho ~0.579 (updated from ~0.4757 "
+        "by DGP remediation Block A's RC2b geo-conditioning fix) vs spec.md section 4 "
         "target of 0.6, after a genuine non-circular weight-tuning attempt (see "
         "docs/DATA_CARD.md). Remove this marker only if the formula is legitimately "
         "improved (never by fitting against the oracle) and rho clears 0.6 for real."

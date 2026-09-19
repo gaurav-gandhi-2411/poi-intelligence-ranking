@@ -498,6 +498,86 @@ clean throughout. Determinism byte-identical, verified at every phase.**
 14. P2 (cut first if short on time): notebook, λ sweep figure, feature-importance
     figure. (λ sweep figure already done, Phase 6.)
 
+## Diagnostic-only harness (spec-v2-remediation.md section 0/section 1, D1-D10)
+
+15. **DGP diagnostic harness** (`src/poi_rank/eval/dgp_diagnostics.py`, new CLI
+    `poi_rank.cli diagnose-dgp`) — measurement only, no fix code, per explicit
+    task scope. Computes D1 (variance decomposition of `u(t,p)`, 7 deterministic
+    terms + epsilon), D2 (taste-cosine distribution), D3 (Spearman(u, label)),
+    D4 (choice sharpness), D5 (oracle NDCG@10, slate- vs candidate-level), D6
+    (cold-start share), D7 (Spearman(latent_localness, geo feature)), D8
+    (popularity bias gap, cross-checked against the already-committed Phase 8
+    number). Writes `results/parts/dgp_diagnostics.json`. Small additions to
+    `eval/oracle.py` (`load_traveler_taste`,
+    `validate_geo_feature_against_latent_localness`) — no other module touched.
+    `tests/test_dgp_diagnostics.py` (20 tests: hand-built arithmetic per
+    diagnostic + a real-fixture-chain correctness invariant). Full numbers and
+    the report on this harness are reserved for the orchestrator/GG per task
+    scope — not interpreted here.
+
+    **Extended with D9 (semantic-space fidelity) + D10 (is POI text generation
+    conditioned on `poi_semantic`?)** — same file, same firewall discipline, no
+    new `eval/oracle.py` reads needed (D9 reuses D1/D2's already-computed
+    `taste_sim`; D10 reuses `load_poi_latent`, already permitted). D9 compares
+    `Spearman(cos_DGP(taste,poi_semantic), cos_observable(taste_feature,
+    poi_emb))` for both the canonical TF-IDF→SVD-64 path (reads the
+    already-committed `poi_features.parquet`/`traveler_features.parquet`
+    directly) and a one-time `all-MiniLM-L6-v2` measurement (`sentence-
+    transformers` installed via `uv sync --extra text`; `features/text_embed.py`'s
+    existing `embed_text_sentence_transformer` reused unchanged, run in an
+    isolated subprocess — see `_run_minilm_encode_in_subprocess`'s docstring for
+    why: a genuine, verified Windows DLL-ordering conflict on this dev machine
+    between `pandas`/`pyarrow` and `torch` when `pandas` loads first in the same
+    process, which it always does by the time this diagnostic runs via the CLI
+    or pytest). MiniLM artifact written to `results/parts/
+    poi_emb_minilm_diagnostic.npy` (diagnostic-only, never `artifacts/
+    poi_emb.npy`). D10 gives a direct code-reading answer (with file:line
+    citations into `datagen/catalog.py`/`text_templates.py`) plus an independent
+    empirical Spearman over a seeded 5,000-pair within-destination sample of the
+    full ~1,446-POI catalog. 9 new tests in `tests/test_dgp_diagnostics.py` (29
+    total in that file); full suite 427 passed, 2 xfailed, 0 failed (427 = 418
+    prior baseline + 9 new). `ruff`/`mypy` clean. Numbers not interpreted here —
+    reserved for the orchestrator/GG per task scope.
+
+## DGP remediation, Block A (spec-v2-remediation.md + orchestrator's superseding numbers)
+
+16. **RC1/RC2/RC3 fixes + `gate-dgp` acceptance gate** — full detail in
+    `docs/DATA_CARD.md` "DGP remediation, Block A" section (before/after D1-D10
+    table, exact config diffs, wall-clock, freeze-discipline confirmation). One-line
+    summary: RC1 (random-holdout slate 20->150), RC2a (z-score-before-weight
+    standardization + reweighting, `datagen/utility.py` rewritten), RC2b (POI geo
+    generation conditioned on `latent_localness`, confirmed-bug fix, D7 0.012->0.693),
+    RC2c (POI text generation conditioned on `poi_semantic`, confirmed-bug fix, D10
+    0.208->0.452), RC3.1 (per-impression as-of cutoff, `features/traveler_features.py`
+    simplified to a pure timestamp filter — the one sanctioned `features/` change),
+    RC3.2 (pre-trip synthetic history, new `interactions_pretrip.parquet`, cold-start
+    67.8%->10.3% holdout), RC3.4 (scale 800->2,500 trips). New `poi_rank.cli
+    gate-dgp` command + `src/poi_rank/eval/gate_dgp.py`, reusing `diagnose-dgp`'s
+    already-computed D1-D10 payload, applying the orchestrator's exact 9-threshold
+    table. **Gate result: 6/9 PASS** (`results/parts/dgp_gate.json`) — FAILs: D9
+    semantic fidelity (0.187 vs 0.50, largely a `features/`-pipeline-chain property
+    out of this task's scope), D10 description conditioning (0.452 vs 0.50, close,
+    genuine effort, hit a measured structural asymptote), D5 candidate-level oracle
+    NDCG@10 (0.432 vs 0.45, close, root-caused to candidate-recall ceiling, a
+    `candidates/` property out of scope). Freeze discipline held throughout:
+    `candidates/`, `models/`, `scoring/` untouched; `features/` touched only at the
+    one sanctioned call site. **Full pipeline wall-clock flagged as a real risk**:
+    `generate`+`prepare`+`features`+`candidates` alone now take ~4m32s at the new
+    scale (candidates dominates at ~3m9s, superlinear vs the 3.125x trip scale-up) —
+    inserting `gate-dgp` (~60s, requires prepare/features/candidates to already
+    exist per its own documented precondition) pushes this close to or over the
+    5-minute `make reproduce` budget BEFORE Block B's train/evaluate/lodo/recommend/
+    scenarios stages are added back — flagged for Block B/D's attention, not fixed
+    here (candidate-generation performance is out of this task's scope). New tests:
+    `tests/test_gate_dgp.py` (16 cases), plus additions to `tests/
+    test_datagen_schema.py` (RC1/RC2b/RC2a/RC3 mechanism tests), `tests/
+    test_traveler_features.py` (per-impression cutoff + pretrip-integration tests),
+    `tests/test_dgp_diagnostics.py` (updated for the standardization-aware
+    `compute_utility_term_components`), and `tests/test_localness_oracle.py`'s
+    `xfail` reason updated to the new measured number (0.4757 -> 0.579, still a
+    genuine miss, not XPASS). **Explicitly stops here — Block B (re-running Phases
+    2-9 downstream against the fixed data) is out of scope for this task.**
+
 ## Process notes for future sessions
 
 - Every phase: dispatch executor (fresh, full context in prompt) → dispatch

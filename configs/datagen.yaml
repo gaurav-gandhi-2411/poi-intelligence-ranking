@@ -3,40 +3,80 @@
 # Every stochastic knob in src/poi_rank/datagen/** is sourced from this file so the
 # DGP is auditable/tunable without touching code (spec.md section 1.2/14). Nothing
 # in datagen/ hardcodes a distribution parameter that belongs here.
+#
+# DGP remediation, Block A (spec-v2-remediation.md + orchestrator's superseding
+# numbers, docs/DATA_CARD.md "DGP remediation, Block A" section): RC1 (eval-set
+# size), RC2 (utility term standardization + weights), RC3 (scale + cold-start).
 
 seed: 42
 
 scale:
   n_destinations: 3
   pois_per_destination: 500
-  n_travelers: 600
-  travelers_per_destination: 200
-  # 200 of 600 travelers (1/3) take a 2nd trip -> 600 + 200 = 800 trips total (spec target).
+  # Block A RC3.4: trips 800 -> 2,500 (holdout ~500). 625 travelers/destination x 3
+  # destinations = 1875 travelers; with two_trip_traveler_fraction=1/3 that gives
+  # 1875 + 625 = 2500 trips total (docs/DATA_CARD.md "DGP remediation, Block A").
+  n_travelers: 1875
+  travelers_per_destination: 625
   two_trip_traveler_fraction: 0.3333333333333333
-  target_train_impressions: 120000
-  target_holdout_random_impressions: 30000
-  # Secondary log; spec does not fix a target for this one. Sized at ~half the
-  # random-holdout session density per trip (documented in docs/DATA_CARD.md).
-  target_holdout_logged_impressions: 15000
-  target_positive_interactions: 25000
+  # Impression targets scaled ~3.125x (2500/800 trip-count ratio) to keep
+  # mean-slates-per-trip roughly comparable to the pre-remediation dataset.
+  target_train_impressions: 375000
+  # Also reflects the RC1 slate-size widening for the primary random holdout
+  # (20 -> 150): mean slates/trip intentionally reduced (~7.4 -> ~3) to keep
+  # interactions_holdout_random.parquet's row count and downstream wall-clock
+  # bounded (docs/DATA_CARD.md "DGP remediation, Block A" wall-clock section).
+  target_holdout_random_impressions: 225000
+  target_holdout_logged_impressions: 46875
+  # Descriptive scale-target only (drives no generation behavior, spec.md's own
+  # "for sanity, not for control" framing) -- 90,000 reflects the ACTUAL measured
+  # count (90,597) once random_holdout_engage_lambda was tuned upward for D3
+  # (docs/DATA_CARD.md "DGP remediation, Block A"), not the naive 3.125x trip-count
+  # scale-up (78,125) which predates that tuning decision.
+  target_positive_interactions: 90000
 
 utility_weights:
-  w_taste: 2.0
-  w_cat: 1.0
-  w_local: 1.0
-  w_qual: 1.5
-  w_party: 1.0
-  w_price: 0.8
-  w_novel: 0.5
+  # Block A RC2a: weights are now applied to Z-SCORED (not raw) terms, sized as
+  # sqrt(target variance share) so Var(u_total) ~= 1 by construction (see
+  # docs/DATA_CARD.md "DGP remediation, Block A" for the full derivation and the
+  # measured achieved shares). Target shares: taste 0.22, category 0.13,
+  # localness 0.15, latent_quality 0.10, party_fit 0.09, price_fit 0.09,
+  # novelty 0.06, epsilon 0.12 (share_sum ~0.96, remaining ~0.04 slack is
+  # inter-term covariance, expected and documented).
+  w_taste: 0.4690
+  w_cat: 0.3606
+  w_local: 0.3873
+  w_qual: 0.3162
+  w_party: 0.3000
+  w_price: 0.3000
+  w_novel: 0.2449
 
 noise:
-  sigma: 0.4 # irreducible utility noise, epsilon ~ N(0, sigma)
+  # Block A RC2a: sigma = sqrt(target epsilon share 0.12) with Var(u_total) ~= 1,
+  # deliberately NOT near-zero (a simulator with zero irreducible noise makes the
+  # oracle ceiling meaningless) -- see docs/DATA_CARD.md.
+  sigma: 0.3464
 
 choice:
-  tau: 0.5 # Plackett-Luce temperature for slate choice simulation
+  # Block A: lowered 0.5 -> 0.15 (docs/DATA_CARD.md "DGP remediation, Block A") --
+  # re-tuned against the NEW standardized utility scale (Var(u_total) ~= 1 by
+  # RC2a construction, vs ~0.525 pre-remediation) to sharpen slate choice enough
+  # to lift Spearman(u, label) (D3) toward its new 0.40 gate target; measured via
+  # a small-scale calibration sweep {0.5, 0.3, 0.2, 0.15}, D3 improving
+  # monotonically as tau decreases with diminishing returns below ~0.2.
+  tau: 0.15 # Plackett-Luce temperature for slate choice simulation
+  # Block A: sharper temperature for the wider random-holdout slate specifically
+  # -- keeps the EXTRA engaged draws (random_holdout_engage_lambda) concentrated
+  # near the true top-utility items instead of diluting D5's candidate-level
+  # oracle NDCG (docs/DATA_CARD.md "DGP remediation, Block A").
+  random_holdout_tau: 0.05
 
 slate:
-  slate_size: 20 # both biased and random-exposure slates, for comparability
+  slate_size: 20 # biased train slate + secondary biased holdout-logged slate (unchanged)
+  # Block A RC1: primary unbiased holdout slate widened 20 -> 150 so the exposed
+  # set approaches the candidate-generation budget (~187-250/trip), making
+  # slate-level and candidate-level oracle NDCG converge.
+  random_holdout_slate_size: 150
 
 exposure:
   popularity_exponent: 1.5 # p(expose) ~ popularity_raw^exponent * geo_proximity^geo_weight_exponent
@@ -68,7 +108,30 @@ interaction_generation:
   engage_lambda: 3.0 # Poisson mean number of engaged POIs per slate
   dismiss_lambda: 0.5 # Poisson mean number of dismissed POIs per slate
   rank_decay: 2.0 # controls how fast interaction-type severity decays with PL draw rank
+  # Block A: the primary random-holdout slate is 7.5x wider (20 -> 150,
+  # slate.random_holdout_slate_size) than the biased slates -- a FIXED
+  # engage_lambda would dilute D3 (Spearman(u, label) over every exposed row)
+  # with far more zero-label rows per positive. Scaled sublinearly (6x, not
+  # 7.5x) -- a real browsing session's engagement count doesn't scale linearly
+  # with how many items are shown. Tuned via a calibration sweep {9, 12, 15, 18}
+  # jointly with `random_holdout_tau` below -- 18.0 is the value that clears the
+  # D3 >=0.40 gate with real margin (measured 0.4563); even at this value, D5
+  # (candidate-level oracle NDCG@10) stays a small, documented miss (0.4319 vs
+  # 0.45) -- see docs/DATA_CARD.md "DGP remediation, Block A" for the full
+  # D3/D5 tension analysis and every data point collected during the sweep.
+  random_holdout_engage_lambda: 18.0
+  random_holdout_dismiss_lambda: 3.0
 
 novelty:
   same_poi_repeat_penalty: 0.6 # novelty penalty for a POI the traveler already engaged with
   similar_category_repeat_penalty: 0.2 # smaller penalty for a repeat of the same (category, subcategory)
+
+# Block A RC3.2: pre-trip synthetic interaction history, seeded per traveler,
+# anchored to their FIRST trip's start date -- fixes the 79%/68% cold-start rate
+# (docs/DATA_CARD.md "DGP remediation, Block A").
+pretrip_history:
+  cold_start_fraction: 0.15 # ~15% of travelers deliberately keep ZERO pre-trip history
+  min_interactions: 5
+  max_interactions: 40
+  lead_days_min: 46 # strictly older than any in-trip session's lead_days (0-45)
+  lead_days_max: 180

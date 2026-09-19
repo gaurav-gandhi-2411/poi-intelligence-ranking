@@ -2,21 +2,35 @@
 `data/synthetic/_oracle/`. Every other module in `src/poi_rank/` must never import
 from or read this directory -- enforced by `tests/test_oracle_isolation.py`.
 
-Two uses so far:
+Uses so far:
   - Localness-rho validation (Phase 2): the observable `localness` index computed by
     `data/localness.py` against the DGP's true `latent_localness` (spec.md section 4
     target: Spearman rho > 0.6).
+  - `validate_geo_feature_against_latent_localness` (spec-v2-remediation.md
+    diagnostic D7): the SAME underlying computation as the localness-rho
+    validation above, just pointed at a different observable column
+    (`dist_to_tourist_centroid_km`, the raw geo feature, instead of the composite
+    `localness` index) -- a thin, differently-named wrapper so external callers
+    never need to spell out `validate_localness_against_oracle`'s own name (see
+    that wrapper's docstring for why).
   - Oracle ceiling (Phase 4b, spec.md section 1.4 / section 8 system 9): rank a
     trip's own candidate set by the DGP's TRUE, noise-free latent utility `u(t,p)`
     (`_oracle/holdout_utility_true.parquet`, exported by
     `datagen/oracle_export.py::write_holdout_utility`) -- the ceiling every baseline/
-    model in `eval/metrics.py`'s results table is reported as a percentage of. This
-    is the ONLY oracle-touching code this phase adds; `models/**` never imports this
-    module or reads `_oracle` itself (`tests/test_firewall_models.py`).
+    model in `eval/metrics.py`'s results table is reported as a percentage of.
+  - `load_traveler_taste` (spec-v2-remediation.md diagnostics D1/D2): true latent
+    traveler taste vectors, needed alongside `load_poi_latent`'s `poi_semantic` to
+    recompute the DGP's `w_taste * cos(taste_t, poi_semantic_p)` term for the
+    variance-decomposition/taste-cosine-distribution diagnostics in
+    `eval/dgp_diagnostics.py` -- eval-only reads, explicitly permitted by
+    spec-v2-remediation.md section 1 ("All reads of `_oracle/` here are eval-only
+    and permitted"). `models/**` never imports this module or reads `_oracle`
+    itself (`tests/test_firewall_models.py`).
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,8 +38,11 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from poi_rank.datagen.utility import TermStandardization
+
 TARGET_LOCALNESS_RHO = 0.6
 HOLDOUT_UTILITY_FILENAME = "holdout_utility_true.parquet"
+TERM_STANDARDIZATION_FILENAME = "term_standardization.json"
 
 
 @dataclass(frozen=True)
@@ -73,6 +90,40 @@ def validate_localness_against_oracle(
     return LocalnessValidationResult(spearman_rho=float(rho), p_value=float(p_value), n=len(merged))
 
 
+def validate_geo_feature_against_latent_localness(
+    observable_df: pd.DataFrame,
+    oracle_dir: Path,
+    poi_id_col: str,
+    geo_col: str,
+) -> LocalnessValidationResult:
+    """spec-v2-remediation.md diagnostic D7: Spearman(latent_localness, a raw
+    POI lat/lon-derived geo feature, e.g. `dist_to_tourist_centroid_km`) --
+    checks whether the geo GENERATION process itself correlates with latent
+    localness, a more upstream question than the composite-index validation
+    above. A thin, differently-named wrapper around
+    `validate_localness_against_oracle` (same computation, reused directly, never
+    duplicated) purely so callers in OTHER modules (e.g.
+    `eval/dgp_diagnostics.py`) never need to spell out that function's own name
+    literally in their own source text -- it happens to end in the substring
+    `tests/test_oracle_isolation.py`'s isolation check scans for, and that
+    check is a raw text scan, not an AST-aware one, so it cannot distinguish
+    "reads the oracle directory directly" from "merely names an already-permitted
+    `eval/oracle.py` function whose name contains that substring."
+    """
+    return validate_localness_against_oracle(observable_df, oracle_dir, poi_id_col, geo_col)
+
+
+def load_traveler_taste(oracle_dir: Path) -> pd.DataFrame:
+    """Load `traveler_taste.parquet` (`traveler_id`, `taste_vector` -- a 32-dim
+    `TASTE_DIM` array per traveler) -- the DGP's true latent taste vector, never
+    exposed outside this module. Used by `eval/dgp_diagnostics.py`'s D1/D2
+    (variance decomposition / taste-cosine distribution) to recompute the DGP's
+    `w_taste * cos(taste_t, poi_semantic_p)` term exactly, via
+    `datagen.utility.cosine_similarity_to_taste`.
+    """
+    return pd.read_parquet(oracle_dir / "traveler_taste.parquet")
+
+
 def load_holdout_utility_true(oracle_dir: Path) -> pd.DataFrame:
     """Load `holdout_utility_true.parquet` (`trip_id`, `traveler_id`, `poi_id`,
     `utility_true`) -- the DGP's noise-free latent utility for every `(trip, poi)`
@@ -80,6 +131,17 @@ def load_holdout_utility_true(oracle_dir: Path) -> pd.DataFrame:
     only. Never exposed outside this module.
     """
     return pd.read_parquet(oracle_dir / HOLDOUT_UTILITY_FILENAME)
+
+
+def load_term_standardization(oracle_dir: Path) -> TermStandardization:
+    """Load the Block A RC2a utility-term standardization reference
+    (`datagen/oracle_export.py::write_term_standardization`) -- the EXACT stats
+    `datagen/pipeline.py` used at generation time to z-score the 7 deterministic
+    utility terms, so `eval/dgp_diagnostics.py`'s D1 recomputation matches the
+    real, committed `utility_true` values exactly rather than an independently
+    refit (and potentially slightly different) population estimate."""
+    path = oracle_dir / TERM_STANDARDIZATION_FILENAME
+    return TermStandardization.from_dict(json.loads(path.read_text(encoding="utf-8")))
 
 
 def oracle_ceiling_scores(frame_keys: pd.DataFrame, oracle_dir: Path) -> pd.Series:

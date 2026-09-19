@@ -67,6 +67,11 @@ def test_two_feature_build_runs_produce_byte_identical_files(
         "travelers.parquet",
         "trips.parquet",
         "interactions_train.parquet",
+        # Block A RC3.2 (docs/DATA_CARD.md "DGP remediation, Block A"): pre-trip
+        # history is now an optional input to `run_features` -- copied here too so
+        # this determinism test exercises the SAME code path `poi_rank.cli
+        # features` actually uses against the real committed dataset.
+        "interactions_pretrip.parquet",
     ):
         for dest in (data_dir_1, data_dir_2):
             (dest / name).write_bytes((data_dir / name).read_bytes())

@@ -24,6 +24,8 @@ from poi_rank.datagen.config import DatagenConfig
 from poi_rank.datagen.pipeline import run_generate
 from poi_rank.eval.cold_start import run_lodo
 from poi_rank.eval.config import EvalConfig
+from poi_rank.eval.dgp_diagnostics import run_dgp_diagnostics
+from poi_rank.eval.gate_dgp import run_gate_dgp
 from poi_rank.eval.run import ALL_SYSTEM_NAMES, METRICS_FILENAME, WILCOXON_METRIC, run_evaluate
 from poi_rank.eval.scenarios import run_scenarios
 from poi_rank.explain.output_enrichment import build_payload_enricher
@@ -73,6 +75,164 @@ def generate(
     typer.echo("\n=== SHA256 of generated files ===")
     for name, digest in sorted(summary["sha256"].items()):
         typer.echo(f"  {name}: {digest}")
+
+
+@app.command(name="diagnose-dgp")
+def diagnose_dgp(
+    config_path: Path = typer.Option(DEFAULT_CONFIG_PATH, help="Path to datagen.yaml"),  # noqa: B008
+    features_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_FEATURES_CONFIG_PATH, help="Path to features.yaml"
+    ),
+    data_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_OUTPUT_DIR, help="Directory containing data/synthetic/*.parquet"
+    ),
+    results_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_RESULTS_DIR, help="Directory to write results/parts/dgp_diagnostics.json"
+    ),
+) -> None:
+    """Run the DIAGNOSTIC-ONLY DGP harness (spec-v2-remediation.md section 1,
+    D1-D10): measures the falsifiable claim in section 0 (evaluation-set mismatch,
+    utility-term scale imbalance, cold-start share) plus D9 (semantic-space
+    fidelity, TF-IDF vs one-time MiniLM measurement) and D10 (is POI text
+    generation conditioned on `poi_semantic`) WITHOUT changing any datagen/
+    features/models/candidates/scoring code. Writes
+    `results/parts/dgp_diagnostics.json`."""
+    datagen_cfg = DatagenConfig.from_yaml(config_path)
+    feature_cfg = FeatureBuildConfig.from_yaml(features_config_path)
+
+    result = run_dgp_diagnostics(data_dir, results_dir, datagen_cfg, feature_cfg)
+    payload = result["payload"]
+
+    typer.echo("=== poi-rank diagnose-dgp: DGP diagnostic harness (measurement only) ===")
+    typer.echo(f"  output: {result['output_path']}")
+    typer.echo(f"  wall_clock_seconds: {payload['meta']['wall_clock_seconds']:.2f}")
+
+    d1 = payload["D1_variance_decomposition"]
+    typer.echo("\n=== D1: variance decomposition of u(t,p) ===")
+    typer.echo(
+        f"  n_pairs_total={d1['n_pairs_total']} "
+        f"n_valid={d1['n_pairs_valid_for_price_and_novelty']}"
+    )
+    for name, share in d1["term_variance_shares"].items():
+        typer.echo(f"  share[{name}]={share:.4f}")
+    typer.echo(f"  share[epsilon]={d1['epsilon_variance_share']:.4f}")
+    typer.echo(f"  share_sum_all_8={d1['share_sum_all_8']:.4f}")
+
+    d2 = payload["D2_taste_cosine_distribution"]
+    typer.echo("\n=== D2: cos(taste, poi_semantic) distribution ===")
+    typer.echo(
+        f"  mean={d2['mean']:.4f} sd={d2['sd']:.4f} p5={d2['p5']:.4f} "
+        f"p95={d2['p95']:.4f} n={d2['n']}"
+    )
+
+    d3 = payload["D3_spearman_utility_vs_label"]
+    typer.echo("\n=== D3: Spearman(u, label) ===")
+    typer.echo(f"  rho={d3['spearman_rho']:.4f} p={d3['p_value']:.4g} n={d3['n']}")
+
+    d4 = payload["D4_choice_sharpness"]
+    typer.echo("\n=== D4: choice sharpness ===")
+    typer.echo(
+        f"  mean_global_percentile={d4['mean_global_percentile']:.2f} "
+        f"mean_within_slate_rank={d4['mean_within_slate_rank']:.2f} "
+        f"(n_slates_included={d4['n_slates_included']}, "
+        f"n_excluded={d4['n_slates_excluded_no_engagement']})"
+    )
+
+    d5 = payload["D5_ndcg"]
+    typer.echo("\n=== D5: oracle NDCG@10, slate-level vs candidate-level ===")
+    typer.echo(
+        f"  slate_level={d5['slate_level']['mean_ndcg_at_10']:.4f} "
+        f"(n={d5['slate_level']['n_slates_included']})"
+    )
+    typer.echo(
+        f"  candidate_level={d5['candidate_level']['mean_ndcg_at_10']:.4f} "
+        f"(n={d5['candidate_level']['n_trips_included']})"
+    )
+
+    d6 = payload["D6_cold_start_share"]
+    typer.echo("\n=== D6: cold-start share ===")
+    typer.echo(
+        f"  overall={d6['overall']['share']:.4f} "
+        f"({d6['overall']['n_cold_start']}/{d6['overall']['n_trips']}) "
+        f"holdout_only={d6['holdout_only']['share']:.4f} "
+        f"({d6['holdout_only']['n_cold_start']}/{d6['holdout_only']['n_trips']})"
+    )
+
+    d7 = payload["D7_localness_vs_geo_generation"]
+    typer.echo("\n=== D7: Spearman(latent_localness, dist_to_tourist_centroid_km) ===")
+    typer.echo(f"  rho={d7['spearman_rho']:.4f} p={d7['p_value']:.4g} n={d7['n']}")
+
+    d8 = payload["D8_bias_gap_popularity"]
+    typer.echo("\n=== D8: popularity bias gap ===")
+    typer.echo(
+        f"  gap={d8['gap']:.4f} (biased={d8['ndcg@10_biased_logged_holdout']:.4f}, "
+        f"unbiased={d8['ndcg@10_unbiased_random_holdout']:.4f})"
+    )
+    if "existing_metrics_json_gap" in d8:
+        typer.echo(f"  existing results/metrics.json gap={d8['existing_metrics_json_gap']:.4f}")
+
+    d9 = payload["D9_semantic_fidelity"]
+    typer.echo("\n=== D9: semantic-space fidelity (observable vs DGP latent) ===")
+    for path_name in ("tfidf_path", "minilm_path"):
+        p = d9[path_name]
+        extra = (
+            f" encode_wall_clock_seconds={p['encode_wall_clock_seconds']:.2f}"
+            if "encode_wall_clock_seconds" in p
+            else ""
+        )
+        typer.echo(
+            f"  {path_name}: rho={p['spearman_rho']:.4f} p={p['p_value']:.4g} n={p['n']}{extra}"
+        )
+
+    d10 = payload["D10_description_conditioning"]
+    typer.echo("\n=== D10: is POI text generation conditioned on poi_semantic? ===")
+    typer.echo(f"  code_reading_answer: {d10['code_reading_answer']['answer']}")
+    d10m = d10["measured"]
+    typer.echo(
+        f"  measured: rho={d10m['spearman_rho']:.4f} p={d10m['p_value']:.4g} "
+        f"n_pairs_sampled={d10m['n_pairs_sampled']} seed={d10m['seed']}"
+    )
+
+
+@app.command(name="gate-dgp")
+def gate_dgp(
+    config_path: Path = typer.Option(DEFAULT_CONFIG_PATH, help="Path to datagen.yaml"),  # noqa: B008
+    features_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_FEATURES_CONFIG_PATH, help="Path to features.yaml"
+    ),
+    data_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_OUTPUT_DIR, help="Directory containing data/synthetic/*.parquet"
+    ),
+    results_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_RESULTS_DIR, help="Directory to write results/parts/dgp_gate.json"
+    ),
+) -> None:
+    """DGP acceptance gate (docs/DATA_CARD.md "DGP remediation, Block A"): reuses
+    `diagnose-dgp`'s D1-D10 computation and applies the 9 exact thresholds, writing
+    `results/parts/dgp_gate.json`. Exits non-zero if any threshold fails. Requires
+    `generate` -> `prepare` -> `features` to have already run (see
+    `eval/gate_dgp.py::run_gate_dgp`'s docstring for the documented precondition
+    tension against the "runs before prepare" framing)."""
+    datagen_cfg = DatagenConfig.from_yaml(config_path)
+    feature_cfg = FeatureBuildConfig.from_yaml(features_config_path)
+
+    result = run_gate_dgp(data_dir, results_dir, datagen_cfg, feature_cfg)
+    payload = result["payload"]
+
+    typer.echo("=== poi-rank gate-dgp: DGP acceptance gate ===")
+    typer.echo(f"  output: {result['output_path']}")
+    for name, check in payload["checks"].items():
+        status = "PASS" if check["passed"] else "FAIL"
+        typer.echo(
+            f"  [{status}] {name}: measured={check['measured']:.4f} "
+            f"{check['op']} {check['threshold']}"
+        )
+    typer.echo(
+        f"\n  overall: {'PASS' if payload['overall_pass'] else 'FAIL'} "
+        f"({payload['n_passed']}/{payload['n_total']})"
+    )
+    if not payload["overall_pass"]:
+        raise typer.Exit(code=1)
 
 
 @app.command()

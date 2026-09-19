@@ -46,11 +46,25 @@ class NoiseConfig:
 @dataclass(frozen=True)
 class ChoiceConfig:
     tau: float
+    # Block A (docs/DATA_CARD.md "DGP remediation, Block A"): the primary
+    # random-holdout policy needs its own (sharper) Plackett-Luce temperature --
+    # `random_holdout_engage_lambda` raises the NUMBER of engaged draws per slate
+    # (to keep D3's per-row Spearman signal from being diluted by RC1's wider
+    # slate), but a shared `tau` means those EXTRA draws increasingly pull in
+    # lower-true-utility items, which hurts D5's candidate-level oracle NDCG (more
+    # "positive" labels the oracle itself can't rank all of in the top 10). A
+    # sharper `random_holdout_tau` keeps even the additional draws concentrated
+    # near the true top-utility items.
+    random_holdout_tau: float
 
 
 @dataclass(frozen=True)
 class SlateConfig:
     slate_size: int
+    # Block A RC1: primary unbiased holdout slate size, widened 20 -> 150
+    # (docs/DATA_CARD.md "DGP remediation, Block A"). Train + secondary biased
+    # holdout-logged slates keep using `slate_size` above, unchanged.
+    random_holdout_slate_size: int
 
 
 @dataclass(frozen=True)
@@ -94,12 +108,33 @@ class InteractionGenerationConfig:
     engage_lambda: float
     dismiss_lambda: float
     rank_decay: float
+    # Block A (docs/DATA_CARD.md "DGP remediation, Block A"): RC1 widened the
+    # primary random-holdout slate 20 -> 150 (`slate.random_holdout_slate_size`),
+    # which mechanically dilutes D3 (Spearman(u, label) over EVERY exposed row) if
+    # the expected engaged-count per slate stays fixed at `engage_lambda` -- far
+    # more zero-label rows per positive in a 150-item slate than a 20-item one.
+    # These give the random-holdout policy its OWN (larger) expected engaged/
+    # dismissed count, independent of the biased train/logged-holdout policies.
+    random_holdout_engage_lambda: float
+    random_holdout_dismiss_lambda: float
 
 
 @dataclass(frozen=True)
 class NoveltyConfig:
     same_poi_repeat_penalty: float
     similar_category_repeat_penalty: float
+
+
+@dataclass(frozen=True)
+class PretripHistoryConfig:
+    """Block A RC3.2: pre-trip synthetic interaction seeding knobs
+    (docs/DATA_CARD.md "DGP remediation, Block A")."""
+
+    cold_start_fraction: float
+    min_interactions: int
+    max_interactions: int
+    lead_days_min: int
+    lead_days_max: int
 
 
 @dataclass(frozen=True)
@@ -119,6 +154,7 @@ class DatagenConfig:
     dirtiness: DirtinessConfig
     interaction_generation: InteractionGenerationConfig
     novelty: NoveltyConfig
+    pretrip_history: PretripHistoryConfig
 
     @classmethod
     def from_yaml(cls, path: Path) -> DatagenConfig:
@@ -138,4 +174,5 @@ class DatagenConfig:
             dirtiness=DirtinessConfig(**raw["dirtiness"]),
             interaction_generation=InteractionGenerationConfig(**raw["interaction_generation"]),
             novelty=NoveltyConfig(**raw["novelty"]),
+            pretrip_history=PretripHistoryConfig(**raw["pretrip_history"]),
         )

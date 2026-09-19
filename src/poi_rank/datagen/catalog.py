@@ -21,11 +21,13 @@ import pandas as pd
 
 from poi_rank.datagen.config import DatagenConfig
 from poi_rank.datagen.taxonomy import (
+    CATEGORIES,
     CATEGORY_INDEX,
     CATEGORY_PROBS,
     CATEGORY_STRING_VARIANTS,
     SUBCATEGORIES,
     TAG_INDEX,
+    TAGS,
     TASTE_DIM,
 )
 from poi_rank.datagen.text_templates import generate_description, generate_name, generate_tags
@@ -180,12 +182,22 @@ def _sample_category_column(rng: np.random.Generator, n: int) -> npt.NDArray[np.
 
 
 def _poi_semantic_vector(
-    rng: np.random.Generator, category: str, tags: list[str], noise_std: float = 0.25
+    rng: np.random.Generator, category: str, tags: list[str], noise_std: float = 0.06
 ) -> npt.NDArray[np.float64]:
     """Build a POI's latent semantic vector: category one-hot + tag weights + noise.
 
     Lives in the same TASTE_DIM space as traveler taste vectors (taxonomy.py), which
     is what makes `cos(taste_t, poi_semantic_p)` meaningful.
+
+    RC2c (docs/DATA_CARD.md "DGP remediation, Block A"): `noise_std` lowered from
+    0.25 to 0.06 -- measured directly (a noise-std sweep against the real TF-IDF
+    text pipeline) to be the primary lever unlocking D10 headroom: at std=0.25 the
+    independent per-dimension noise was comparable in magnitude to the
+    category+tag signal itself (~2.0 vs ~2.8 total variance across 32 dims),
+    capping ANY text-conditioning mechanism's achievable correlation regardless of
+    template design. A small, non-zero noise floor is kept deliberately (never
+    fully eliminated) so `poi_semantic` is not a purely deterministic function of
+    `category`/`tags` alone.
     """
     vec = np.zeros(TASTE_DIM, dtype=np.float64)
     vec[CATEGORY_INDEX[category]] = 1.0
@@ -194,6 +206,21 @@ def _poi_semantic_vector(
     vec += rng.normal(0.0, noise_std, size=TASTE_DIM)
     norm = np.linalg.norm(vec)
     return vec / norm if norm > 0 else vec
+
+
+def dominant_flavors_from_semantic(poi_semantic: npt.NDArray[np.float64], k: int = 3) -> list[str]:
+    """RC2c (docs/DATA_CARD.md "DGP remediation, Block A"): the top-`k` TAGS by
+    value in `poi_semantic`'s own tag axis -- i.e. the latent vector's OWN dominant
+    "semantic flavors," including whatever independent noise they carry, not
+    merely the raw sampled `tags` list. A single argmax label loses too much of a
+    32-dim vector's actual direction to give text a strong enough correlation
+    signal (measured, see docs/DATA_CARD.md); top-k reflects substantially more of
+    `poi_semantic`'s real content. Used to condition text generation so it
+    actually reflects `poi_semantic` (fixing D10's measured rho=0.21
+    code-confirmed-zero dependency edge)."""
+    tag_axis = poi_semantic[len(CATEGORIES) :]
+    order = np.argsort(-tag_axis)[:k]
+    return [TAGS[i] for i in order]
 
 
 def _sample_opening_hours(
@@ -268,11 +295,12 @@ def generate_destination_pois(
     code = DEST_CODES[destination]
 
     categories = _sample_category_column(rng, n_unique)
-    lat_jitter = rng.normal(0, 0.06, size=n_unique)
-    lon_jitter = rng.normal(0, 0.08, size=n_unique)
-    lats = center_lat + lat_jitter
-    lons = center_lon + lon_jitter
 
+    # latent_localness computed BEFORE lat/lon (RC2b, docs/DATA_CARD.md "DGP
+    # remediation, Block A") so geo generation can condition on it -- confirmed bug
+    # this fixes (D7, results/parts/dgp_diagnostics.json): the pre-remediation
+    # generator sampled lat/lon as pure Gaussian jitter around the destination
+    # center, entirely independent of latent_localness (measured Spearman rho=0.012).
     latent_localness = np.clip(
         rng.beta(2.0, 2.0, size=n_unique)
         + np.array([LOCALNESS_SHIFT[c] for c in categories])
@@ -281,6 +309,29 @@ def generate_destination_pois(
         1.0,
     )
     latent_quality = np.clip(rng.beta(2.5, 2.2, size=n_unique), 0.0, 1.0)
+
+    # RC2b: radial distance from the destination center is now biased by
+    # latent_localness -- touristy (low-localness) POIs cluster TOWARD the center
+    # (which `data/localness.py::compute_tourist_centroid` -- a review-count-weighted
+    # centroid of the top-popularity decile -- naturally tracks, since popularity is
+    # already negatively correlated with localness via `pop_mu` below), local
+    # (high-localness) POIs spread FARTHER away, with realistic per-POI noise so the
+    # relationship is a genuine correlation, not a deterministic mapping.
+    # `GEO_LOCALNESS_RADIUS_GAIN` is a tuned strength constant (see
+    # docs/DATA_CARD.md for the achieved Spearman rho after tuning).
+    GEO_LOCALNESS_RADIUS_GAIN = 2.4
+    radius_unit = np.abs(rng.normal(0, 1.0, size=n_unique)) + GEO_LOCALNESS_RADIUS_GAIN * (
+        latent_localness - 0.5
+    )
+    radius_unit = np.clip(radius_unit, 0.05, None)
+    angle = rng.uniform(0, 2 * np.pi, size=n_unique)
+    # Anisotropic degree scale roughly matching the pre-remediation isotropic-in-km
+    # footprint (lat sd ~0.06 deg, lon sd ~0.08 deg -- longitude degrees are shorter
+    # in km at these latitudes).
+    lat_jitter = radius_unit * np.cos(angle) * 0.045
+    lon_jitter = radius_unit * np.sin(angle) * 0.060
+    lats = center_lat + lat_jitter
+    lons = center_lon + lon_jitter
 
     # Base/sigma tuned so the *natural* (pre-dirtiness-injection) sparse-POI rate is a
     # small few percent, leaving `sparse_review_count_rate` in datagen.yaml as the
@@ -308,7 +359,14 @@ def generate_destination_pois(
         1.0,
     )
 
-    rating_noise_std = 1.5 / np.sqrt(review_count + 1.0)
+    # RC2a: observation-noise on rating/review_count tightened (docs/DATA_CARD.md
+    # "DGP remediation, Block A") -- rating_shrunk (the downstream observable
+    # feature) is meant to carry meaningfully more real signal about latent_quality
+    # than a near-pure-noise observation, without eliminating the genuine Bayes
+    # ceiling this noise is intentionally there to preserve (spec.md's own design).
+    # Constant lowered 1.5 -> 0.7 (see docs/DATA_CARD.md for the measured
+    # before/after correlation between latent_quality and rating/review_count).
+    rating_noise_std = 0.7 / np.sqrt(review_count + 1.0)
     rating = np.clip(
         1.0 + 4.0 * latent_quality + rng.normal(0, 1.0, size=n_unique) * rating_noise_std, 1.0, 5.0
     )
@@ -367,12 +425,29 @@ def generate_destination_pois(
     for i in range(n_unique):
         cat = categories[i]
         tags = generate_tags(rng, CATEGORY_TAG_AFFINITY[cat], n_tags=int(rng.integers(3, 7)))
-        name = generate_name(rng, destination, cat)
-        description = generate_description(rng, destination, cat, tags)
+        # RC2c: poi_semantic (and its OWN dominant flavor) computed BEFORE the text
+        # fields, then threaded INTO name/description generation -- fixes the
+        # confirmed zero-dependency-edge bug (D10, docs/DATA_CARD.md "DGP
+        # remediation, Block A"): the pre-remediation generator computed
+        # poi_semantic strictly AFTER text generation, from category+tags alone,
+        # so text had no way to reflect it.
+        poi_semantic = _poi_semantic_vector(rng, cat, tags)
+        flavors = dominant_flavors_from_semantic(poi_semantic, k=3)
+        # Guarantee the dominant flavors are themselves literal, observable tag
+        # words (RC2c) -- strengthens the text-corpus signal directly (both the
+        # `tags` column and the description's two primary highlighted tags),
+        # since they are otherwise only sometimes among the originally-sampled
+        # tags (poi_semantic's independent noise can make a DIFFERENT tag
+        # dimension dominant -- see `dominant_flavors_from_semantic`). Realistic:
+        # real POI listings commonly carry tags matching their most salient traits.
+        for flavor_tag in flavors:
+            if flavor_tag not in tags:
+                tags = [*tags, flavor_tag]
+        name = generate_name(rng, destination, cat, flavors[0])
+        description = generate_description(rng, destination, cat, tags, flavors)
         opening_hours = _sample_opening_hours(rng, cat)
         avg_crowd = _sample_avg_crowd_by_hour(rng, cat)
         seasonality = _sample_seasonality(rng, indoor_outdoor[i])
-        poi_semantic = _poi_semantic_vector(rng, cat, tags)
         rows.append(
             {
                 "poi_id": f"P{code}{i + 1:04d}",

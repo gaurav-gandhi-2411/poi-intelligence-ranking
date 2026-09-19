@@ -37,6 +37,11 @@ def run_features(cfg: FeatureBuildConfig, data_dir: Path, artifacts_dir: Path) -
     travelers_df = pd.read_parquet(data_dir / "travelers.parquet")
     trips_df = pd.read_parquet(data_dir / "trips.parquet")
     interactions_train = pd.read_parquet(data_dir / "interactions_train.parquet")
+    # Block A RC3.2 (docs/DATA_CARD.md "DGP remediation, Block A"): pre-trip
+    # history, optional for backward-compat with datasets generated before this
+    # file existed.
+    pretrip_path = data_dir / "interactions_pretrip.parquet"
+    interactions_pretrip = pd.read_parquet(pretrip_path) if pretrip_path.exists() else None
 
     cache_path = artifacts_dir / "poi_emb.npy"
     text_embeddings = build_poi_text_embeddings(pois_df, cfg.text_embedding, cfg.seed, cache_path)
@@ -45,7 +50,13 @@ def run_features(cfg: FeatureBuildConfig, data_dir: Path, artifacts_dir: Path) -
         pois_df, interactions_train, travelers_df, text_embeddings, cfg.poi_features, cfg.seed
     )
     traveler_features = assemble_traveler_features(
-        travelers_df, trips_df, interactions_train, pois_df, text_embeddings, cfg
+        travelers_df,
+        trips_df,
+        interactions_train,
+        pois_df,
+        text_embeddings,
+        cfg,
+        interactions_pretrip,
     )
 
     poi_features_path = data_dir / POI_FEATURES_FILENAME
