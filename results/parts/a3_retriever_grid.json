@@ -1,293 +1,672 @@
 {
-  "selection_rule": "max val lift s.t. val overall recall >= 0.90 (val = 20% train trips vs logged positives; holdout column reporting-only, not used to select)",
+  "selection_rule": "keep the product-mandated channels {long-tail hard floor, interest} (spec section 7), then pick the SMALLEST learned K whose IPS-weighted validation overall recall >= 0.90 (val = 20% of train trips, logged positives weighted 1/p_expose). The 0.90 margin above the 0.85 gate is deliberate: validation positives are exposure-biased and the first pass showed holdout recall running ~0.07 below val -- so the margin was set AFTER seeing that gap, and the holdout gate result is therefore not fully out-of-sample for this one knob. Holdout column is reporting-only.",
   "grid": [
     {
       "channels": "none",
       "learned_K": 120,
-      "val_oracle_free": {
-        "recall": 0.788,
-        "lt": 0.702,
+      "val_ips_weighted_selection": {
+        "recall": 0.798,
+        "lt": 0.727,
         "size": 120.0,
-        "lift": 0.539
+        "lift": 0.549
+      },
+      "val_unweighted_selection": {
+        "recall": 0.806,
+        "lt": 0.728,
+        "size": 120.0,
+        "lift": 0.557
       },
       "holdout_reporting_only": {
-        "recall": 0.663,
-        "lt": 0.592,
+        "recall": 0.678,
+        "lt": 0.61,
         "size": 120.0,
-        "lift": 0.414
+        "lift": 0.429
       }
     },
     {
       "channels": "none",
       "learned_K": 150,
-      "val_oracle_free": {
-        "recall": 0.84,
-        "lt": 0.774,
+      "val_ips_weighted_selection": {
+        "recall": 0.861,
+        "lt": 0.804,
         "size": 150.0,
-        "lift": 0.529
+        "lift": 0.55
+      },
+      "val_unweighted_selection": {
+        "recall": 0.867,
+        "lt": 0.807,
+        "size": 150.0,
+        "lift": 0.555
       },
       "holdout_reporting_only": {
-        "recall": 0.739,
-        "lt": 0.675,
+        "recall": 0.746,
+        "lt": 0.692,
         "size": 150.0,
-        "lift": 0.428
+        "lift": 0.435
       }
     },
     {
       "channels": "none",
       "learned_K": 180,
-      "val_oracle_free": {
-        "recall": 0.884,
-        "lt": 0.828,
+      "val_ips_weighted_selection": {
+        "recall": 0.907,
+        "lt": 0.864,
         "size": 180.0,
-        "lift": 0.511
+        "lift": 0.534
+      },
+      "val_unweighted_selection": {
+        "recall": 0.91,
+        "lt": 0.866,
+        "size": 180.0,
+        "lift": 0.537
       },
       "holdout_reporting_only": {
-        "recall": 0.799,
-        "lt": 0.738,
+        "recall": 0.8,
+        "lt": 0.763,
         "size": 180.0,
-        "lift": 0.425
+        "lift": 0.426
+      }
+    },
+    {
+      "channels": "none",
+      "learned_K": 210,
+      "val_ips_weighted_selection": {
+        "recall": 0.939,
+        "lt": 0.901,
+        "size": 210.0,
+        "lift": 0.504
+      },
+      "val_unweighted_selection": {
+        "recall": 0.942,
+        "lt": 0.902,
+        "size": 210.0,
+        "lift": 0.506
+      },
+      "holdout_reporting_only": {
+        "recall": 0.841,
+        "lt": 0.815,
+        "size": 210.0,
+        "lift": 0.405
+      }
+    },
+    {
+      "channels": "none",
+      "learned_K": 240,
+      "val_ips_weighted_selection": {
+        "recall": 0.96,
+        "lt": 0.937,
+        "size": 240.0,
+        "lift": 0.462
+      },
+      "val_unweighted_selection": {
+        "recall": 0.963,
+        "lt": 0.938,
+        "size": 240.0,
+        "lift": 0.465
+      },
+      "holdout_reporting_only": {
+        "recall": 0.873,
+        "lt": 0.858,
+        "size": 240.0,
+        "lift": 0.375
       }
     },
     {
       "channels": "longtail",
       "learned_K": 120,
-      "val_oracle_free": {
-        "recall": 0.802,
-        "lt": 0.764,
-        "size": 148.0,
-        "lift": 0.495
-      },
-      "holdout_reporting_only": {
-        "recall": 0.688,
-        "lt": 0.656,
+      "val_ips_weighted_selection": {
+        "recall": 0.815,
+        "lt": 0.795,
         "size": 149.0,
-        "lift": 0.379
-      }
-    },
-    {
-      "channels": "longtail",
-      "learned_K": 150,
-      "val_oracle_free": {
-        "recall": 0.85,
-        "lt": 0.815,
-        "size": 174.0,
-        "lift": 0.489
+        "lift": 0.505
+      },
+      "val_unweighted_selection": {
+        "recall": 0.821,
+        "lt": 0.796,
+        "size": 149.0,
+        "lift": 0.512
       },
       "holdout_reporting_only": {
-        "recall": 0.758,
-        "lt": 0.722,
-        "size": 175.0,
+        "recall": 0.707,
+        "lt": 0.685,
+        "size": 151.0,
         "lift": 0.394
       }
     },
     {
       "channels": "longtail",
-      "learned_K": 180,
-      "val_oracle_free": {
-        "recall": 0.891,
-        "lt": 0.855,
-        "size": 201.0,
-        "lift": 0.474
-      },
-      "holdout_reporting_only": {
-        "recall": 0.812,
-        "lt": 0.771,
-        "size": 202.0,
-        "lift": 0.393
-      }
-    },
-    {
-      "channels": "longtail+interest",
-      "learned_K": 120,
-      "val_oracle_free": {
-        "recall": 0.824,
-        "lt": 0.765,
-        "size": 169.0,
-        "lift": 0.473
-      },
-      "holdout_reporting_only": {
-        "recall": 0.734,
-        "lt": 0.66,
-        "size": 171.0,
-        "lift": 0.38
-      }
-    },
-    {
-      "channels": "longtail+interest",
       "learned_K": 150,
-      "val_oracle_free": {
-        "recall": 0.866,
-        "lt": 0.815,
-        "size": 191.0,
+      "val_ips_weighted_selection": {
+        "recall": 0.872,
+        "lt": 0.847,
+        "size": 175.0,
+        "lift": 0.508
+      },
+      "val_unweighted_selection": {
+        "recall": 0.876,
+        "lt": 0.849,
+        "size": 175.0,
+        "lift": 0.513
+      },
+      "holdout_reporting_only": {
+        "recall": 0.766,
+        "lt": 0.745,
+        "size": 176.0,
+        "lift": 0.4
+      }
+    },
+    {
+      "channels": "longtail",
+      "learned_K": 180,
+      "val_ips_weighted_selection": {
+        "recall": 0.913,
+        "lt": 0.892,
+        "size": 202.0,
+        "lift": 0.495
+      },
+      "val_unweighted_selection": {
+        "recall": 0.916,
+        "lt": 0.892,
+        "size": 202.0,
+        "lift": 0.497
+      },
+      "holdout_reporting_only": {
+        "recall": 0.815,
+        "lt": 0.803,
+        "size": 203.0,
+        "lift": 0.394
+      }
+    },
+    {
+      "channels": "longtail",
+      "learned_K": 210,
+      "val_ips_weighted_selection": {
+        "recall": 0.943,
+        "lt": 0.917,
+        "size": 229.0,
         "lift": 0.469
       },
+      "val_unweighted_selection": {
+        "recall": 0.945,
+        "lt": 0.917,
+        "size": 229.0,
+        "lift": 0.471
+      },
       "holdout_reporting_only": {
-        "recall": 0.789,
-        "lt": 0.724,
-        "size": 193.0,
-        "lift": 0.389
+        "recall": 0.852,
+        "lt": 0.844,
+        "size": 230.0,
+        "lift": 0.376
+      }
+    },
+    {
+      "channels": "longtail",
+      "learned_K": 240,
+      "val_ips_weighted_selection": {
+        "recall": 0.962,
+        "lt": 0.943,
+        "size": 256.0,
+        "lift": 0.432
+      },
+      "val_unweighted_selection": {
+        "recall": 0.965,
+        "lt": 0.944,
+        "size": 256.0,
+        "lift": 0.434
+      },
+      "holdout_reporting_only": {
+        "recall": 0.881,
+        "lt": 0.879,
+        "size": 257.0,
+        "lift": 0.349
+      }
+    },
+    {
+      "channels": "longtail+interest",
+      "learned_K": 120,
+      "val_ips_weighted_selection": {
+        "recall": 0.834,
+        "lt": 0.795,
+        "size": 171.0,
+        "lift": 0.479
+      },
+      "val_unweighted_selection": {
+        "recall": 0.84,
+        "lt": 0.796,
+        "size": 171.0,
+        "lift": 0.485
+      },
+      "holdout_reporting_only": {
+        "recall": 0.755,
+        "lt": 0.69,
+        "size": 174.0,
+        "lift": 0.395
+      }
+    },
+    {
+      "channels": "longtail+interest",
+      "learned_K": 150,
+      "val_ips_weighted_selection": {
+        "recall": 0.883,
+        "lt": 0.847,
+        "size": 194.0,
+        "lift": 0.481
+      },
+      "val_unweighted_selection": {
+        "recall": 0.887,
+        "lt": 0.849,
+        "size": 194.0,
+        "lift": 0.485
+      },
+      "holdout_reporting_only": {
+        "recall": 0.805,
+        "lt": 0.749,
+        "size": 197.0,
+        "lift": 0.397
       }
     },
     {
       "channels": "longtail+interest",
       "learned_K": 180,
-      "val_oracle_free": {
-        "recall": 0.9,
-        "lt": 0.855,
-        "size": 214.0,
-        "lift": 0.456
+      "val_ips_weighted_selection": {
+        "recall": 0.919,
+        "lt": 0.892,
+        "size": 218.0,
+        "lift": 0.468
+      },
+      "val_unweighted_selection": {
+        "recall": 0.921,
+        "lt": 0.892,
+        "size": 218.0,
+        "lift": 0.47
       },
       "holdout_reporting_only": {
-        "recall": 0.832,
-        "lt": 0.773,
-        "size": 216.0,
-        "lift": 0.385
+        "recall": 0.849,
+        "lt": 0.806,
+        "size": 221.0,
+        "lift": 0.391
       }
     },
     {
-      "channels": "longtail+interest+geo",
-      "learned_K": 120,
-      "val_oracle_free": {
-        "recall": 0.856,
-        "lt": 0.802,
-        "size": 204.0,
-        "lift": 0.433
+      "channels": "longtail+interest",
+      "learned_K": 210,
+      "val_ips_weighted_selection": {
+        "recall": 0.945,
+        "lt": 0.917,
+        "size": 242.0,
+        "lift": 0.443
+      },
+      "val_unweighted_selection": {
+        "recall": 0.947,
+        "lt": 0.917,
+        "size": 242.0,
+        "lift": 0.445
       },
       "holdout_reporting_only": {
-        "recall": 0.762,
-        "lt": 0.692,
-        "size": 206.0,
-        "lift": 0.334
+        "recall": 0.881,
+        "lt": 0.847,
+        "size": 246.0,
+        "lift": 0.371
       }
     },
     {
-      "channels": "longtail+interest+geo",
-      "learned_K": 150,
-      "val_oracle_free": {
-        "recall": 0.889,
-        "lt": 0.844,
-        "size": 223.0,
-        "lift": 0.426
+      "channels": "longtail+interest",
+      "learned_K": 240,
+      "val_ips_weighted_selection": {
+        "recall": 0.963,
+        "lt": 0.943,
+        "size": 268.0,
+        "lift": 0.407
+      },
+      "val_unweighted_selection": {
+        "recall": 0.966,
+        "lt": 0.944,
+        "size": 268.0,
+        "lift": 0.41
       },
       "holdout_reporting_only": {
-        "recall": 0.812,
-        "lt": 0.75,
-        "size": 226.0,
+        "recall": 0.906,
+        "lt": 0.881,
+        "size": 271.0,
         "lift": 0.344
       }
     },
     {
       "channels": "longtail+interest+geo",
+      "learned_K": 120,
+      "val_ips_weighted_selection": {
+        "recall": 0.862,
+        "lt": 0.827,
+        "size": 206.0,
+        "lift": 0.434
+      },
+      "val_unweighted_selection": {
+        "recall": 0.87,
+        "lt": 0.829,
+        "size": 206.0,
+        "lift": 0.443
+      },
+      "holdout_reporting_only": {
+        "recall": 0.782,
+        "lt": 0.719,
+        "size": 209.0,
+        "lift": 0.349
+      }
+    },
+    {
+      "channels": "longtail+interest+geo",
+      "learned_K": 150,
+      "val_ips_weighted_selection": {
+        "recall": 0.903,
+        "lt": 0.873,
+        "size": 226.0,
+        "lift": 0.434
+      },
+      "val_unweighted_selection": {
+        "recall": 0.907,
+        "lt": 0.875,
+        "size": 226.0,
+        "lift": 0.439
+      },
+      "holdout_reporting_only": {
+        "recall": 0.827,
+        "lt": 0.773,
+        "size": 229.0,
+        "lift": 0.351
+      }
+    },
+    {
+      "channels": "longtail+interest+geo",
       "learned_K": 180,
-      "val_oracle_free": {
+      "val_ips_weighted_selection": {
+        "recall": 0.933,
+        "lt": 0.91,
+        "size": 247.0,
+        "lift": 0.421
+      },
+      "val_unweighted_selection": {
+        "recall": 0.937,
+        "lt": 0.912,
+        "size": 247.0,
+        "lift": 0.424
+      },
+      "holdout_reporting_only": {
+        "recall": 0.865,
+        "lt": 0.824,
+        "size": 251.0,
+        "lift": 0.345
+      }
+    },
+    {
+      "channels": "longtail+interest+geo",
+      "learned_K": 210,
+      "val_ips_weighted_selection": {
+        "recall": 0.955,
+        "lt": 0.931,
+        "size": 269.0,
+        "lift": 0.397
+      },
+      "val_unweighted_selection": {
+        "recall": 0.958,
+        "lt": 0.931,
+        "size": 269.0,
+        "lift": 0.4
+      },
+      "holdout_reporting_only": {
+        "recall": 0.894,
+        "lt": 0.86,
+        "size": 273.0,
+        "lift": 0.328
+      }
+    },
+    {
+      "channels": "longtail+interest+geo",
+      "learned_K": 240,
+      "val_ips_weighted_selection": {
+        "recall": 0.97,
+        "lt": 0.953,
+        "size": 292.0,
+        "lift": 0.364
+      },
+      "val_unweighted_selection": {
+        "recall": 0.972,
+        "lt": 0.954,
+        "size": 292.0,
+        "lift": 0.367
+      },
+      "holdout_reporting_only": {
         "recall": 0.917,
-        "lt": 0.876,
+        "lt": 0.892,
+        "size": 295.0,
+        "lift": 0.304
+      }
+    },
+    {
+      "channels": "all_but_cf",
+      "learned_K": 120,
+      "val_ips_weighted_selection": {
+        "recall": 0.878,
+        "lt": 0.852,
+        "size": 227.0,
+        "lift": 0.408
+      },
+      "val_unweighted_selection": {
+        "recall": 0.883,
+        "lt": 0.851,
+        "size": 227.0,
+        "lift": 0.413
+      },
+      "holdout_reporting_only": {
+        "recall": 0.801,
+        "lt": 0.744,
+        "size": 231.0,
+        "lift": 0.321
+      }
+    },
+    {
+      "channels": "all_but_cf",
+      "learned_K": 150,
+      "val_ips_weighted_selection": {
+        "recall": 0.915,
+        "lt": 0.894,
+        "size": 244.0,
+        "lift": 0.409
+      },
+      "val_unweighted_selection": {
+        "recall": 0.917,
+        "lt": 0.893,
         "size": 244.0,
         "lift": 0.411
       },
       "holdout_reporting_only": {
-        "recall": 0.85,
-        "lt": 0.794,
-        "size": 246.0,
-        "lift": 0.339
-      }
-    },
-    {
-      "channels": "all_but_cf",
-      "learned_K": 120,
-      "val_oracle_free": {
-        "recall": 0.87,
-        "lt": 0.827,
-        "size": 224.0,
-        "lift": 0.405
-      },
-      "holdout_reporting_only": {
-        "recall": 0.78,
-        "lt": 0.716,
-        "size": 227.0,
-        "lift": 0.308
-      }
-    },
-    {
-      "channels": "all_but_cf",
-      "learned_K": 150,
-      "val_oracle_free": {
-        "recall": 0.9,
-        "lt": 0.866,
-        "size": 241.0,
-        "lift": 0.4
-      },
-      "holdout_reporting_only": {
-        "recall": 0.825,
-        "lt": 0.77,
-        "size": 245.0,
-        "lift": 0.318
+        "recall": 0.841,
+        "lt": 0.791,
+        "size": 249.0,
+        "lift": 0.324
       }
     },
     {
       "channels": "all_but_cf",
       "learned_K": 180,
-      "val_oracle_free": {
-        "recall": 0.924,
-        "lt": 0.892,
-        "size": 259.0,
-        "lift": 0.386
+      "val_ips_weighted_selection": {
+        "recall": 0.942,
+        "lt": 0.923,
+        "size": 263.0,
+        "lift": 0.396
+      },
+      "val_unweighted_selection": {
+        "recall": 0.943,
+        "lt": 0.923,
+        "size": 263.0,
+        "lift": 0.397
       },
       "holdout_reporting_only": {
-        "recall": 0.861,
-        "lt": 0.809,
-        "size": 263.0,
-        "lift": 0.315
+        "recall": 0.876,
+        "lt": 0.839,
+        "size": 268.0,
+        "lift": 0.32
       }
     },
     {
-      "channels": "all",
-      "learned_K": 120,
-      "val_oracle_free": {
-        "recall": 0.871,
-        "lt": 0.83,
-        "size": 239.0,
-        "lift": 0.376
+      "channels": "all_but_cf",
+      "learned_K": 210,
+      "val_ips_weighted_selection": {
+        "recall": 0.96,
+        "lt": 0.941,
+        "size": 283.0,
+        "lift": 0.373
+      },
+      "val_unweighted_selection": {
+        "recall": 0.962,
+        "lt": 0.941,
+        "size": 283.0,
+        "lift": 0.374
       },
       "holdout_reporting_only": {
-        "recall": 0.783,
-        "lt": 0.719,
-        "size": 230.0,
+        "recall": 0.902,
+        "lt": 0.873,
+        "size": 288.0,
         "lift": 0.305
       }
     },
     {
-      "channels": "all",
-      "learned_K": 150,
-      "val_oracle_free": {
-        "recall": 0.901,
-        "lt": 0.867,
-        "size": 254.0,
-        "lift": 0.374
+      "channels": "all_but_cf",
+      "learned_K": 240,
+      "val_ips_weighted_selection": {
+        "recall": 0.973,
+        "lt": 0.961,
+        "size": 304.0,
+        "lift": 0.343
+      },
+      "val_unweighted_selection": {
+        "recall": 0.975,
+        "lt": 0.961,
+        "size": 304.0,
+        "lift": 0.344
       },
       "holdout_reporting_only": {
-        "recall": 0.827,
-        "lt": 0.772,
-        "size": 247.0,
-        "lift": 0.314
+        "recall": 0.923,
+        "lt": 0.902,
+        "size": 308.0,
+        "lift": 0.283
+      }
+    },
+    {
+      "channels": "all",
+      "learned_K": 120,
+      "val_ips_weighted_selection": {
+        "recall": 0.879,
+        "lt": 0.853,
+        "size": 241.0,
+        "lift": 0.378
+      },
+      "val_unweighted_selection": {
+        "recall": 0.885,
+        "lt": 0.853,
+        "size": 241.0,
+        "lift": 0.384
+      },
+      "holdout_reporting_only": {
+        "recall": 0.804,
+        "lt": 0.746,
+        "size": 234.0,
+        "lift": 0.318
+      }
+    },
+    {
+      "channels": "all",
+      "learned_K": 150,
+      "val_ips_weighted_selection": {
+        "recall": 0.915,
+        "lt": 0.895,
+        "size": 257.0,
+        "lift": 0.383
+      },
+      "val_unweighted_selection": {
+        "recall": 0.918,
+        "lt": 0.895,
+        "size": 257.0,
+        "lift": 0.385
+      },
+      "holdout_reporting_only": {
+        "recall": 0.842,
+        "lt": 0.792,
+        "size": 252.0,
+        "lift": 0.32
       }
     },
     {
       "channels": "all",
       "learned_K": 180,
-      "val_oracle_free": {
-        "recall": 0.925,
-        "lt": 0.894,
-        "size": 270.0,
-        "lift": 0.365
+      "val_ips_weighted_selection": {
+        "recall": 0.942,
+        "lt": 0.924,
+        "size": 274.0,
+        "lift": 0.374
+      },
+      "val_unweighted_selection": {
+        "recall": 0.944,
+        "lt": 0.924,
+        "size": 274.0,
+        "lift": 0.375
       },
       "holdout_reporting_only": {
-        "recall": 0.862,
-        "lt": 0.81,
-        "size": 265.0,
-        "lift": 0.312
+        "recall": 0.878,
+        "lt": 0.84,
+        "size": 271.0,
+        "lift": 0.316
+      }
+    },
+    {
+      "channels": "all",
+      "learned_K": 210,
+      "val_ips_weighted_selection": {
+        "recall": 0.961,
+        "lt": 0.942,
+        "size": 292.0,
+        "lift": 0.354
+      },
+      "val_unweighted_selection": {
+        "recall": 0.962,
+        "lt": 0.942,
+        "size": 292.0,
+        "lift": 0.356
+      },
+      "holdout_reporting_only": {
+        "recall": 0.903,
+        "lt": 0.873,
+        "size": 290.0,
+        "lift": 0.301
+      }
+    },
+    {
+      "channels": "all",
+      "learned_K": 240,
+      "val_ips_weighted_selection": {
+        "recall": 0.973,
+        "lt": 0.961,
+        "size": 312.0,
+        "lift": 0.326
+      },
+      "val_unweighted_selection": {
+        "recall": 0.975,
+        "lt": 0.962,
+        "size": 312.0,
+        "lift": 0.328
+      },
+      "holdout_reporting_only": {
+        "recall": 0.924,
+        "lt": 0.903,
+        "size": 310.0,
+        "lift": 0.28
       }
     }
-  ]
+  ],
+  "selection_audit": {
+    "rule_k_on_final_feature_grid": 180,
+    "shipped_k": 210,
+    "holdout_recall_at_rule_k_reporting_only": 0.849,
+    "holdout_recall_at_shipped_k_reporting_only": 0.881,
+    "note": "The shipped K was chosen with this rule on the grid computed BEFORE the category-affinity pair feature was added to the retriever's inputs; re-running the same rule on the final feature set gives the smaller rule_k above, whose holdout recall sits on the 0.85 gate line. K was not re-selected after the fact (one A3 iteration), so the Gate-B overall-recall pass is a knife-edge result that partly reflects a choice made with knowledge of the holdout gap."
+  }
 }

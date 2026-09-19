@@ -1,0 +1,129 @@
+{
+  "alternative": "Two-tower neural ranker (shared-space dot product)",
+  "decision": "LightGBM LambdaMART ranker",
+  "experiment": "Learning curve: both rankers fit on [0.1, 0.25, 0.5, 1.0] of TRAIN trips x seeds [42, 43, 44] (same IPS weights, same train-carved early stopping), scored on the full unbiased holdout; per-trip NDCG@10 averaged over seeds, 2000-resample trip bootstrap CIs.",
+  "id": "DR2",
+  "metric": "holdout NDCG@10 vs training-set fraction (mean, 95% CI)",
+  "results": {
+    "curve": [
+      {
+        "fraction": 0.1,
+        "lambdamart_ips": {
+          "ci_high": 0.14931196850828798,
+          "ci_low": 0.1311825327523377,
+          "mean": 0.14039821715125836,
+          "n": 605,
+          "seed_means": [
+            0.13946345923734718,
+            0.14215599574244503,
+            0.13957519647398287
+          ]
+        },
+        "n_train_trips": 183,
+        "two_tower": {
+          "ci_high": 0.1103258928088977,
+          "ci_low": 0.09752162076096542,
+          "mean": 0.1038657631833773,
+          "n": 605,
+          "seed_means": [
+            0.10985181454999689,
+            0.10069094051815967,
+            0.10105453448197535
+          ]
+        }
+      },
+      {
+        "fraction": 0.25,
+        "lambdamart_ips": {
+          "ci_high": 0.15344421048135096,
+          "ci_low": 0.13491034091230847,
+          "mean": 0.14424821827221168,
+          "n": 605,
+          "seed_means": [
+            0.14559049039448302,
+            0.1448675515011934,
+            0.1422866129209586
+          ]
+        },
+        "n_train_trips": 457,
+        "two_tower": {
+          "ci_high": 0.11448972919125205,
+          "ci_low": 0.10129081919478948,
+          "mean": 0.10754370375374249,
+          "n": 605,
+          "seed_means": [
+            0.08944291773760182,
+            0.11747478275502918,
+            0.1157134107685964
+          ]
+        }
+      },
+      {
+        "fraction": 0.5,
+        "lambdamart_ips": {
+          "ci_high": 0.15864747103802,
+          "ci_low": 0.13912270963177728,
+          "mean": 0.14883845647381383,
+          "n": 605,
+          "seed_means": [
+            0.14852125656061294,
+            0.15246017996321531,
+            0.14553393289761327
+          ]
+        },
+        "n_train_trips": 914,
+        "two_tower": {
+          "ci_high": 0.12583300920448778,
+          "ci_low": 0.11186960470812642,
+          "mean": 0.11876074625149773,
+          "n": 605,
+          "seed_means": [
+            0.13350085026513603,
+            0.12078805135139924,
+            0.10199333713795793
+          ]
+        }
+      },
+      {
+        "fraction": 1.0,
+        "lambdamart_ips": {
+          "ci_high": 0.15969880793123492,
+          "ci_low": 0.1400777998996185,
+          "mean": 0.14987430442605215,
+          "n": 605,
+          "seed_means": [
+            0.14795691393196728,
+            0.15341277275255594,
+            0.14825322659363324
+          ]
+        },
+        "n_train_trips": 1829,
+        "two_tower": {
+          "ci_high": 0.1365300757968197,
+          "ci_low": 0.12082078529415735,
+          "mean": 0.12857764628612806,
+          "n": 605,
+          "seed_means": [
+            0.1268759388700011,
+            0.13954555582852218,
+            0.11931144415986089
+          ]
+        }
+      }
+    ],
+    "extrapolated_crossover_train_trips": 65597.70827065755,
+    "loglinear_fit": {
+      "lambdamart_ips": {
+        "a": 0.117865822923697,
+        "b": 0.0043601144293063205
+      },
+      "two_tower": {
+        "a": 0.04396322435048751,
+        "b": 0.011023231012844132
+      }
+    },
+    "n_train_trips_full": 1829
+  },
+  "status": "MEASURED",
+  "verdict": "Two-tower NDCG@10 0.1039, 0.1075, 0.1188, 0.1286 vs LambdaMART-IPS 0.1404, 0.1442, 0.1488, 0.1499 at fractions [0.1, 0.25, 0.5, 1.0]. Crossover at any measured point: False. Log-linear extrapolation puts a crossover at ~65,598 training trips (35.9x the 1829 used; 4-point fit, low confidence). CIs separated at 100%."
+}

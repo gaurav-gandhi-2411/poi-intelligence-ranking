@@ -1,0 +1,75 @@
+{
+  "alternative": "min(), plain product, arithmetic mean",
+  "decision": "Geometric-mean compatibility aggregation",
+  "experiment": "Recompute compatibility from the 6 sub-scores with each aggregator; rank gated and ungated multiplicative utility.",
+  "id": "DR6",
+  "metric": "NDCG@10; hard-constraint violations in top-10; mean compat@10 (of the aggregator used)",
+  "results": {
+    "arithmetic_mean": {
+      "gated": {
+        "hard_constraint_violations_in_top10": 0,
+        "mean_compat_at_10": 0.857517356843233,
+        "n_trips": 671,
+        "ndcg_at_10": 0.12923401173458532,
+        "trips_with_violation": 0
+      },
+      "ungated": {
+        "hard_constraint_violations_in_top10": 1550,
+        "mean_compat_at_10": 0.8450887535554025,
+        "n_trips": 671,
+        "ndcg_at_10": 0.1465249406950428,
+        "trips_with_violation": 319
+      }
+    },
+    "geometric_mean (production)": {
+      "gated": {
+        "hard_constraint_violations_in_top10": 0,
+        "mean_compat_at_10": 0.8371092537947428,
+        "n_trips": 671,
+        "ndcg_at_10": 0.12964824229599647,
+        "trips_with_violation": 0
+      },
+      "ungated": {
+        "hard_constraint_violations_in_top10": 1422,
+        "mean_compat_at_10": 0.8145877217354204,
+        "n_trips": 671,
+        "ndcg_at_10": 0.14652753007892283,
+        "trips_with_violation": 317
+      }
+    },
+    "min": {
+      "gated": {
+        "hard_constraint_violations_in_top10": 0,
+        "mean_compat_at_10": 0.6438708717745492,
+        "n_trips": 671,
+        "ndcg_at_10": 0.12694392071188282,
+        "trips_with_violation": 0
+      },
+      "ungated": {
+        "hard_constraint_violations_in_top10": 940,
+        "mean_compat_at_10": 0.616772500022295,
+        "n_trips": 671,
+        "ndcg_at_10": 0.1410874861962,
+        "trips_with_violation": 252
+      }
+    },
+    "product": {
+      "gated": {
+        "hard_constraint_violations_in_top10": 0,
+        "mean_compat_at_10": 0.47623610527291915,
+        "n_trips": 671,
+        "ndcg_at_10": 0.12732325532969296,
+        "trips_with_violation": 0
+      },
+      "ungated": {
+        "hard_constraint_violations_in_top10": 830,
+        "mean_compat_at_10": 0.46244563887275103,
+        "n_trips": 671,
+        "ndcg_at_10": 0.14079605420767047,
+        "trips_with_violation": 215
+      }
+    }
+  },
+  "status": "MEASURED",
+  "verdict": "Ungated hard-violation counts: geometric_mean (production)=1422, min=940, product=830, arithmetic_mean=1550; NDCG@10 gated: geometric_mean (production)=0.1296, min=0.1269, product=0.1273, arithmetic_mean=0.1292. Geometric mean ungated NDCG 0.1465."
+}

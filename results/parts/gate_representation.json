@@ -1,0 +1,79 @@
+{
+  "blocking_checks": {
+    "candidate_recall_lift_long_tail": {
+      "measured": 0.38720470346608643,
+      "op": ">=",
+      "passed": true,
+      "threshold": 0.35
+    },
+    "candidate_recall_lift_overall": {
+      "measured": 0.3639462610562978,
+      "op": ">=",
+      "passed": true,
+      "threshold": 0.35
+    },
+    "candidate_recall_long_tail": {
+      "measured": 0.8481165377653217,
+      "op": ">=",
+      "passed": true,
+      "threshold": 0.75
+    },
+    "candidate_recall_overall": {
+      "measured": 0.8730686197858597,
+      "op": ">=",
+      "passed": true,
+      "threshold": 0.85
+    }
+  },
+  "n_passed": 4,
+  "n_total": 4,
+  "overall_pass": true,
+  "reporting_only_after_freeze": {
+    "d11_cca_first_corr_text_only": 0.9789811048645148,
+    "d11_ridge_r2_text_only": 0.8654228140905081,
+    "d9_within_trip_shipped_chain": 0.473078575320493,
+    "d9_within_trip_taste_estimator_alone": 0.5718227327374178,
+    "d9_within_trip_text_alone": 0.927213789525191,
+    "oracle_ceiling_ndcg10_candidate_level": 0.3732694333488201,
+    "oracle_relevance_recall_long_tail": 0.9253974829608214,
+    "oracle_relevance_recall_overall": 0.9442148760330578,
+    "recall_by_stratum": {
+      "long_tail": {
+        "chance_recall": 0.46091183429923527,
+        "lift_abs": 0.38720470346608643,
+        "n_trips": 605.0,
+        "recall": 0.8481165377653217
+      },
+      "overall": {
+        "chance_recall": 0.5091223587295619,
+        "lift_abs": 0.3639462610562978,
+        "n_trips": 605.0,
+        "recall": 0.8730686197858597
+      },
+      "q1_least_popular": {
+        "chance_recall": 0.5001525235718248,
+        "lift_abs": 0.3588829810118631,
+        "n_trips": 601.0,
+        "recall": 0.8590355045836879
+      },
+      "q2": {
+        "chance_recall": 0.4218430899908172,
+        "lift_abs": 0.41385360355423806,
+        "n_trips": 600.0,
+        "recall": 0.8356966935450553
+      },
+      "q3": {
+        "chance_recall": 0.45395371626714914,
+        "lift_abs": 0.3798590831220538,
+        "n_trips": 603.0,
+        "recall": 0.8338127993892029
+      },
+      "q4_most_popular": {
+        "chance_recall": 0.6598592992281949,
+        "lift_abs": 0.2619077872624259,
+        "n_trips": 605.0,
+        "recall": 0.9217670864906208
+      }
+    }
+  }
+}

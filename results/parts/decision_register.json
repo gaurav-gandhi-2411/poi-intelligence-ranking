@@ -1,0 +1,770 @@
+{
+  "rows": [
+    {
+      "alternative": "The brief's additive formula a*rel + b*compat",
+      "decision": "Multiplicative utility rel^a * compat^b with a hard gate",
+      "experiment": "Same holdout candidates/relevance/compatibility; rank by each combination rule; count hard-constraint violations (hard_gate == 0) among the top-10 of every holdout trip.",
+      "id": "DR1",
+      "metric": "hard-constraint violations in top-10; mean compat@10; NDCG@10",
+      "results": {
+        "additive_no_gate (brief)": {
+          "hard_constraint_violations_in_top10": 844,
+          "mean_compat_at_10": 0.8655186879157803,
+          "n_trips": 671,
+          "ndcg_at_10": 0.13407356272010318,
+          "trips_with_violation": 216
+        },
+        "additive_with_gate_filter": {
+          "hard_constraint_violations_in_top10": 0,
+          "mean_compat_at_10": 0.8742373212915917,
+          "n_trips": 671,
+          "ndcg_at_10": 0.12147470029118708,
+          "trips_with_violation": 0
+        },
+        "multiplicative_gated (production)": {
+          "hard_constraint_violations_in_top10": 0,
+          "mean_compat_at_10": 0.8371092537947428,
+          "n_trips": 671,
+          "ndcg_at_10": 0.12964824229599647,
+          "trips_with_violation": 0
+        },
+        "multiplicative_no_gate": {
+          "hard_constraint_violations_in_top10": 1422,
+          "mean_compat_at_10": 0.8145877217354204,
+          "n_trips": 671,
+          "ndcg_at_10": 0.14652753007892283,
+          "trips_with_violation": 317
+        }
+      },
+      "status": "MEASURED",
+      "verdict": "Additive scoring puts 844 hard-constraint violations into 216/671 trips' top-10; the multiplicative gated rule puts 0. NDCG@10 0.1341 (additive) vs 0.1296 (multiplicative gated); mean compat@10 0.8655 vs 0.8371."
+    },
+    {
+      "alternative": "Two-tower neural ranker (shared-space dot product)",
+      "decision": "LightGBM LambdaMART ranker",
+      "experiment": "Learning curve: both rankers fit on [0.1, 0.25, 0.5, 1.0] of TRAIN trips x seeds [42, 43, 44] (same IPS weights, same train-carved early stopping), scored on the full unbiased holdout; per-trip NDCG@10 averaged over seeds, 2000-resample trip bootstrap CIs.",
+      "id": "DR2",
+      "metric": "holdout NDCG@10 vs training-set fraction (mean, 95% CI)",
+      "results": {
+        "curve": [
+          {
+            "fraction": 0.1,
+            "lambdamart_ips": {
+              "ci_high": 0.14931196850828798,
+              "ci_low": 0.1311825327523377,
+              "mean": 0.14039821715125836,
+              "n": 605,
+              "seed_means": [
+                0.13946345923734718,
+                0.14215599574244503,
+                0.13957519647398287
+              ]
+            },
+            "n_train_trips": 183,
+            "two_tower": {
+              "ci_high": 0.1103258928088977,
+              "ci_low": 0.09752162076096542,
+              "mean": 0.1038657631833773,
+              "n": 605,
+              "seed_means": [
+                0.10985181454999689,
+                0.10069094051815967,
+                0.10105453448197535
+              ]
+            }
+          },
+          {
+            "fraction": 0.25,
+            "lambdamart_ips": {
+              "ci_high": 0.15344421048135096,
+              "ci_low": 0.13491034091230847,
+              "mean": 0.14424821827221168,
+              "n": 605,
+              "seed_means": [
+                0.14559049039448302,
+                0.1448675515011934,
+                0.1422866129209586
+              ]
+            },
+            "n_train_trips": 457,
+            "two_tower": {
+              "ci_high": 0.11448972919125205,
+              "ci_low": 0.10129081919478948,
+              "mean": 0.10754370375374249,
+              "n": 605,
+              "seed_means": [
+                0.08944291773760182,
+                0.11747478275502918,
+                0.1157134107685964
+              ]
+            }
+          },
+          {
+            "fraction": 0.5,
+            "lambdamart_ips": {
+              "ci_high": 0.15864747103802,
+              "ci_low": 0.13912270963177728,
+              "mean": 0.14883845647381383,
+              "n": 605,
+              "seed_means": [
+                0.14852125656061294,
+                0.15246017996321531,
+                0.14553393289761327
+              ]
+            },
+            "n_train_trips": 914,
+            "two_tower": {
+              "ci_high": 0.12583300920448778,
+              "ci_low": 0.11186960470812642,
+              "mean": 0.11876074625149773,
+              "n": 605,
+              "seed_means": [
+                0.13350085026513603,
+                0.12078805135139924,
+                0.10199333713795793
+              ]
+            }
+          },
+          {
+            "fraction": 1.0,
+            "lambdamart_ips": {
+              "ci_high": 0.15969880793123492,
+              "ci_low": 0.1400777998996185,
+              "mean": 0.14987430442605215,
+              "n": 605,
+              "seed_means": [
+                0.14795691393196728,
+                0.15341277275255594,
+                0.14825322659363324
+              ]
+            },
+            "n_train_trips": 1829,
+            "two_tower": {
+              "ci_high": 0.1365300757968197,
+              "ci_low": 0.12082078529415735,
+              "mean": 0.12857764628612806,
+              "n": 605,
+              "seed_means": [
+                0.1268759388700011,
+                0.13954555582852218,
+                0.11931144415986089
+              ]
+            }
+          }
+        ],
+        "extrapolated_crossover_train_trips": 65597.70827065755,
+        "loglinear_fit": {
+          "lambdamart_ips": {
+            "a": 0.117865822923697,
+            "b": 0.0043601144293063205
+          },
+          "two_tower": {
+            "a": 0.04396322435048751,
+            "b": 0.011023231012844132
+          }
+        },
+        "n_train_trips_full": 1829
+      },
+      "status": "MEASURED",
+      "verdict": "Two-tower NDCG@10 0.1039, 0.1075, 0.1188, 0.1286 vs LambdaMART-IPS 0.1404, 0.1442, 0.1488, 0.1499 at fractions [0.1, 0.25, 0.5, 1.0]. Crossover at any measured point: False. Log-linear extrapolation puts a crossover at ~65,598 training trips (35.9x the 1829 used; 4-point fit, low confidence). CIs separated at 100%."
+    },
+    {
+      "alternative": "Pointwise binary / graded regression, listwise rank_xendcg",
+      "decision": "Listwise LambdaRank objective",
+      "experiment": "Same features, IPS weights, dropout, split and early-stopping metric (NDCG@10); only the LightGBM objective varies.",
+      "id": "DR3",
+      "metric": "holdout NDCG@10 (mean, 95% CI)",
+      "results": {
+        "binary": {
+          "best_iteration": 372,
+          "ci_high": 0.1705029522862535,
+          "ci_low": 0.14912463137043372,
+          "mean": 0.1596422440306013,
+          "n": 605
+        },
+        "lambdarank": {
+          "best_iteration": 195,
+          "ci_high": 0.15817881634556524,
+          "ci_low": 0.13795069978450797,
+          "mean": 0.14795691393196728,
+          "n": 605
+        },
+        "rank_xendcg": {
+          "best_iteration": 77,
+          "ci_high": 0.16660369212011142,
+          "ci_low": 0.14530435338852923,
+          "mean": 0.1556311397324864,
+          "n": 605
+        },
+        "regression": {
+          "best_iteration": 255,
+          "ci_high": 0.16999151328922427,
+          "ci_low": 0.14921863195718002,
+          "mean": 0.1595648149375649,
+          "n": 605
+        }
+      },
+      "status": "MEASURED",
+      "verdict": "lambdarank 0.1480 [0.1380, 0.1582]; rank_xendcg 0.1556 [0.1453, 0.1666]; binary 0.1596 [0.1491, 0.1705]; regression 0.1596 [0.1492, 0.1700]"
+    },
+    {
+      "alternative": "all-MiniLM-L6-v2 sentence embeddings (-> SVD-64)",
+      "decision": "TF-IDF -> SVD-64 POI text embedding",
+      "experiment": "Swap ONLY the POI text embedding (and the taste vectors and POI features built from it) and refit the ranker on the fixed candidate sets; measure representation fidelity (D9 within-trip, D11) and holdout NDCG@10. THIS SYNTHETIC CORPUS is generated from anchored, synonym-rich phrase pools over latent dimensions, so its vocabulary design favours lexical overlap: the outcome is a statement about this dataset, not a verdict on sentence encoders.",
+      "id": "DR4",
+      "metric": "D11 ridge R2; within-trip D9; holdout NDCG@10",
+      "results": {
+        "minilm_svd64": {
+          "d11_cca": 0.9513059126135669,
+          "d11_ridge_r2": 0.590452994205362,
+          "d9_within_trip": {
+            "mean_within_trip_spearman": 0.25834098943583356,
+            "median_within_trip_spearman": 0.2581358387551552,
+            "n_trips": 599,
+            "n_trips_undefined_constant_scores": 72
+          },
+          "ndcg10": {
+            "ci_high": 0.16554707922130163,
+            "ci_low": 0.1446341614514938,
+            "mean": 0.1548931615805207,
+            "n": 605
+          }
+        },
+        "tfidf_svd64": {
+          "d11_cca": 0.9789811048645148,
+          "d11_ridge_r2": 0.8654228140905081,
+          "d9_within_trip": {
+            "mean_within_trip_spearman": 0.473078575320493,
+            "median_within_trip_spearman": 0.4854105992994445,
+            "n_trips": 599,
+            "n_trips_undefined_constant_scores": 72
+          },
+          "ndcg10": {
+            "ci_high": 0.15817881634556524,
+            "ci_low": 0.13795069978450797,
+            "mean": 0.14795691393196728,
+            "n": 605
+          }
+        }
+      },
+      "status": "MEASURED",
+      "verdict": "TF-IDF: D11 0.865, D9 0.473, NDCG@10 0.1480. MiniLM: D11 0.590, D9 0.258, NDCG@10 0.1549 (CIs overlap). Dataset-specific (templated synonym-pool text); transfer to real POI text is untested."
+    },
+    {
+      "alternative": "ANN index (faiss / hnswlib)",
+      "decision": "Brute-force cosine retrieval",
+      "experiment": "NOT RUN",
+      "id": "DR5",
+      "metric": "NOT RUN",
+      "results": null,
+      "status": "NOT RUN",
+      "verdict": "NOT RUN (cut for time; no evidence either way)"
+    },
+    {
+      "alternative": "min(), plain product, arithmetic mean",
+      "decision": "Geometric-mean compatibility aggregation",
+      "experiment": "Recompute compatibility from the 6 sub-scores with each aggregator; rank gated and ungated multiplicative utility.",
+      "id": "DR6",
+      "metric": "NDCG@10; hard-constraint violations in top-10; mean compat@10 (of the aggregator used)",
+      "results": {
+        "arithmetic_mean": {
+          "gated": {
+            "hard_constraint_violations_in_top10": 0,
+            "mean_compat_at_10": 0.857517356843233,
+            "n_trips": 671,
+            "ndcg_at_10": 0.12923401173458532,
+            "trips_with_violation": 0
+          },
+          "ungated": {
+            "hard_constraint_violations_in_top10": 1550,
+            "mean_compat_at_10": 0.8450887535554025,
+            "n_trips": 671,
+            "ndcg_at_10": 0.1465249406950428,
+            "trips_with_violation": 319
+          }
+        },
+        "geometric_mean (production)": {
+          "gated": {
+            "hard_constraint_violations_in_top10": 0,
+            "mean_compat_at_10": 0.8371092537947428,
+            "n_trips": 671,
+            "ndcg_at_10": 0.12964824229599647,
+            "trips_with_violation": 0
+          },
+          "ungated": {
+            "hard_constraint_violations_in_top10": 1422,
+            "mean_compat_at_10": 0.8145877217354204,
+            "n_trips": 671,
+            "ndcg_at_10": 0.14652753007892283,
+            "trips_with_violation": 317
+          }
+        },
+        "min": {
+          "gated": {
+            "hard_constraint_violations_in_top10": 0,
+            "mean_compat_at_10": 0.6438708717745492,
+            "n_trips": 671,
+            "ndcg_at_10": 0.12694392071188282,
+            "trips_with_violation": 0
+          },
+          "ungated": {
+            "hard_constraint_violations_in_top10": 940,
+            "mean_compat_at_10": 0.616772500022295,
+            "n_trips": 671,
+            "ndcg_at_10": 0.1410874861962,
+            "trips_with_violation": 252
+          }
+        },
+        "product": {
+          "gated": {
+            "hard_constraint_violations_in_top10": 0,
+            "mean_compat_at_10": 0.47623610527291915,
+            "n_trips": 671,
+            "ndcg_at_10": 0.12732325532969296,
+            "trips_with_violation": 0
+          },
+          "ungated": {
+            "hard_constraint_violations_in_top10": 830,
+            "mean_compat_at_10": 0.46244563887275103,
+            "n_trips": 671,
+            "ndcg_at_10": 0.14079605420767047,
+            "trips_with_violation": 215
+          }
+        }
+      },
+      "status": "MEASURED",
+      "verdict": "Ungated hard-violation counts: geometric_mean (production)=1422, min=940, product=830, arithmetic_mean=1550; NDCG@10 gated: geometric_mean (production)=0.1296, min=0.1269, product=0.1273, arithmetic_mean=0.1292. Geometric mean ungated NDCG 0.1465."
+    },
+    {
+      "alternative": "clip in {5, 10, 50, none}",
+      "decision": "IPS clip = 20",
+      "experiment": "IPS clip-high swept with everything else fixed (weights renormalised per trip).",
+      "id": "DR7",
+      "metric": "holdout NDCG@10 (mean, 95% CI)",
+      "results": {
+        "10": {
+          "ci_high": 0.14950123000283322,
+          "ci_low": 0.12892745573028602,
+          "mean": 0.13897671888308777,
+          "n": 605
+        },
+        "20": {
+          "ci_high": 0.15817881634556524,
+          "ci_low": 0.13795069978450797,
+          "mean": 0.14795691393196728,
+          "n": 605
+        },
+        "5": {
+          "ci_high": 0.1450661888127925,
+          "ci_low": 0.12547459444542192,
+          "mean": 0.1350848086095049,
+          "n": 605
+        },
+        "50": {
+          "ci_high": 0.16840602112666891,
+          "ci_low": 0.14652515921674106,
+          "mean": 0.15740809317387874,
+          "n": 605
+        },
+        "no_ips": {
+          "ci_high": 0.13516362468802173,
+          "ci_low": 0.11611260165583791,
+          "mean": 0.12568945064869458,
+          "n": 605
+        },
+        "none": {
+          "ci_high": 0.17109687795118902,
+          "ci_low": 0.14958411099524746,
+          "mean": 0.1602650589814647,
+          "n": 605
+        }
+      },
+      "status": "MEASURED",
+      "verdict": "clip 5: 0.1351 [0.1255, 0.1451]; clip 10: 0.1390 [0.1289, 0.1495]; clip 20: 0.1480 [0.1380, 0.1582]; clip 50: 0.1574 [0.1465, 0.1684]; clip none: 0.1603 [0.1496, 0.1711]; clip no_ips: 0.1257 [0.1161, 0.1352]"
+    },
+    {
+      "alternative": "+-2x half-life; uniform interaction weights",
+      "decision": "180-day taste half-life and spec interaction weights",
+      "experiment": "Rebuild the traveler features with a different taste half-life / interaction weights, refit the ranker on the fixed candidate sets, and score the unbiased holdout; D9 (within-trip, reporting-only) shows the effect on estimator fidelity.",
+      "id": "DR8",
+      "metric": "within-trip D9; holdout NDCG@10",
+      "results": {
+        "halflife_180d (shipped)": {
+          "d9_within_trip": {
+            "mean_within_trip_spearman": 0.473078575320493,
+            "median_within_trip_spearman": 0.4854105992994445,
+            "n_trips": 599,
+            "n_trips_undefined_constant_scores": 72
+          },
+          "ndcg10": {
+            "ci_high": 0.15817881634556524,
+            "ci_low": 0.13795069978450797,
+            "mean": 0.14795691393196728,
+            "n": 605
+          }
+        },
+        "halflife_360d": {
+          "d9_within_trip": {
+            "mean_within_trip_spearman": 0.47390546025778024,
+            "median_within_trip_spearman": 0.484991293916109,
+            "n_trips": 599,
+            "n_trips_undefined_constant_scores": 72
+          },
+          "ndcg10": {
+            "ci_high": 0.1650781505464168,
+            "ci_low": 0.1436662863933083,
+            "mean": 0.15442877553351256,
+            "n": 605
+          }
+        },
+        "halflife_90d": {
+          "d9_within_trip": {
+            "mean_within_trip_spearman": 0.47015942907156655,
+            "median_within_trip_spearman": 0.48297344043219304,
+            "n_trips": 599,
+            "n_trips_undefined_constant_scores": 72
+          },
+          "ndcg10": {
+            "ci_high": 0.15905733205460598,
+            "ci_low": 0.13854025100370546,
+            "mean": 0.14869212426057232,
+            "n": 605
+          }
+        },
+        "uniform_weights": {
+          "d9_within_trip": {
+            "mean_within_trip_spearman": 0.05204593528171775,
+            "median_within_trip_spearman": 0.044567836274844536,
+            "n_trips": 599,
+            "n_trips_undefined_constant_scores": 72
+          },
+          "ndcg10": {
+            "ci_high": 0.17299278352473638,
+            "ci_low": 0.15238534790733185,
+            "mean": 0.1620544382581773,
+            "n": 605
+          }
+        }
+      },
+      "status": "MEASURED",
+      "verdict": "halflife_180d (shipped): NDCG@10 0.1480, D9 0.473; halflife_90d: NDCG@10 0.1487, D9 0.470; halflife_360d: NDCG@10 0.1544, D9 0.474; uniform_weights: NDCG@10 0.1621, D9 0.052"
+    },
+    {
+      "alternative": "quota in {0, 25, 100}",
+      "decision": "Long-tail candidate quota = 50",
+      "experiment": "Regenerate the holdout candidate sets with a different long-tail hard-floor quota (retriever scores fixed); score with the SHIPPED booster (trained at quota 50, not refit per quota); raw ranker top-10, no MMR/gates.",
+      "id": "DR9",
+      "metric": "NDCG@10; long-tail share and precision @10; candidate recall",
+      "results": {
+        "0": {
+          "candidate_recall_long_tail": 0.8204353028517767,
+          "candidate_recall_overall": 0.8623797356829281,
+          "longtail_at_10": {
+            "n_longtail_recommended": 1047,
+            "n_longtail_relevant": 254,
+            "n_total_recommended": 6710,
+            "precision": 0.24259789875835722,
+            "precision_target_met": false,
+            "share": 0.15603576751117734,
+            "share_target_met": false
+          },
+          "mean_candidates_per_trip": 226.45901639344262,
+          "ndcg10": {
+            "ci_high": 0.15853670317076435,
+            "ci_low": 0.1382777693555504,
+            "mean": 0.14831253822670543,
+            "n": 605
+          }
+        },
+        "100": {
+          "candidate_recall_long_tail": 0.884449425379782,
+          "candidate_recall_overall": 0.8868787940041449,
+          "longtail_at_10": {
+            "n_longtail_recommended": 1114,
+            "n_longtail_relevant": 251,
+            "n_total_recommended": 6710,
+            "precision": 0.2253141831238779,
+            "precision_target_met": false,
+            "share": 0.1660208643815201,
+            "share_target_met": false
+          },
+          "mean_candidates_per_trip": 274.7242921013413,
+          "ndcg10": {
+            "ci_high": 0.15709497960142155,
+            "ci_low": 0.13686844213328003,
+            "mean": 0.1468698830980661,
+            "n": 605
+          }
+        },
+        "25": {
+          "candidate_recall_long_tail": 0.8342788590893792,
+          "candidate_recall_overall": 0.8675770784463861,
+          "longtail_at_10": {
+            "n_longtail_recommended": 1055,
+            "n_longtail_relevant": 257,
+            "n_total_recommended": 6710,
+            "precision": 0.24360189573459715,
+            "precision_target_met": false,
+            "share": 0.1572280178837556,
+            "share_target_met": false
+          },
+          "mean_candidates_per_trip": 234.43368107302533,
+          "ndcg10": {
+            "ci_high": 0.1584864087049283,
+            "ci_low": 0.13820334406103774,
+            "mean": 0.1482581580773007,
+            "n": 605
+          }
+        },
+        "50": {
+          "candidate_recall_long_tail": 0.8481165377653217,
+          "candidate_recall_overall": 0.8730686197858597,
+          "longtail_at_10": {
+            "n_longtail_recommended": 1071,
+            "n_longtail_relevant": 256,
+            "n_total_recommended": 6710,
+            "precision": 0.23902894491129786,
+            "precision_target_met": false,
+            "share": 0.15961251862891207,
+            "share_target_met": false
+          },
+          "mean_candidates_per_trip": 245.4828614008942,
+          "ndcg10": {
+            "ci_high": 0.15817881634556524,
+            "ci_low": 0.13795069978450797,
+            "mean": 0.14795691393196728,
+            "n": 605
+          }
+        }
+      },
+      "status": "MEASURED",
+      "verdict": "quota 0: NDCG@10 0.1483, long-tail share 0.156, candidate recall 0.862; quota 25: NDCG@10 0.1483, long-tail share 0.157, candidate recall 0.868; quota 50: NDCG@10 0.1480, long-tail share 0.160, candidate recall 0.873; quota 100: NDCG@10 0.1469, long-tail share 0.166, candidate recall 0.887"
+    },
+    {
+      "alternative": "alpha x beta grid",
+      "decision": "alpha = 1.0, beta = 0.7",
+      "experiment": "Gated multiplicative utility over an alpha x beta grid on the same holdout scoring pass.",
+      "id": "DR10",
+      "metric": "NDCG@10 and mean compat@10 per (alpha, beta)",
+      "results": [
+        {
+          "alpha": 0.5,
+          "beta": 0.0,
+          "hard_constraint_violations_in_top10": 0,
+          "mean_compat_at_10": 0.7923851538871429,
+          "n_trips": 671,
+          "ndcg_at_10": 0.12811485716179377,
+          "trips_with_violation": 0
+        },
+        {
+          "alpha": 0.5,
+          "beta": 0.3,
+          "hard_constraint_violations_in_top10": 0,
+          "mean_compat_at_10": 0.8352762614382645,
+          "n_trips": 671,
+          "ndcg_at_10": 0.1301009742780367,
+          "trips_with_violation": 0
+        },
+        {
+          "alpha": 0.5,
+          "beta": 0.7,
+          "hard_constraint_violations_in_top10": 0,
+          "mean_compat_at_10": 0.8475567947180233,
+          "n_trips": 671,
+          "ndcg_at_10": 0.12799488436971082,
+          "trips_with_violation": 0
+        },
+        {
+          "alpha": 0.5,
+          "beta": 1.0,
+          "hard_constraint_violations_in_top10": 0,
+          "mean_compat_at_10": 0.8550255844144726,
+          "n_trips": 671,
+          "ndcg_at_10": 0.12668853200159302,
+          "trips_with_violation": 0
+        },
+        {
+          "alpha": 0.5,
+          "beta": 1.5,
+          "hard_constraint_violations_in_top10": 0,
+          "mean_compat_at_10": 0.8644982390381042,
+          "n_trips": 671,
+          "ndcg_at_10": 0.12693496643959526,
+          "trips_with_violation": 0
+        },
+        {
+          "alpha": 1.0,
+          "beta": 0.0,
+          "hard_constraint_violations_in_top10": 0,
+          "mean_compat_at_10": 0.7923851538871429,
+          "n_trips": 671,
+          "ndcg_at_10": 0.12811485716179377,
+          "trips_with_violation": 0
+        },
+        {
+          "alpha": 1.0,
+          "beta": 0.3,
+          "hard_constraint_violations_in_top10": 0,
+          "mean_compat_at_10": 0.8298963856165402,
+          "n_trips": 671,
+          "ndcg_at_10": 0.12955329813032734,
+          "trips_with_violation": 0
+        },
+        {
+          "alpha": 1.0,
+          "beta": 0.7,
+          "hard_constraint_violations_in_top10": 0,
+          "mean_compat_at_10": 0.8371092537947428,
+          "n_trips": 671,
+          "ndcg_at_10": 0.12964824229599647,
+          "trips_with_violation": 0
+        },
+        {
+          "alpha": 1.0,
+          "beta": 1.0,
+          "hard_constraint_violations_in_top10": 0,
+          "mean_compat_at_10": 0.8417533592258472,
+          "n_trips": 671,
+          "ndcg_at_10": 0.12786074961866417,
+          "trips_with_violation": 0
+        },
+        {
+          "alpha": 1.0,
+          "beta": 1.5,
+          "hard_constraint_violations_in_top10": 0,
+          "mean_compat_at_10": 0.8488752993902087,
+          "n_trips": 671,
+          "ndcg_at_10": 0.12736297332779642,
+          "trips_with_violation": 0
+        },
+        {
+          "alpha": 2.0,
+          "beta": 0.0,
+          "hard_constraint_violations_in_top10": 0,
+          "mean_compat_at_10": 0.7923851538871429,
+          "n_trips": 671,
+          "ndcg_at_10": 0.12811485716179377,
+          "trips_with_violation": 0
+        },
+        {
+          "alpha": 2.0,
+          "beta": 0.3,
+          "hard_constraint_violations_in_top10": 0,
+          "mean_compat_at_10": 0.827397695732921,
+          "n_trips": 671,
+          "ndcg_at_10": 0.12974216847776554,
+          "trips_with_violation": 0
+        },
+        {
+          "alpha": 2.0,
+          "beta": 0.7,
+          "hard_constraint_violations_in_top10": 0,
+          "mean_compat_at_10": 0.8307583628281981,
+          "n_trips": 671,
+          "ndcg_at_10": 0.12932665348144418,
+          "trips_with_violation": 0
+        },
+        {
+          "alpha": 2.0,
+          "beta": 1.0,
+          "hard_constraint_violations_in_top10": 0,
+          "mean_compat_at_10": 0.8336370566889,
+          "n_trips": 671,
+          "ndcg_at_10": 0.13025654808833592,
+          "trips_with_violation": 0
+        },
+        {
+          "alpha": 2.0,
+          "beta": 1.5,
+          "hard_constraint_violations_in_top10": 0,
+          "mean_compat_at_10": 0.8382492568149578,
+          "n_trips": 671,
+          "ndcg_at_10": 0.129046705077711,
+          "trips_with_violation": 0
+        }
+      ],
+      "status": "MEASURED",
+      "verdict": "Shipped (alpha=1.0, beta=0.7): NDCG@10 0.1296, compat@10 0.8371. NDCG-best cell (alpha=2.0, beta=1.0): 0.1303, compat@10 0.8336."
+    },
+    {
+      "alternative": "The original 6 heuristic channels, and subsets of them",
+      "decision": "Candidate generation = learned retriever + long-tail + interest",
+      "experiment": "Channel-subset grid at learned K=210 on a train-carved validation split (IPS-weighted logged positives); holdout columns are reporting-only. `none` = the learned retriever alone. Baseline = the original 6-channel heuristic union.",
+      "id": "DR11",
+      "metric": "recall vs exposed positives, lift over chance, candidate-set size",
+      "results": {
+        "K210_rows": [
+          {
+            "channels": "none",
+            "holdout_lift": 0.405,
+            "holdout_long_tail": 0.815,
+            "holdout_recall": 0.841,
+            "learned_K": 210,
+            "size": 210.0,
+            "val_ips_lift": 0.504,
+            "val_ips_recall": 0.939
+          },
+          {
+            "channels": "longtail",
+            "holdout_lift": 0.376,
+            "holdout_long_tail": 0.844,
+            "holdout_recall": 0.852,
+            "learned_K": 210,
+            "size": 230.0,
+            "val_ips_lift": 0.469,
+            "val_ips_recall": 0.943
+          },
+          {
+            "channels": "longtail+interest",
+            "holdout_lift": 0.371,
+            "holdout_long_tail": 0.847,
+            "holdout_recall": 0.881,
+            "learned_K": 210,
+            "size": 246.0,
+            "val_ips_lift": 0.443,
+            "val_ips_recall": 0.945
+          },
+          {
+            "channels": "longtail+interest+geo",
+            "holdout_lift": 0.328,
+            "holdout_long_tail": 0.86,
+            "holdout_recall": 0.894,
+            "learned_K": 210,
+            "size": 273.0,
+            "val_ips_lift": 0.397,
+            "val_ips_recall": 0.955
+          },
+          {
+            "channels": "all_but_cf",
+            "holdout_lift": 0.305,
+            "holdout_long_tail": 0.873,
+            "holdout_recall": 0.902,
+            "learned_K": 210,
+            "size": 288.0,
+            "val_ips_lift": 0.373,
+            "val_ips_recall": 0.96
+          },
+          {
+            "channels": "all",
+            "holdout_lift": 0.301,
+            "holdout_long_tail": 0.873,
+            "holdout_recall": 0.903,
+            "learned_K": 210,
+            "size": 290.0,
+            "val_ips_lift": 0.354,
+            "val_ips_recall": 0.961
+          }
+        ],
+        "legacy_six_channel_union": {
+          "chance_recall": 0.3935085905958259,
+          "lift_abs": 0.20291612132972214,
+          "n_trips": 605.0,
+          "recall": 0.596424711925548
+        },
+        "true_utility_top_k_recall_diagnostic": 0.9905628482954684
+      },
+      "status": "MEASURED",
+      "verdict": "Legacy 6-channel union: recall 0.596 (lift +0.203). Shipped learned+long-tail+interest: recall 0.881 (lift +0.371, 246 candidates/trip). Ranking by true utility would recall 0.991 at the same budget (diagnostic)."
+    }
+  ]
+}

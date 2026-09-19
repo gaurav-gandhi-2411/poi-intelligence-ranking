@@ -97,7 +97,7 @@
   },
   "D5_ndcg": {
     "candidate_level": {
-      "mean_ndcg_at_10": 0.40368458713131505,
+      "mean_ndcg_at_10": 0.3732694333488201,
       "n_trips_excluded_zero_relevant": 66,
       "n_trips_included": 605
     },
@@ -134,17 +134,17 @@
     "spearman_rho": 0.6986970940361941
   },
   "D8_bias_gap_popularity": {
-    "existing_metrics_json_gap": 0.10986330642180774,
-    "gap": 0.09031412003430539,
-    "n_trips_biased_included": 642,
+    "existing_metrics_json_gap": 0.0826389913728365,
+    "gap": 0.0826389913728365,
+    "n_trips_biased_included": 645,
     "n_trips_unbiased_included": 605,
-    "ndcg@10_biased_logged_holdout": 0.16696531710494836,
-    "ndcg@10_unbiased_random_holdout": 0.07665119707064297
+    "ndcg@10_biased_logged_holdout": 0.14424331335365945,
+    "ndcg@10_unbiased_random_holdout": 0.06160432198082294
   },
   "D9_semantic_fidelity": {
     "minilm_path": {
       "diagnostic_artifact_path": "C:\\Users\\gaura\\ml-projects\\poi-intelligence-ranking\\results\\parts\\poi_emb_minilm_diagnostic.npy",
-      "encode_wall_clock_seconds": 14.437896999999793,
+      "encode_wall_clock_seconds": 14.571527700001752,
       "n": 329289,
       "n_excluded_no_canonical_poi_id": 0,
       "n_excluded_no_embedding_or_taste": 0,
@@ -162,6 +162,6 @@
   "meta": {
     "n_ceiling_score_missing_fallback": 0,
     "note": "Diagnostic-only harness (spec-v2-remediation.md section 1). D1/D2/D9 are restricted to the 202 holdout trips (~99k same-destination pairs), not all 800 trips (~1.2M pairs), because the DGP's own noise-free true-utility export -- the only source that isolates the novelty term via residual -- is written only for holdout trips by datagen/pipeline.py itself; see module docstring for the full explanation. D10 uses the full ~1,446-POI catalog instead (a POI-pair question, not a trip-pair question).",
-    "wall_clock_seconds": 62.16881909999938
+    "wall_clock_seconds": 59.57116799999858
   }
 }

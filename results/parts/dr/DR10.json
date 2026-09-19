@@ -1,0 +1,146 @@
+{
+  "alternative": "alpha x beta grid",
+  "decision": "alpha = 1.0, beta = 0.7",
+  "experiment": "Gated multiplicative utility over an alpha x beta grid on the same holdout scoring pass.",
+  "id": "DR10",
+  "metric": "NDCG@10 and mean compat@10 per (alpha, beta)",
+  "results": [
+    {
+      "alpha": 0.5,
+      "beta": 0.0,
+      "hard_constraint_violations_in_top10": 0,
+      "mean_compat_at_10": 0.7923851538871429,
+      "n_trips": 671,
+      "ndcg_at_10": 0.12811485716179377,
+      "trips_with_violation": 0
+    },
+    {
+      "alpha": 0.5,
+      "beta": 0.3,
+      "hard_constraint_violations_in_top10": 0,
+      "mean_compat_at_10": 0.8352762614382645,
+      "n_trips": 671,
+      "ndcg_at_10": 0.1301009742780367,
+      "trips_with_violation": 0
+    },
+    {
+      "alpha": 0.5,
+      "beta": 0.7,
+      "hard_constraint_violations_in_top10": 0,
+      "mean_compat_at_10": 0.8475567947180233,
+      "n_trips": 671,
+      "ndcg_at_10": 0.12799488436971082,
+      "trips_with_violation": 0
+    },
+    {
+      "alpha": 0.5,
+      "beta": 1.0,
+      "hard_constraint_violations_in_top10": 0,
+      "mean_compat_at_10": 0.8550255844144726,
+      "n_trips": 671,
+      "ndcg_at_10": 0.12668853200159302,
+      "trips_with_violation": 0
+    },
+    {
+      "alpha": 0.5,
+      "beta": 1.5,
+      "hard_constraint_violations_in_top10": 0,
+      "mean_compat_at_10": 0.8644982390381042,
+      "n_trips": 671,
+      "ndcg_at_10": 0.12693496643959526,
+      "trips_with_violation": 0
+    },
+    {
+      "alpha": 1.0,
+      "beta": 0.0,
+      "hard_constraint_violations_in_top10": 0,
+      "mean_compat_at_10": 0.7923851538871429,
+      "n_trips": 671,
+      "ndcg_at_10": 0.12811485716179377,
+      "trips_with_violation": 0
+    },
+    {
+      "alpha": 1.0,
+      "beta": 0.3,
+      "hard_constraint_violations_in_top10": 0,
+      "mean_compat_at_10": 0.8298963856165402,
+      "n_trips": 671,
+      "ndcg_at_10": 0.12955329813032734,
+      "trips_with_violation": 0
+    },
+    {
+      "alpha": 1.0,
+      "beta": 0.7,
+      "hard_constraint_violations_in_top10": 0,
+      "mean_compat_at_10": 0.8371092537947428,
+      "n_trips": 671,
+      "ndcg_at_10": 0.12964824229599647,
+      "trips_with_violation": 0
+    },
+    {
+      "alpha": 1.0,
+      "beta": 1.0,
+      "hard_constraint_violations_in_top10": 0,
+      "mean_compat_at_10": 0.8417533592258472,
+      "n_trips": 671,
+      "ndcg_at_10": 0.12786074961866417,
+      "trips_with_violation": 0
+    },
+    {
+      "alpha": 1.0,
+      "beta": 1.5,
+      "hard_constraint_violations_in_top10": 0,
+      "mean_compat_at_10": 0.8488752993902087,
+      "n_trips": 671,
+      "ndcg_at_10": 0.12736297332779642,
+      "trips_with_violation": 0
+    },
+    {
+      "alpha": 2.0,
+      "beta": 0.0,
+      "hard_constraint_violations_in_top10": 0,
+      "mean_compat_at_10": 0.7923851538871429,
+      "n_trips": 671,
+      "ndcg_at_10": 0.12811485716179377,
+      "trips_with_violation": 0
+    },
+    {
+      "alpha": 2.0,
+      "beta": 0.3,
+      "hard_constraint_violations_in_top10": 0,
+      "mean_compat_at_10": 0.827397695732921,
+      "n_trips": 671,
+      "ndcg_at_10": 0.12974216847776554,
+      "trips_with_violation": 0
+    },
+    {
+      "alpha": 2.0,
+      "beta": 0.7,
+      "hard_constraint_violations_in_top10": 0,
+      "mean_compat_at_10": 0.8307583628281981,
+      "n_trips": 671,
+      "ndcg_at_10": 0.12932665348144418,
+      "trips_with_violation": 0
+    },
+    {
+      "alpha": 2.0,
+      "beta": 1.0,
+      "hard_constraint_violations_in_top10": 0,
+      "mean_compat_at_10": 0.8336370566889,
+      "n_trips": 671,
+      "ndcg_at_10": 0.13025654808833592,
+      "trips_with_violation": 0
+    },
+    {
+      "alpha": 2.0,
+      "beta": 1.5,
+      "hard_constraint_violations_in_top10": 0,
+      "mean_compat_at_10": 0.8382492568149578,
+      "n_trips": 671,
+      "ndcg_at_10": 0.129046705077711,
+      "trips_with_violation": 0
+    }
+  ],
+  "status": "MEASURED",
+  "verdict": "Shipped (alpha=1.0, beta=0.7): NDCG@10 0.1296, compat@10 0.8371. NDCG-best cell (alpha=2.0, beta=1.0): 0.1303, compat@10 0.8336."
+}

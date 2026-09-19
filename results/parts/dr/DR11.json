@@ -1,0 +1,80 @@
+{
+  "alternative": "The original 6 heuristic channels, and subsets of them",
+  "decision": "Candidate generation = learned retriever + long-tail + interest",
+  "experiment": "Channel-subset grid at learned K=210 on a train-carved validation split (IPS-weighted logged positives); holdout columns are reporting-only. `none` = the learned retriever alone. Baseline = the original 6-channel heuristic union.",
+  "id": "DR11",
+  "metric": "recall vs exposed positives, lift over chance, candidate-set size",
+  "results": {
+    "K210_rows": [
+      {
+        "channels": "none",
+        "holdout_lift": 0.405,
+        "holdout_long_tail": 0.815,
+        "holdout_recall": 0.841,
+        "learned_K": 210,
+        "size": 210.0,
+        "val_ips_lift": 0.504,
+        "val_ips_recall": 0.939
+      },
+      {
+        "channels": "longtail",
+        "holdout_lift": 0.376,
+        "holdout_long_tail": 0.844,
+        "holdout_recall": 0.852,
+        "learned_K": 210,
+        "size": 230.0,
+        "val_ips_lift": 0.469,
+        "val_ips_recall": 0.943
+      },
+      {
+        "channels": "longtail+interest",
+        "holdout_lift": 0.371,
+        "holdout_long_tail": 0.847,
+        "holdout_recall": 0.881,
+        "learned_K": 210,
+        "size": 246.0,
+        "val_ips_lift": 0.443,
+        "val_ips_recall": 0.945
+      },
+      {
+        "channels": "longtail+interest+geo",
+        "holdout_lift": 0.328,
+        "holdout_long_tail": 0.86,
+        "holdout_recall": 0.894,
+        "learned_K": 210,
+        "size": 273.0,
+        "val_ips_lift": 0.397,
+        "val_ips_recall": 0.955
+      },
+      {
+        "channels": "all_but_cf",
+        "holdout_lift": 0.305,
+        "holdout_long_tail": 0.873,
+        "holdout_recall": 0.902,
+        "learned_K": 210,
+        "size": 288.0,
+        "val_ips_lift": 0.373,
+        "val_ips_recall": 0.96
+      },
+      {
+        "channels": "all",
+        "holdout_lift": 0.301,
+        "holdout_long_tail": 0.873,
+        "holdout_recall": 0.903,
+        "learned_K": 210,
+        "size": 290.0,
+        "val_ips_lift": 0.354,
+        "val_ips_recall": 0.961
+      }
+    ],
+    "legacy_six_channel_union": {
+      "chance_recall": 0.3935085905958259,
+      "lift_abs": 0.20291612132972214,
+      "n_trips": 605.0,
+      "recall": 0.596424711925548
+    },
+    "true_utility_top_k_recall_diagnostic": 0.9905628482954684
+  },
+  "status": "MEASURED",
+  "verdict": "Legacy 6-channel union: recall 0.596 (lift +0.203). Shipped learned+long-tail+interest: recall 0.881 (lift +0.371, 246 candidates/trip). Ranking by true utility would recall 0.991 at the same budget (diagnostic)."
+}

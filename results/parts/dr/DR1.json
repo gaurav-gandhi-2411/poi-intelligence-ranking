@@ -1,0 +1,39 @@
+{
+  "alternative": "The brief's additive formula a*rel + b*compat",
+  "decision": "Multiplicative utility rel^a * compat^b with a hard gate",
+  "experiment": "Same holdout candidates/relevance/compatibility; rank by each combination rule; count hard-constraint violations (hard_gate == 0) among the top-10 of every holdout trip.",
+  "id": "DR1",
+  "metric": "hard-constraint violations in top-10; mean compat@10; NDCG@10",
+  "results": {
+    "additive_no_gate (brief)": {
+      "hard_constraint_violations_in_top10": 844,
+      "mean_compat_at_10": 0.8655186879157803,
+      "n_trips": 671,
+      "ndcg_at_10": 0.13407356272010318,
+      "trips_with_violation": 216
+    },
+    "additive_with_gate_filter": {
+      "hard_constraint_violations_in_top10": 0,
+      "mean_compat_at_10": 0.8742373212915917,
+      "n_trips": 671,
+      "ndcg_at_10": 0.12147470029118708,
+      "trips_with_violation": 0
+    },
+    "multiplicative_gated (production)": {
+      "hard_constraint_violations_in_top10": 0,
+      "mean_compat_at_10": 0.8371092537947428,
+      "n_trips": 671,
+      "ndcg_at_10": 0.12964824229599647,
+      "trips_with_violation": 0
+    },
+    "multiplicative_no_gate": {
+      "hard_constraint_violations_in_top10": 1422,
+      "mean_compat_at_10": 0.8145877217354204,
+      "n_trips": 671,
+      "ndcg_at_10": 0.14652753007892283,
+      "trips_with_violation": 317
+    }
+  },
+  "status": "MEASURED",
+  "verdict": "Additive scoring puts 844 hard-constraint violations into 216/671 trips' top-10; the multiplicative gated rule puts 0. NDCG@10 0.1341 (additive) vs 0.1296 (multiplicative gated); mean compat@10 0.8655 vs 0.8371."
+}

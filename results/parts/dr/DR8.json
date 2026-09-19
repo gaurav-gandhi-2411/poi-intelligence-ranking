@@ -1,0 +1,67 @@
+{
+  "alternative": "+-2x half-life; uniform interaction weights",
+  "decision": "180-day taste half-life and spec interaction weights",
+  "experiment": "Rebuild the traveler features with a different taste half-life / interaction weights, refit the ranker on the fixed candidate sets, and score the unbiased holdout; D9 (within-trip, reporting-only) shows the effect on estimator fidelity.",
+  "id": "DR8",
+  "metric": "within-trip D9; holdout NDCG@10",
+  "results": {
+    "halflife_180d (shipped)": {
+      "d9_within_trip": {
+        "mean_within_trip_spearman": 0.473078575320493,
+        "median_within_trip_spearman": 0.4854105992994445,
+        "n_trips": 599,
+        "n_trips_undefined_constant_scores": 72
+      },
+      "ndcg10": {
+        "ci_high": 0.15817881634556524,
+        "ci_low": 0.13795069978450797,
+        "mean": 0.14795691393196728,
+        "n": 605
+      }
+    },
+    "halflife_360d": {
+      "d9_within_trip": {
+        "mean_within_trip_spearman": 0.47390546025778024,
+        "median_within_trip_spearman": 0.484991293916109,
+        "n_trips": 599,
+        "n_trips_undefined_constant_scores": 72
+      },
+      "ndcg10": {
+        "ci_high": 0.1650781505464168,
+        "ci_low": 0.1436662863933083,
+        "mean": 0.15442877553351256,
+        "n": 605
+      }
+    },
+    "halflife_90d": {
+      "d9_within_trip": {
+        "mean_within_trip_spearman": 0.47015942907156655,
+        "median_within_trip_spearman": 0.48297344043219304,
+        "n_trips": 599,
+        "n_trips_undefined_constant_scores": 72
+      },
+      "ndcg10": {
+        "ci_high": 0.15905733205460598,
+        "ci_low": 0.13854025100370546,
+        "mean": 0.14869212426057232,
+        "n": 605
+      }
+    },
+    "uniform_weights": {
+      "d9_within_trip": {
+        "mean_within_trip_spearman": 0.05204593528171775,
+        "median_within_trip_spearman": 0.044567836274844536,
+        "n_trips": 599,
+        "n_trips_undefined_constant_scores": 72
+      },
+      "ndcg10": {
+        "ci_high": 0.17299278352473638,
+        "ci_low": 0.15238534790733185,
+        "mean": 0.1620544382581773,
+        "n": 605
+      }
+    }
+  },
+  "status": "MEASURED",
+  "verdict": "halflife_180d (shipped): NDCG@10 0.1480, D9 0.473; halflife_90d: NDCG@10 0.1487, D9 0.470; halflife_360d: NDCG@10 0.1544, D9 0.474; uniform_weights: NDCG@10 0.1621, D9 0.052"
+}

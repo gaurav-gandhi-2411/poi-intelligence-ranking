@@ -1,0 +1,39 @@
+{
+  "alternative": "Pointwise binary / graded regression, listwise rank_xendcg",
+  "decision": "Listwise LambdaRank objective",
+  "experiment": "Same features, IPS weights, dropout, split and early-stopping metric (NDCG@10); only the LightGBM objective varies.",
+  "id": "DR3",
+  "metric": "holdout NDCG@10 (mean, 95% CI)",
+  "results": {
+    "binary": {
+      "best_iteration": 372,
+      "ci_high": 0.1705029522862535,
+      "ci_low": 0.14912463137043372,
+      "mean": 0.1596422440306013,
+      "n": 605
+    },
+    "lambdarank": {
+      "best_iteration": 195,
+      "ci_high": 0.15817881634556524,
+      "ci_low": 0.13795069978450797,
+      "mean": 0.14795691393196728,
+      "n": 605
+    },
+    "rank_xendcg": {
+      "best_iteration": 77,
+      "ci_high": 0.16660369212011142,
+      "ci_low": 0.14530435338852923,
+      "mean": 0.1556311397324864,
+      "n": 605
+    },
+    "regression": {
+      "best_iteration": 255,
+      "ci_high": 0.16999151328922427,
+      "ci_low": 0.14921863195718002,
+      "mean": 0.1595648149375649,
+      "n": 605
+    }
+  },
+  "status": "MEASURED",
+  "verdict": "lambdarank 0.1480 [0.1380, 0.1582]; rank_xendcg 0.1556 [0.1453, 0.1666]; binary 0.1596 [0.1491, 0.1705]; regression 0.1596 [0.1492, 0.1700]"
+}

@@ -1,0 +1,76 @@
+{
+  "rule": "adopt a pair feature iff its mean val NDCG@10 delta over 2 seeds is > 0 with the same sign on both seeds (oracle-free train-carved validation; holdout untouched)",
+  "rows": [
+    {
+      "variant": "baseline",
+      "seed": 42,
+      "val_ndcg@10": 0.5732975624194049,
+      "iters": 313
+    },
+    {
+      "variant": "+cos_taste_centered",
+      "seed": 42,
+      "val_ndcg@10": 0.5757410506974766,
+      "iters": 311
+    },
+    {
+      "variant": "+category_affinity",
+      "seed": 42,
+      "val_ndcg@10": 0.5763853201489681,
+      "iters": 332
+    },
+    {
+      "variant": "+both",
+      "seed": 42,
+      "val_ndcg@10": 0.579343989909392,
+      "iters": 132
+    },
+    {
+      "variant": "baseline",
+      "seed": 7,
+      "val_ndcg@10": 0.563604853401239,
+      "iters": 256
+    },
+    {
+      "variant": "+cos_taste_centered",
+      "seed": 7,
+      "val_ndcg@10": 0.5770199092864658,
+      "iters": 361
+    },
+    {
+      "variant": "+category_affinity",
+      "seed": 7,
+      "val_ndcg@10": 0.5802625726921353,
+      "iters": 292
+    },
+    {
+      "variant": "+both",
+      "seed": 7,
+      "val_ndcg@10": 0.5837325472531641,
+      "iters": 237
+    }
+  ],
+  "summary": {
+    "+cos_taste_centered": {
+      "mean_delta_val_ndcg@10": 0.007929272081649286,
+      "per_seed": [
+        0.002443488278071726,
+        0.013415055885226845
+      ]
+    },
+    "+category_affinity": {
+      "mean_delta_val_ndcg@10": 0.009872738510229795,
+      "per_seed": [
+        0.0030877577295632674,
+        0.016657719290896322
+      ]
+    },
+    "+both": {
+      "mean_delta_val_ndcg@10": 0.013087060670956108,
+      "per_seed": [
+        0.006046427489987072,
+        0.020127693851925144
+      ]
+    }
+  }
+}

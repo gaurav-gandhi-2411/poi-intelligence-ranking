@@ -1,0 +1,43 @@
+{
+  "alternative": "all-MiniLM-L6-v2 sentence embeddings (-> SVD-64)",
+  "decision": "TF-IDF -> SVD-64 POI text embedding",
+  "experiment": "Swap ONLY the POI text embedding (and the taste vectors and POI features built from it) and refit the ranker on the fixed candidate sets; measure representation fidelity (D9 within-trip, D11) and holdout NDCG@10. THIS SYNTHETIC CORPUS is generated from anchored, synonym-rich phrase pools over latent dimensions, so its vocabulary design favours lexical overlap: the outcome is a statement about this dataset, not a verdict on sentence encoders.",
+  "id": "DR4",
+  "metric": "D11 ridge R2; within-trip D9; holdout NDCG@10",
+  "results": {
+    "minilm_svd64": {
+      "d11_cca": 0.9513059126135669,
+      "d11_ridge_r2": 0.590452994205362,
+      "d9_within_trip": {
+        "mean_within_trip_spearman": 0.25834098943583356,
+        "median_within_trip_spearman": 0.2581358387551552,
+        "n_trips": 599,
+        "n_trips_undefined_constant_scores": 72
+      },
+      "ndcg10": {
+        "ci_high": 0.16554707922130163,
+        "ci_low": 0.1446341614514938,
+        "mean": 0.1548931615805207,
+        "n": 605
+      }
+    },
+    "tfidf_svd64": {
+      "d11_cca": 0.9789811048645148,
+      "d11_ridge_r2": 0.8654228140905081,
+      "d9_within_trip": {
+        "mean_within_trip_spearman": 0.473078575320493,
+        "median_within_trip_spearman": 0.4854105992994445,
+        "n_trips": 599,
+        "n_trips_undefined_constant_scores": 72
+      },
+      "ndcg10": {
+        "ci_high": 0.15817881634556524,
+        "ci_low": 0.13795069978450797,
+        "mean": 0.14795691393196728,
+        "n": 605
+      }
+    }
+  },
+  "status": "MEASURED",
+  "verdict": "TF-IDF: D11 0.865, D9 0.473, NDCG@10 0.1480. MiniLM: D11 0.590, D9 0.258, NDCG@10 0.1549 (CIs overlap). Dataset-specific (templated synonym-pool text); transfer to real POI text is untested."
+}
