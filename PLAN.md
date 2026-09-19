@@ -455,8 +455,42 @@ clean throughout. Determinism byte-identical, verified at every phase.**
     within budget.**
 11. ~~3+1 required scenarios (`make scenarios`).~~
     **DONE — see "Done (Phase 9, spec.md section 15)" below.**
-12. `docs/TECHNICAL.md` (11 sections, incl. explicit LambdaMART-vs-two-tower and
-    multiplicative-vs-additive justifications), README, finalize DATA_CARD.
+12. ~~`docs/TECHNICAL.md` (11 sections, incl. explicit LambdaMART-vs-two-tower and
+    multiplicative-vs-additive justifications), README, finalize DATA_CARD.~~
+    **DONE — Phase 10 (final).** `docs/TECHNICAL.md` (701 lines, all 11
+    sections: problem formulation, DGP/circularity defense, feature
+    architecture, candidate generation, ranking model choice (LambdaMART vs
+    two-tower, explicit), IPS correction, scoring layer (multiplicative vs
+    additive, explicit, tied to the real 0-violation hard-constraint test),
+    calibration, explainability, evaluation methodology, production
+    considerations) + closing honest-misses summary (**5 missed, 4 met** of
+    spec.md §11.10's 9 targets, independently recounted by the verifier
+    directly from `docs/RESULTS.md`'s table, not just trusted). `README.md`
+    (183 lines) — quick-start, expected headline numbers, honest misses,
+    architecture/repo-layout notes. Every number in both traces to a real
+    artifact: independently spot-verified by the verifier against 27 sampled
+    claims (15 from TECHNICAL.md, 12 from README.md), zero untraced. `make` is
+    not installed in this dev environment (documented, `docs/DATA_CARD.md`
+    #87) — README's primary quick-start is the manual 9-command
+    `uv run python -m poi_rank.cli ...` sequence, actually executed end-to-end
+    (generate→prepare→features→candidates→train→evaluate→lodo→scenarios→report),
+    every command's exit code confirmed, resulting diff hand-verified as only
+    `generated_at` timestamps + one LODO wall-clock re-measurement (no
+    substantive drift) before reverting by hand (never `git checkout`/`reset`
+    per rule 55a) and confirming `git status --short` empty. New
+    `tests/test_docs_numbers.py` (extends the number-tracing enforcement to
+    these two hand-written files) and `tests/test_readme_quickstart.py`
+    (genuinely exercises the CLI via `typer.testing.CliRunner`, not mocked).
+
+    Test suite at this checkpoint: **398 passed, 2 xfailed** (pre-existing,
+    unchanged — localness-rho, confidence-decile-monotonicity), **0 failed**,
+    400 collected — independently re-run by both the verifier and the
+    orchestrator. ruff/mypy clean throughout.
+
+    **This closes out every P0 item in spec.md §16's build plan.** Remaining
+    work is P1/P2 only (exploration notebook, feature-importance figure — both
+    explicitly optional per spec's own cut-order, and the λ sweep figure is
+    already done from Phase 6).
 13. ~~P1: full ablation table, LODO, confidence-decile validation (if time).~~
     **DONE early — see item 10 above (all 9 ablations + LODO landed in Phase 8
     itself); confidence-decile validation was already measured in Phase 6 and
