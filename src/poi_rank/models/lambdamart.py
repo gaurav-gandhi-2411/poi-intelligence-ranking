@@ -279,11 +279,15 @@ def fit_lambdamart_booster(
     cfg: LambdaMartConfig,
     seed: int,
     sample_weight: pd.Series | None = None,
+    num_boost_round: int | None = None,
 ) -> lgb.Booster:
     """Fit one LambdaMART booster on `fit_frame`, early-stopping on `val_frame`
-    (spec.md section 8). `sample_weight`, if given, must be index-aligned to
-    `fit_frame` (system 8's `attach_train_ips_weight` output); `None` means system
-    7's uniform per-row weight (LightGBM's own default)."""
+    (spec.md section 8). `num_boost_round`, if given, trains exactly that many rounds with no
+    validation set / early stopping (used for the confidence-ensemble members, whose round
+    count is taken from the primary booster's early-stopped `best_iteration`).
+    `sample_weight`, if given, must be index-aligned to `fit_frame` (system 8's
+    `attach_train_ips_weight` output); `None` means system 7's uniform per-row weight
+    (LightGBM's own default)."""
     x_fit = _feature_matrix(fit_frame, numeric_columns, categorical_columns)
     x_val = _feature_matrix(val_frame, numeric_columns, categorical_columns)
     weight = sample_weight.to_numpy(dtype=np.float64) if sample_weight is not None else None
@@ -304,6 +308,9 @@ def fit_lambdamart_booster(
         categorical_feature=categorical_columns,
         free_raw_data=False,
     )
+
+    if num_boost_round is not None:
+        return lgb.train(_lgb_params(cfg, seed), train_set, num_boost_round=num_boost_round)
 
     booster = lgb.train(
         _lgb_params(cfg, seed),

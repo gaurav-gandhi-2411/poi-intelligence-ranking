@@ -109,6 +109,9 @@ class ScenarioProfile:
     pace: str
     accessibility_needs: tuple[str, ...]
     notes: str
+    # Product-narrative layer (an inbound foreign traveler to Seoul); the spec.md section 15
+    # profile fields above are untouched -- the persona only labels them.
+    persona: str = ""
 
 
 # spec.md section 15's interests are plain-English descriptions
@@ -137,6 +140,10 @@ SCENARIO_PROFILES: tuple[ScenarioProfile, ...] = (
             "specified by spec.md section 15 for this scenario -- defaulted to "
             "'moderate' (the middle of the 3-value PACE_ORDER scale)."
         ),
+        persona=(
+            "Food-led repeat visitor to Seoul (foreign, inbound): has done the palaces and "
+            "Myeongdong, wants where locals actually eat and wander."
+        ),
     ),
     ScenarioProfile(
         number=2,
@@ -153,6 +160,10 @@ SCENARIO_PROFILES: tuple[ScenarioProfile, ...] = (
             "(no literal 'architecture' tag exists in CATEGORIES+TAGS); "
             "'museums' -> {museum} (exact match). `pace` defaulted to 'moderate' "
             "(not specified)."
+        ),
+        persona=(
+            "First-time K-culture visitor to Seoul (foreign, inbound): heritage, museums and "
+            "the iconic sights, comfortable budget."
         ),
     ),
     ScenarioProfile(
@@ -174,6 +185,10 @@ SCENARIO_PROFILES: tuple[ScenarioProfile, ...] = (
             "with a stroller) respectively; `party_type`/accessibility "
             "(`stroller`)/`pace` (`relaxed`)/`budget` (`medium`) are exactly as "
             "spec.md states."
+        ),
+        persona=(
+            "Foreign family with young children visiting Seoul: stroller, relaxed pace, "
+            "things kids can do."
         ),
     ),
 )
@@ -201,6 +216,10 @@ DIAGNOSTIC_SCENARIO = ScenarioProfile(
         f"Base scenario: {DIAGNOSTIC_BASE_SCENARIO} (Local Experience). Every field "
         "held identical to that scenario's profile except `touristiness_pref`, "
         "flipped from -0.8 to +0.8 (opposite sign, same extreme magnitude)."
+    ),
+    persona=(
+        "The same traveler as scenario 1 asking for the opposite: the iconic, must-see, "
+        "first-timer version of Seoul."
     ),
 )
 
@@ -469,6 +488,7 @@ def _profile_dict(
         "stay_lon": float(trip_row["stay_lon"]),
         "start_date": pd.Timestamp(trip_row["start_date"]).isoformat(),
         "notes": profile.notes,
+        "persona": profile.persona,
     }
 
 

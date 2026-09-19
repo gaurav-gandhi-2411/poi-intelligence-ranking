@@ -39,6 +39,8 @@ COMPOSED_PARTS: dict[str, str | None] = {
     "representation": "representation",
     "decision_register": "decision_register",
     "seed_replication": "seed_replication",
+    "timings": "timings",
+    "timings_full": "timings_full",
 }
 REQUIRED_PARTS = (EVALUATE_PART,)
 

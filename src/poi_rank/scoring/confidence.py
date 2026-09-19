@@ -66,6 +66,7 @@ def train_ensemble_boosters(
     pois_df: pd.DataFrame,
     lm_cfg: LambdaMartConfig,
     seeds: tuple[int, ...],
+    num_boost_round: int | None = None,
 ) -> list[lgb.Booster]:
     """Fit `len(seeds)` LightGBM boosters with system 8's exact recipe (IPS-weighted,
     behavioral-dropout-augmented), varying only the LightGBM training seed (module
@@ -89,6 +90,7 @@ def train_ensemble_boosters(
             lm_cfg,
             seed,
             sample_weight=ips_weight,
+            num_boost_round=num_boost_round,
         )
         for seed in seeds
     ]
@@ -100,8 +102,11 @@ def run_train_ensemble(
     model_cfg: ModelConfig,
     feature_cfg: FeatureBuildConfig,
     scoring_cfg: ScoringConfig,
+    num_boost_round: int | None = None,
 ) -> list[Path]:
-    """Fit + persist the confidence ensemble (`poi_rank.cli train`'s second half)."""
+    """Fit + persist the confidence ensemble (`poi_rank.cli train`'s second half). With
+    `num_boost_round` (the primary booster's best_iteration) the members skip validation
+    scoring and the 50-round early-stopping tail -- they only need seed diversity."""
     train_frame = load_train_ranking_frame(
         data_dir, feature_cfg.traveler_features.budget_target_price_level
     )
@@ -111,6 +116,7 @@ def run_train_ensemble(
         pd.read_parquet(data_dir / "pois_prepared.parquet"),
         model_cfg.lambdamart,
         scoring_cfg.confidence.ensemble_seeds,
+        num_boost_round,
     )
     return save_ensemble(boosters, scoring_cfg.confidence.ensemble_seeds, artifacts_dir)
 

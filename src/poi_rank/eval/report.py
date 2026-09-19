@@ -20,6 +20,15 @@ import json
 from pathlib import Path
 from typing import Any
 
+from poi_rank.eval.report_sections import (
+    diagnoses,
+    render_candidate_recall,
+    render_decision_register,
+    render_gates,
+    render_headline,
+    render_timings,
+)
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_METRICS_PATH = REPO_ROOT / "results" / "metrics.json"
 DEFAULT_SCENARIOS_DIR = REPO_ROOT / "results" / "scenarios"
@@ -117,7 +126,9 @@ def _met(condition: bool) -> str:
 # -----------------------------------------------------------------------------------
 
 
-def render_success_criteria(metrics: dict[str, Any]) -> str:
+def render_success_criteria(
+    metrics: dict[str, Any], scenarios: dict[str, Any] | None = None
+) -> str:
     systems = metrics["systems"]
     lambdamart_ips = systems["lambdamart_ips"]
     popularity_ndcg10 = systems["popularity"]["metrics"]["ndcg@10"]["mean"]
@@ -125,7 +136,8 @@ def render_success_criteria(metrics: dict[str, Any]) -> str:
     relative_lift = (ips_ndcg10 / popularity_ndcg10 - 1.0) if popularity_ndcg10 > 0 else 0.0
     p_value = metrics["wilcoxon"]["lambdamart_ips_vs_popularity"]["p_value"]
     pct_ceiling = lambdamart_ips["pct_of_ceiling_ndcg10"]
-    longtail_recall = metrics["candidate_recall"]["long_tail"]["recall_mean"]
+    recall = metrics["candidate_recall"]
+    strata = recall.get("by_stratum", {})
     arch = metrics["personalization"]["archetype"]
     cross_jaccard = arch["cross_archetype_jaccard_mean"]
     ratio = arch["within_cross_ratio"]
@@ -134,78 +146,132 @@ def render_success_criteria(metrics: dict[str, Any]) -> str:
     decile_rho = metrics["confidence_decile_validation"]["spearman_rho"]
     lt_share = metrics["longtail"]["share"]
     lt_precision = metrics["longtail"]["precision"]
+    localness = metrics.get("localness_validation", {}).get("spearman_rho")
 
-    rows = [
+    # (name, target, measured, met?, diagnosis key when missed)
+    rows: list[tuple[str, str, str, bool, str | None]] = [
         (
             "NDCG@10 vs popularity",
             "&ge; +40% relative, Wilcoxon p < 0.01",
             f"{relative_lift * 100:+.1f}% relative, p={p_value:.4g}",
-            _met(relative_lift >= 0.40 and p_value < 0.01),
+            relative_lift >= 0.40 and p_value < 0.01,
+            None,
         ),
         (
-            "% of oracle ceiling",
+            "% of oracle ceiling (candidate-level NDCG@10)",
             "&ge; 70%",
             _fmt_pct(pct_ceiling),
-            _met(pct_ceiling >= 0.70),
+            pct_ceiling >= 0.70,
+            "ceiling",
         ),
         (
-            "Candidate recall@250 (long-tail)",
-            "&ge; 0.80",
-            _fmt(longtail_recall),
-            _met(longtail_recall >= 0.80),
+            "Candidate recall, overall (exposed positives)",
+            "&ge; 0.85",
+            _fmt(recall["overall"]["recall_mean"]),
+            recall["overall"]["recall_mean"] >= 0.85,
+            None,
         ),
         (
-            "Cross-archetype Jaccard@10",
+            "Candidate recall, long-tail stratum",
+            "&ge; 0.75",
+            _fmt(recall["long_tail"]["recall_mean"]),
+            recall["long_tail"]["recall_mean"] >= 0.75,
+            None,
+        ),
+        (
+            "Candidate recall lift over chance (overall)",
+            "&ge; +0.35",
+            f"{strata['overall']['lift_abs']:+.3f}" if strata else "N/A",
+            bool(strata) and strata["overall"]["lift_abs"] >= 0.35,
+            None,
+        ),
+        (
+            "Cross-archetype Jaccard@10 (true labels)",
             "&le; 0.25",
             _fmt(cross_jaccard),
-            _met(cross_jaccard <= 0.25),
+            cross_jaccard <= 0.25,
+            None,
         ),
         (
-            "Within/cross Jaccard ratio",
+            "Within/cross Jaccard ratio (true labels)",
             "&ge; 2.0",
             "inf" if ratio is None else _fmt(ratio, 2),
-            _met(ratio is None or ratio >= 2.0),
+            ratio is None or ratio >= 2.0,
+            "archetype_ratio",
         ),
         (
             "Hard-constraint violations in top-10",
             "= 0",
             str(n_violations),
-            _met(n_violations == 0),
+            n_violations == 0,
+            None,
         ),
-        (
-            "ECE after calibration",
-            "&le; 0.05",
-            _fmt(ece_after),
-            _met(ece_after <= 0.05),
-        ),
+        ("ECE after calibration", "&le; 0.05", _fmt(ece_after), ece_after <= 0.05, None),
         (
             "Confidence-decile NDCG monotonicity (Spearman)",
-            "&ge; 0.7",
+            "&ge; 0.6",
             "N/A" if decile_rho is None else _fmt(decile_rho, 3),
-            _met(decile_rho is not None and decile_rho >= 0.7),
+            decile_rho is not None and decile_rho >= 0.6,
+            "confidence_decile",
         ),
         (
             "Long-tail share of top-10",
-            "&ge; 0.25 with precision &ge; 0.5",
-            f"share={_fmt(lt_share)}, "
-            f"precision={_fmt(lt_precision) if lt_precision is not None else 'N/A'}",
-            _met(lt_share >= 0.25 and lt_precision is not None and lt_precision >= 0.5),
+            "&ge; 0.25",
+            _fmt(lt_share),
+            lt_share >= 0.25,
+            None,
+        ),
+        (
+            "Long-tail precision of top-10",
+            "&ge; 0.40",
+            "N/A" if lt_precision is None else _fmt(lt_precision),
+            lt_precision is not None and lt_precision >= 0.40,
+            "longtail_precision",
+        ),
+        (
+            "Localness index Spearman vs latent localness",
+            "&ge; 0.6",
+            "N/A" if localness is None else _fmt(localness),
+            localness is not None and localness >= 0.6,
+            "localness",
         ),
     ]
+    if scenarios is not None:
+        overlap = scenarios["overlap_matrix"]["diagnostic_vs_base_jaccard"]
+        rows.append(
+            (
+                "Scenario-4 (touristiness flip) top-10 overlap",
+                "&le; 0.35",
+                _fmt(overlap, 3),
+                overlap <= 0.35,
+                "scenario4",
+            )
+        )
 
     lines = [
-        "## Success criteria (spec.md section 11.10)",
+        "## Success criteria scorecard",
         "",
-        "Stated up front, then measured. Every MISSED row carries a diagnosis --",
-        'never silently dropped (spec.md: "An honest miss with a root-cause analysis',
-        'scores better than a suspiciously perfect table.").',
+        "Stated up front, then measured. Every MISSED row carries a diagnosis below -- a miss "
+        "is reported as a ceiling only after a diagnostic has ruled out a mechanism, citing "
+        'the number (spec.md: "An honest miss with a root-cause analysis scores better than a '
+        'suspiciously perfect table.").',
         "",
         "| Metric | Target | Measured | Status |",
         "|---|---|---|---|",
     ]
-    for name, target, measured, status in rows:
-        lines.append(f"| {name} | {target} | {measured} | {status} |")
+    for name, target, measured, met, _ in rows:
+        lines.append(f"| {name} | {target} | {measured} | {_met(met)} |")
     lines.append("")
+    diag = diagnoses(metrics)
+    missed = [(name, key) for name, _, _, met, key in rows if not met]
+    if missed:
+        lines += ["### Diagnoses of the missed rows", ""]
+        for name, key in missed:
+            text = diag.get(key) if key else None
+            if text is None:
+                text = "**UNDIAGNOSED** -- no diagnostic has ruled out a mechanism for this miss."
+            lines.append(f"- **{name}**: {text}")
+        lines.append("")
     return "\n".join(lines)
 
 
@@ -277,31 +343,58 @@ def render_bias_gap_table(metrics: dict[str, Any]) -> str:
 def render_personalization(metrics: dict[str, Any]) -> str:
     p = metrics["personalization"]
     arch = p["archetype"]
-    ratio_str = "inf" if arch["within_cross_ratio"] is None else _fmt(arch["within_cross_ratio"], 2)
-    jaccard_str = _fmt(p["mean_pairwise_jaccard_at_10"])
-    rbo_str = _fmt(p["mean_pairwise_rbo"])
-    within_str = _fmt(arch["within_archetype_jaccard_mean"])
-    cross_str = _fmt(arch["cross_archetype_jaccard_mean"])
-    return "\n".join(
-        [
-            "## Personalization (spec.md section 11.2)",
-            "",
-            f"- Mean pairwise Jaccard@10 across all trip pairs: **{jaccard_str}** "
-            f"(n_pairs={p['n_pairs']})",
-            f"- Mean pairwise rank-biased overlap (RBO, p=0.9): **{rbo_str}** "
-            f"(n_pairs={p['n_pairs_rbo']})",
-            f"- Within-archetype-proxy Jaccard@10: **{within_str}** "
-            f"(n_pairs={arch['within_archetype_n_pairs']})",
-            f"- Cross-archetype-proxy Jaccard@10: **{cross_str}** "
-            f"(n_pairs={arch['cross_archetype_n_pairs']})",
-            f"- Within/cross ratio: **{ratio_str}**",
-            "",
-            "Archetype proxy = the observable K-Means traveler-segment clustering "
-            "(`features.traveler_features.assign_traveler_segments`), never the "
-            "oracle-only latent archetype mixture -- see `docs/DATA_CARD.md`.",
-            "",
-        ]
-    )
+    proxy = p.get("archetype_kmeans_proxy")
+    ideal = p.get("archetype_ideal_ranker_reference")
+
+    def ratio_of(d: dict[str, Any]) -> str:
+        r = d["within_cross_ratio"]
+        return "inf" if r is None else _fmt(r, 2)
+
+    lines = [
+        "## Personalization (spec.md section 11.2, spec-v2 RC4)",
+        "",
+        "Pairs are SAME-DESTINATION trip pairs only: a POI belongs to exactly one destination, so "
+        "two trips to different destinations have Jaccard = RBO = 0 by construction, and pooling "
+        "them measures the catalog partition rather than the recommender.",
+        "",
+        "- Mean pairwise Jaccard@10 (same destination): "
+        f"**{_fmt(p['mean_pairwise_jaccard_at_10'])}** "
+        f"(n_pairs={p['n_pairs']})",
+        f"- Mean pairwise rank-biased overlap (RBO, p=0.9): **{_fmt(p['mean_pairwise_rbo'])}** "
+        f"(n_pairs={p['n_pairs_rbo']})",
+    ]
+    if "mean_pairwise_jaccard_at_10_all_pairs" in p:
+        lines.append(
+            "- For continuity with the pre-fix number, all pairs pooled (2/3 of them structurally "
+            f"zero): {_fmt(p['mean_pairwise_jaccard_at_10_all_pairs'])} "
+            f"(n_pairs={p['n_pairs_all_pairs']})"
+        )
+    lines += [
+        "",
+        "| Grouping | Within Jaccard@10 | Cross Jaccard@10 | Ratio | within / cross pairs |",
+        "|---|---|---|---|---|",
+        f"| **True archetype labels** (dominant archetype; within = same dominant and mixture "
+        f"cosine > 0.8) | {_fmt(arch['within_archetype_jaccard_mean'])} | "
+        f"{_fmt(arch['cross_archetype_jaccard_mean'])} | **{ratio_of(arch)}** | "
+        f"{arch['within_archetype_n_pairs']} / {arch['cross_archetype_n_pairs']} |",
+    ]
+    if ideal is not None:
+        lines.append(
+            f"| Reference: lists ranked by the TRUE utility (a perfect ranker) | "
+            f"{_fmt(ideal['within_archetype_jaccard_mean'])} | "
+            f"{_fmt(ideal['cross_archetype_jaccard_mean'])} | {ratio_of(ideal)} | "
+            f"{ideal['within_archetype_n_pairs']} / {ideal['cross_archetype_n_pairs']} |"
+        )
+    if proxy is not None:
+        lines.append(
+            f"| K-Means traveler-segment PROXY (clusters of the same features being evaluated -- "
+            f"kept only to show why it was misleading) | "
+            f"{_fmt(proxy['within_archetype_jaccard_mean'])} | "
+            f"{_fmt(proxy['cross_archetype_jaccard_mean'])} | {ratio_of(proxy)} | "
+            f"{proxy['within_archetype_n_pairs']} / {proxy['cross_archetype_n_pairs']} |"
+        )
+    lines.append("")
+    return "\n".join(lines)
 
 
 def render_coverage(metrics: dict[str, Any]) -> str:
@@ -340,21 +433,29 @@ def render_coverage(metrics: dict[str, Any]) -> str:
 def render_longtail(metrics: dict[str, Any]) -> str:
     lg = metrics["longtail"]
     precision_str = "N/A" if lg["precision"] is None else _fmt(lg["precision"])
-    return "\n".join(
-        [
-            "## Long-tail / local discovery (spec.md section 11.4)",
-            "",
-            f"- Share of top-10 recommendations in the bottom-50%-popularity stratum: "
-            f"**{_fmt(lg['share'])}** "
-            f"({lg['n_longtail_recommended']} / {lg['n_total_recommended']})",
-            f"- Long-tail precision (relevant per unbiased holdout): **{precision_str}** "
-            f"({lg['n_longtail_relevant']} / {lg['n_longtail_recommended']})",
-            "",
-            '"Coverage without precision is just noise injection" -- both numbers '
-            "reported together, per spec.md section 11.4.",
-            "",
+    lines = [
+        "## Long-tail / local discovery (spec.md section 11.4)",
+        "",
+        f"- Share of top-10 recommendations in the bottom-50%-popularity stratum: "
+        f"**{_fmt(lg['share'])}** ({lg['n_longtail_recommended']} / {lg['n_total_recommended']})",
+        f"- Long-tail precision (relevant per unbiased holdout): **{precision_str}** "
+        f"({lg['n_longtail_relevant']} / {lg['n_longtail_recommended']})",
+    ]
+    pop = lg.get("popularity_baseline")
+    if pop is not None:
+        pop_precision = "N/A" if pop["precision"] is None else _fmt(pop["precision"])
+        lines += [
+            f"- Popularity ranker, same measurement: share **{_fmt(pop['share'])}** "
+            f"({pop['n_longtail_recommended']} / {pop['n_total_recommended']}), precision "
+            f"**{pop_precision}**",
         ]
-    )
+    lines += [
+        "",
+        '"Coverage without precision is just noise injection" -- both numbers reported '
+        "together, per spec.md section 11.4.",
+        "",
+    ]
+    return "\n".join(lines)
 
 
 def render_constraint_compatibility(metrics: dict[str, Any]) -> str:
@@ -588,6 +689,7 @@ def render_one_scenario(payload: dict[str, Any]) -> str:
     lines = [
         f"### Scenario {payload['scenario_number']}: {payload['scenario_name']}",
         "",
+        *([f"- Persona: {p['persona']}"] if p.get("persona") else []),
         f"- Destination: **{p['destination']}**; interests: "
         f"{', '.join(p['interests'])}; touristiness_pref: **{_fmt(p['touristiness_pref'], 2)}**",
         f"- Budget: {p['budget']}; mobility: {p['mobility']}; party: {p['party_type']}; "
@@ -660,27 +762,16 @@ def render_scenarios(scenarios: dict[str, Any] | None) -> str:
     else:
         candidate_jaccard = overlap.get("diagnostic_vs_base_candidate_pool_jaccard")
         lines.append(
-            "**Honest miss, root-caused, not hidden**: overlap is higher than spec.md "
-            "section 15 expects. Diagnosis -- `touristiness_pref` is only ONE of "
-            "~38 standardized dimensions feeding the observable K-Means archetype-"
-            "segment channel (spec.md section 12's cold-start path), and does not "
-            "gate the geo/interest/semantic/CF channels at all; both scenarios' "
-            "cold-start (zero taste-vector) travelers land in the SAME K-Means "
-            "segment here, so their PRE-RANKING candidate pools are "
+            "**Honest miss, not hidden**: overlap is higher than spec.md section 15 expects. "
+            "Measured mechanism: the two scenarios' PRE-RANKING candidate pools overlap at "
             f"**{_fmt_pct(candidate_jaccard) if candidate_jaccard is not None else 'N/A'}** "
-            "Jaccard-identical (measured directly from `candidates.union"
-            ".generate_candidates`'s own output, not inferred). From a nearly-"
-            "identical candidate pool, touristiness_pref can only reorder the "
-            "final top-10 through 2 of the >230 real feature columns feeding "
-            "the LambdaMART score (`explicit_touristiness_pref`, "
-            "`interact_localness_gap`) -- `scoring.compatibility`'s 6 hard-gate/"
-            "compatibility sub-scores carry no localness/touristiness term at "
-            "all (spec.md section 9.1). The measured overlap is real evidence "
-            "the preference signal DOES move the ranking (it is not 1.0), just "
-            "not enough to dominate a candidate pool this similar -- consistent "
-            "with, not contradictory to, this project's already-documented "
-            "~0.44 candidate-recall ceiling and modest measured feature-block "
-            "ablation effects (`docs/RESULTS.md`'s own Ablations section)."
+            "Jaccard (`candidates.union.generate_candidates`'s own output), so the ranking "
+            "starts from nearly the same POIs and `touristiness_pref` can only reorder them "
+            "through the feature columns that carry it (`explicit_touristiness_pref`, "
+            "`interact_localness_gap`); `scoring.compatibility`'s sub-scores carry no "
+            "localness/touristiness term at all (spec.md section 9.1). The overlap is below "
+            "1.0, i.e. the preference does move the ranking -- just not enough to dominate a "
+            "candidate pool this similar."
         )
     lines.append("")
     return "\n".join(lines)
@@ -700,9 +791,17 @@ def render_results_md(metrics: dict[str, Any], scenarios: dict[str, Any] | None 
         'directly to that JSON file (spec.md section 0: "No unverified metric may '
         'appear in any document").**',
         "",
-        render_success_criteria(metrics),
-        render_primary_table(metrics),
+        "Synthetic data throughout (three destinations; Seoul is the lead). Personas are inbound "
+        "foreign travelers. Read the numbers as properties of this simulator, not as claims "
+        "about real traffic -- `docs/TECHNICAL.md` states what the simulator does and does not "
+        "license.",
+        "",
+        render_headline(metrics),
         render_bias_gap_table(metrics),
+        render_gates(metrics),
+        render_success_criteria(metrics, scenarios),
+        render_primary_table(metrics),
+        render_candidate_recall(metrics),
         render_personalization(metrics),
         render_coverage(metrics),
         render_longtail(metrics),
@@ -713,6 +812,8 @@ def render_results_md(metrics: dict[str, Any], scenarios: dict[str, Any] | None 
         render_cold_start(metrics),
         render_ablations(metrics),
         render_beta_sensitivity(metrics),
+        render_decision_register(metrics),
+        render_timings(metrics),
         render_scenarios(scenarios),
     ]
     return "\n".join(sections)

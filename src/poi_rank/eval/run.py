@@ -122,13 +122,10 @@ POPULARITY_COMPARISON_SYSTEMS: tuple[str, ...] = (
 )
 
 CANDIDATE_RECALL_NOTE = (
-    "All metrics in this table are bounded by candidate_recall@250 (overall 0.4413, "
-    "long-tail-stratum 0.3936 -- see candidates/recall_metrics.py output and "
-    "docs/DATA_CARD.md): a candidate set missing a trip's true-relevant POIs caps "
-    "every ranking metric computed over it (NDCG/Recall/MAP/MRR), regardless of "
-    "ranking quality within the candidate set that IS present. This is a known, "
-    "already-diagnosed property of Phase 4a's candidate generation, not a bug in "
-    "this phase's baselines or metrics."
+    "Every ranking metric is computed over the candidate set, so it is bounded by candidate "
+    "recall: a candidate set missing a trip's relevant POIs caps NDCG/Recall/MAP/MRR "
+    "regardless of ranking quality inside the set. The measured recall (overall, long-tail "
+    "and per stratum, each with its chance baseline) is in this payload's `candidate_recall`."
 )
 
 
@@ -160,6 +157,8 @@ def _compute_all_baseline_scores(
         train_frame, model_cfg.baselines.logistic_regression, model_cfg.seed
     )
     results["logistic_regression"] = bl.score_logistic_regression(lr_model, holdout_frame)
+    results["logistic_regression"].diagnostics["selected_c"] = lr_model.selected_c
+    results["logistic_regression"].diagnostics["cv_logloss_by_c"] = lr_model.cv_logloss_by_c
     return results
 
 
@@ -798,6 +797,12 @@ def run_evaluate(
     longtail_payload = _longtail_payload(
         lists_by_trip, pois_df, holdout_frame, eval_cfg.long_tail_pop_pct_cutoff
     )
+    # The commercially differentiating claim is long-tail discovery vs a popularity ranker (the
+    # incumbents already rank by popularity), so the popularity baseline gets the same
+    # long-tail measurement over its own top-10 lists.
+    longtail_payload["popularity_baseline"] = _longtail_payload(
+        popularity_lists_by_trip, pois_df, holdout_frame, eval_cfg.long_tail_pop_pct_cutoff
+    )
     constraint_compatibility_payload = _constraint_compatibility_payload(scoring_result)
     diversity_payload = _diversity_payload(
         scoring_result, pois_df, scoring_cfg.diversity.lambda_default
@@ -845,6 +850,14 @@ def run_evaluate(
         ablations_payload,
         candidate_recall_payload,
     )
+
+    lr_diag = baseline_scores["logistic_regression"].diagnostics
+    payload["logistic_regression_cv"] = {
+        "selected_c": lr_diag["selected_c"],
+        "cv_logloss_by_c": lr_diag["cv_logloss_by_c"],
+    }
+    localness = oracle_reader.validate_localness_against_oracle(pois_df, oracle_dir)
+    payload["localness_validation"] = {"spearman_rho": localness.spearman_rho, "n": localness.n}
 
     # This stage owns `results/parts/evaluate.json` only; `compose` is the sole writer of
     # `results/metrics.json` (eval/compose.py).

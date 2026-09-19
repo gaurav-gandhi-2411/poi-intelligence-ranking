@@ -7,6 +7,8 @@ features, candidates, train, evaluate, scenarios) are wired in as they're built.
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -27,7 +29,14 @@ from poi_rank.eval.audit import run_audit
 from poi_rank.eval.cold_start import run_lodo
 from poi_rank.eval.compose import PARTS_DIRNAME, compose_metrics, write_part
 from poi_rank.eval.config import EvalConfig
+from poi_rank.eval.decision_register import (
+    DR_CATALOG,
+    compose_register,
+    load_lab,
+    run_dr_scoring,
+)
 from poi_rank.eval.dgp_diagnostics import run_dgp_diagnostics
+from poi_rank.eval.dr_experiments import run_dr2, run_dr3, run_dr4, run_dr7, run_dr9, run_dr11
 from poi_rank.eval.gate_dgp import run_gate_dgp
 from poi_rank.eval.gate_representation import run_gate_representation
 from poi_rank.eval.representation import run_representation_report
@@ -390,7 +399,12 @@ def train(
     write_part(results_dir, "train", summary["diagnostics"])
     scoring_cfg = ScoringConfig.from_yaml(scoring_config_path)
     ensemble_paths = run_train_ensemble(
-        data_dir, artifacts_dir, model_cfg, feature_cfg, scoring_cfg
+        data_dir,
+        artifacts_dir,
+        model_cfg,
+        feature_cfg,
+        scoring_cfg,
+        num_boost_round=summary["diagnostics"]["best_iteration_lambdamart_ips"],
     )
     summary["paths"].update({p.stem: p for p in ensemble_paths})
     diagnostics = summary["diagnostics"]
@@ -784,10 +798,6 @@ def scenarios(
     typer.echo(f"  overlap matrix: {summary['overlap_matrix_path']}")
 
 
-if __name__ == "__main__":
-    app()
-
-
 @app.command()
 def compose(
     results_dir: Path = typer.Option(  # noqa: B008
@@ -867,3 +877,94 @@ def audit(
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
     if not payload["all_passed"]:
         raise typer.Exit(code=1)
+
+
+@app.command()
+def dr(
+    which: str = typer.Option("all", help="Comma-separated DR ids (DR1,DR2,...) or 'all'"),  # noqa: B008
+    features_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_FEATURES_CONFIG_PATH, help="Path to features.yaml"
+    ),
+    model_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_MODEL_CONFIG_PATH, help="Path to model.yaml"
+    ),
+    eval_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_EVAL_CONFIG_PATH, help="Path to eval.yaml"
+    ),
+    scoring_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_SCORING_CONFIG_PATH, help="Path to scoring.yaml"
+    ),
+    data_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_OUTPUT_DIR, help="Directory containing data/synthetic/*.parquet"
+    ),
+    artifacts_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_ARTIFACTS_DIR, help="Directory containing trained artifacts"
+    ),
+    results_dir: Path = typer.Option(  # noqa: B008
+        DEFAULT_RESULTS_DIR, help="Directory to write results/parts/dr/*.json"
+    ),
+) -> None:
+    """Run Decision-Register experiments (eval/decision_register.py, eval/dr_experiments.py),
+    then compose results/parts/decision_register.json (missing rows become explicit NOT RUN)."""
+    feature_cfg = FeatureBuildConfig.from_yaml(features_config_path)
+    model_cfg = ModelConfig.from_yaml(model_config_path)
+    eval_cfg = EvalConfig.from_yaml(eval_config_path)
+    scoring_cfg = ScoringConfig.from_yaml(scoring_config_path)
+    candidates_cfg = CandidatesConfig.from_yaml(features_config_path)
+    wanted = (
+        set(DR_CATALOG) if which == "all" else {w.strip().upper() for w in which.split(",") if w}
+    )
+
+    lab = load_lab(data_dir, feature_cfg, model_cfg, eval_cfg)
+    if wanted & {"DR1", "DR6", "DR10"}:
+        run_dr_scoring(
+            data_dir,
+            artifacts_dir,
+            results_dir,
+            feature_cfg,
+            model_cfg,
+            scoring_cfg,
+            candidates_cfg,
+        )
+    if "DR3" in wanted:
+        run_dr3(lab, results_dir)
+    if "DR7" in wanted:
+        run_dr7(lab, results_dir)
+    if "DR9" in wanted:
+        run_dr9(data_dir, artifacts_dir, results_dir, feature_cfg, candidates_cfg, lab)
+    if "DR11" in wanted:
+        run_dr11(results_dir)
+    if "DR4" in wanted:
+        run_dr4(data_dir, results_dir, feature_cfg, lab)
+    if "DR2" in wanted:
+        if "torch" in sys.modules:
+            run_dr2(lab, results_dir)
+        else:
+            # torch must be imported BEFORE pandas/pyarrow in a process on this Windows box
+            # (WinError 1114 on torch's c10.dll otherwise -- same constraint as the MiniLM
+            # subprocess in eval/dgp_diagnostics.py), and pandas is already loaded here, so
+            # DR2 runs in a fresh interpreter whose first import is torch.
+            subprocess.run(  # noqa: S603
+                [
+                    sys.executable,
+                    "-c",
+                    "import torch\nfrom poi_rank.cli import app\napp()",
+                    "dr",
+                    "--which",
+                    "DR2",
+                    "--data-dir",
+                    str(data_dir),
+                    "--artifacts-dir",
+                    str(artifacts_dir),
+                    "--results-dir",
+                    str(results_dir),
+                ],
+                check=True,
+            )
+    path = compose_register(results_dir)
+    compose_metrics(results_dir)
+    typer.echo(f"decision register: {path}")
+
+
+if __name__ == "__main__":
+    app()
