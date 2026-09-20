@@ -15,9 +15,9 @@
         "n_trips_undefined_constant_scores": 72
       },
       "ndcg10": {
-        "ci_high": 0.16554707922130163,
-        "ci_low": 0.1446341614514938,
-        "mean": 0.1548931615805207,
+        "ci_high": 0.15289436637115342,
+        "ci_low": 0.13352318179388178,
+        "mean": 0.14323251062197453,
         "n": 605
       }
     },
@@ -31,13 +31,13 @@
         "n_trips_undefined_constant_scores": 72
       },
       "ndcg10": {
-        "ci_high": 0.15817881634556524,
-        "ci_low": 0.13795069978450797,
-        "mean": 0.14795691393196728,
+        "ci_high": 0.1589668121452518,
+        "ci_low": 0.13845756050379607,
+        "mean": 0.14848471206262726,
         "n": 605
       }
     }
   },
   "status": "MEASURED",
-  "verdict": "TF-IDF: D11 0.865, D9 0.473, NDCG@10 0.1480. MiniLM: D11 0.590, D9 0.258, NDCG@10 0.1549 (CIs overlap). Dataset-specific (templated synonym-pool text); transfer to real POI text is untested."
+  "verdict": "TF-IDF: D11 0.865, D9 0.473, NDCG@10 0.1485. MiniLM: D11 0.590, D9 0.258, NDCG@10 0.1432 (CIs overlap). Dataset-specific (templated synonym-pool text); transfer to real POI text is untested."
 }

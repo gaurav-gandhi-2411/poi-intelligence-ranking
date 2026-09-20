@@ -8,36 +8,36 @@
       "metric": "hard-constraint violations in top-10; mean compat@10; NDCG@10",
       "results": {
         "additive_no_gate (brief)": {
-          "hard_constraint_violations_in_top10": 844,
-          "mean_compat_at_10": 0.8655186879157803,
+          "hard_constraint_violations_in_top10": 901,
+          "mean_compat_at_10": 0.8615865438957736,
           "n_trips": 671,
-          "ndcg_at_10": 0.13407356272010318,
-          "trips_with_violation": 216
+          "ndcg_at_10": 0.14082908265594946,
+          "trips_with_violation": 229
         },
         "additive_with_gate_filter": {
           "hard_constraint_violations_in_top10": 0,
-          "mean_compat_at_10": 0.8742373212915917,
+          "mean_compat_at_10": 0.8712906189794746,
           "n_trips": 671,
-          "ndcg_at_10": 0.12147470029118708,
+          "ndcg_at_10": 0.12748031932015208,
           "trips_with_violation": 0
         },
         "multiplicative_gated (production)": {
           "hard_constraint_violations_in_top10": 0,
-          "mean_compat_at_10": 0.8371092537947428,
+          "mean_compat_at_10": 0.836769380111211,
           "n_trips": 671,
-          "ndcg_at_10": 0.12964824229599647,
+          "ndcg_at_10": 0.13565796948314068,
           "trips_with_violation": 0
         },
         "multiplicative_no_gate": {
-          "hard_constraint_violations_in_top10": 1422,
-          "mean_compat_at_10": 0.8145877217354204,
+          "hard_constraint_violations_in_top10": 1484,
+          "mean_compat_at_10": 0.8126641096593077,
           "n_trips": 671,
-          "ndcg_at_10": 0.14652753007892283,
-          "trips_with_violation": 317
+          "ndcg_at_10": 0.15260771051331856,
+          "trips_with_violation": 314
         }
       },
       "status": "MEASURED",
-      "verdict": "Additive scoring puts 844 hard-constraint violations into 216/671 trips' top-10; the multiplicative gated rule puts 0. NDCG@10 0.1341 (additive) vs 0.1296 (multiplicative gated); mean compat@10 0.8655 vs 0.8371."
+      "verdict": "Additive scoring puts 901 hard-constraint violations into 229/671 trips' top-10; the multiplicative gated rule puts 0. NDCG@10 0.1408 (additive) vs 0.1357 (multiplicative gated); mean compat@10 0.8616 vs 0.8368."
     },
     {
       "alternative": "Two-tower neural ranker (shared-space dot product)",
@@ -50,123 +50,123 @@
           {
             "fraction": 0.1,
             "lambdamart_ips": {
-              "ci_high": 0.14931196850828798,
-              "ci_low": 0.1311825327523377,
-              "mean": 0.14039821715125836,
+              "ci_high": 0.14959744664851626,
+              "ci_low": 0.13217326950587852,
+              "mean": 0.1409212251664951,
               "n": 605,
               "seed_means": [
-                0.13946345923734718,
-                0.14215599574244503,
-                0.13957519647398287
+                0.14078924590896902,
+                0.140197805942595,
+                0.14177662364792135
               ]
             },
             "n_train_trips": 183,
             "two_tower": {
-              "ci_high": 0.1103258928088977,
-              "ci_low": 0.09752162076096542,
-              "mean": 0.1038657631833773,
+              "ci_high": 0.11089647501775957,
+              "ci_low": 0.09831396177047955,
+              "mean": 0.10465598718605372,
               "n": 605,
               "seed_means": [
-                0.10985181454999689,
-                0.10069094051815967,
-                0.10105453448197535
+                0.1081553925550022,
+                0.09875085322929751,
+                0.10706171577386146
               ]
             }
           },
           {
             "fraction": 0.25,
             "lambdamart_ips": {
-              "ci_high": 0.15344421048135096,
-              "ci_low": 0.13491034091230847,
-              "mean": 0.14424821827221168,
+              "ci_high": 0.15765488681808276,
+              "ci_low": 0.1386454431800854,
+              "mean": 0.14807067687896983,
               "n": 605,
               "seed_means": [
-                0.14559049039448302,
-                0.1448675515011934,
-                0.1422866129209586
+                0.14658882616570446,
+                0.1506264937831882,
+                0.14699671068801684
               ]
             },
             "n_train_trips": 457,
             "two_tower": {
-              "ci_high": 0.11448972919125205,
-              "ci_low": 0.10129081919478948,
-              "mean": 0.10754370375374249,
+              "ci_high": 0.11507424215743792,
+              "ci_low": 0.10136488795503719,
+              "mean": 0.10814292800660394,
               "n": 605,
               "seed_means": [
-                0.08944291773760182,
-                0.11747478275502918,
-                0.1157134107685964
+                0.10083524458478366,
+                0.12174897166658886,
+                0.10184456776843932
               ]
             }
           },
           {
             "fraction": 0.5,
             "lambdamart_ips": {
-              "ci_high": 0.15864747103802,
-              "ci_low": 0.13912270963177728,
-              "mean": 0.14883845647381383,
+              "ci_high": 0.15950297314750606,
+              "ci_low": 0.13985389339982396,
+              "mean": 0.14947206361570436,
               "n": 605,
               "seed_means": [
-                0.14852125656061294,
-                0.15246017996321531,
-                0.14553393289761327
+                0.14527367293450158,
+                0.15393595196360754,
+                0.14920656594900392
               ]
             },
             "n_train_trips": 914,
             "two_tower": {
-              "ci_high": 0.12583300920448778,
-              "ci_low": 0.11186960470812642,
-              "mean": 0.11876074625149773,
+              "ci_high": 0.1270639483497161,
+              "ci_low": 0.11377370782591789,
+              "mean": 0.12035279555278433,
               "n": 605,
               "seed_means": [
-                0.13350085026513603,
-                0.12078805135139924,
-                0.10199333713795793
+                0.13262383382152376,
+                0.1224288801459652,
+                0.1060056726908641
               ]
             }
           },
           {
             "fraction": 1.0,
             "lambdamart_ips": {
-              "ci_high": 0.15969880793123492,
-              "ci_low": 0.1400777998996185,
-              "mean": 0.14987430442605215,
+              "ci_high": 0.15613495068853403,
+              "ci_low": 0.13699873056450007,
+              "mean": 0.14642855286004489,
               "n": 605,
               "seed_means": [
-                0.14795691393196728,
-                0.15341277275255594,
-                0.14825322659363324
+                0.14848471206262726,
+                0.14305583807631714,
+                0.14774510844119032
               ]
             },
             "n_train_trips": 1829,
             "two_tower": {
-              "ci_high": 0.1365300757968197,
-              "ci_low": 0.12082078529415735,
-              "mean": 0.12857764628612806,
+              "ci_high": 0.13708111755708344,
+              "ci_low": 0.12157847849529253,
+              "mean": 0.12920333639572404,
               "n": 605,
               "seed_means": [
-                0.1268759388700011,
-                0.13954555582852218,
-                0.11931144415986089
+                0.13098109671161542,
+                0.1336838207489274,
+                0.1229450917266292
               ]
             }
           }
         ],
-        "extrapolated_crossover_train_trips": 65597.70827065755,
+        "extrapolated_crossover_train_trips": 22044.880670311763,
         "loglinear_fit": {
           "lambdamart_ips": {
-            "a": 0.117865822923697,
-            "b": 0.0043601144293063205
+            "a": 0.12988783374541707,
+            "b": 0.002546072066931055
           },
           "two_tower": {
-            "a": 0.04396322435048751,
-            "b": 0.011023231012844132
+            "a": 0.04442809369904438,
+            "b": 0.011091331957211412
           }
         },
         "n_train_trips_full": 1829
       },
       "status": "MEASURED",
-      "verdict": "Two-tower NDCG@10 0.1039, 0.1075, 0.1188, 0.1286 vs LambdaMART-IPS 0.1404, 0.1442, 0.1488, 0.1499 at fractions [0.1, 0.25, 0.5, 1.0]. Crossover at any measured point: False. Log-linear extrapolation puts a crossover at ~65,598 training trips (35.9x the 1829 used; 4-point fit, low confidence). CIs separated at 100%."
+      "verdict": "Two-tower NDCG@10 0.1047, 0.1081, 0.1204, 0.1292 vs LambdaMART-IPS 0.1409, 0.1481, 0.1495, 0.1464 at fractions [0.1, 0.25, 0.5, 1.0]. Crossover at any measured point: False. Log-linear extrapolation puts a crossover at ~22,045 training trips (12.1x the 1829 used; 4-point fit, low confidence). CIs overlap at 100%."
     },
     {
       "alternative": "Pointwise binary / graded regression, listwise rank_xendcg",
@@ -176,36 +176,36 @@
       "metric": "holdout NDCG@10 (mean, 95% CI)",
       "results": {
         "binary": {
-          "best_iteration": 372,
-          "ci_high": 0.1705029522862535,
-          "ci_low": 0.14912463137043372,
-          "mean": 0.1596422440306013,
+          "best_iteration": 245,
+          "ci_high": 0.17010195942269515,
+          "ci_low": 0.1482692299926327,
+          "mean": 0.1590067672582198,
           "n": 605
         },
         "lambdarank": {
-          "best_iteration": 195,
-          "ci_high": 0.15817881634556524,
-          "ci_low": 0.13795069978450797,
-          "mean": 0.14795691393196728,
+          "best_iteration": 180,
+          "ci_high": 0.1589668121452518,
+          "ci_low": 0.13845756050379607,
+          "mean": 0.14848471206262726,
           "n": 605
         },
         "rank_xendcg": {
-          "best_iteration": 77,
-          "ci_high": 0.16660369212011142,
-          "ci_low": 0.14530435338852923,
-          "mean": 0.1556311397324864,
+          "best_iteration": 30,
+          "ci_high": 0.16518871056528409,
+          "ci_low": 0.14321694013263156,
+          "mean": 0.15407107629545141,
           "n": 605
         },
         "regression": {
-          "best_iteration": 255,
-          "ci_high": 0.16999151328922427,
-          "ci_low": 0.14921863195718002,
-          "mean": 0.1595648149375649,
+          "best_iteration": 762,
+          "ci_high": 0.17003574154073572,
+          "ci_low": 0.148200452957703,
+          "mean": 0.1590529369709116,
           "n": 605
         }
       },
       "status": "MEASURED",
-      "verdict": "lambdarank 0.1480 [0.1380, 0.1582]; rank_xendcg 0.1556 [0.1453, 0.1666]; binary 0.1596 [0.1491, 0.1705]; regression 0.1596 [0.1492, 0.1700]"
+      "verdict": "lambdarank 0.1485 [0.1385, 0.1590]; rank_xendcg 0.1541 [0.1432, 0.1652]; binary 0.1590 [0.1483, 0.1701]; regression 0.1591 [0.1482, 0.1700]"
     },
     {
       "alternative": "all-MiniLM-L6-v2 sentence embeddings (-> SVD-64)",
@@ -224,9 +224,9 @@
             "n_trips_undefined_constant_scores": 72
           },
           "ndcg10": {
-            "ci_high": 0.16554707922130163,
-            "ci_low": 0.1446341614514938,
-            "mean": 0.1548931615805207,
+            "ci_high": 0.15289436637115342,
+            "ci_low": 0.13352318179388178,
+            "mean": 0.14323251062197453,
             "n": 605
           }
         },
@@ -240,15 +240,15 @@
             "n_trips_undefined_constant_scores": 72
           },
           "ndcg10": {
-            "ci_high": 0.15817881634556524,
-            "ci_low": 0.13795069978450797,
-            "mean": 0.14795691393196728,
+            "ci_high": 0.1589668121452518,
+            "ci_low": 0.13845756050379607,
+            "mean": 0.14848471206262726,
             "n": 605
           }
         }
       },
       "status": "MEASURED",
-      "verdict": "TF-IDF: D11 0.865, D9 0.473, NDCG@10 0.1480. MiniLM: D11 0.590, D9 0.258, NDCG@10 0.1549 (CIs overlap). Dataset-specific (templated synonym-pool text); transfer to real POI text is untested."
+      "verdict": "TF-IDF: D11 0.865, D9 0.473, NDCG@10 0.1485. MiniLM: D11 0.590, D9 0.258, NDCG@10 0.1432 (CIs overlap). Dataset-specific (templated synonym-pool text); transfer to real POI text is untested."
     },
     {
       "alternative": "ANN index (faiss / hnswlib)",
@@ -270,70 +270,70 @@
         "arithmetic_mean": {
           "gated": {
             "hard_constraint_violations_in_top10": 0,
-            "mean_compat_at_10": 0.857517356843233,
+            "mean_compat_at_10": 0.857065869049623,
             "n_trips": 671,
-            "ndcg_at_10": 0.12923401173458532,
+            "ndcg_at_10": 0.13414000703669104,
             "trips_with_violation": 0
           },
           "ungated": {
-            "hard_constraint_violations_in_top10": 1550,
-            "mean_compat_at_10": 0.8450887535554025,
+            "hard_constraint_violations_in_top10": 1585,
+            "mean_compat_at_10": 0.8445228662790777,
             "n_trips": 671,
-            "ndcg_at_10": 0.1465249406950428,
-            "trips_with_violation": 319
+            "ndcg_at_10": 0.15094673280971851,
+            "trips_with_violation": 318
           }
         },
         "geometric_mean (production)": {
           "gated": {
             "hard_constraint_violations_in_top10": 0,
-            "mean_compat_at_10": 0.8371092537947428,
+            "mean_compat_at_10": 0.836769380111211,
             "n_trips": 671,
-            "ndcg_at_10": 0.12964824229599647,
+            "ndcg_at_10": 0.13565796948314068,
             "trips_with_violation": 0
           },
           "ungated": {
-            "hard_constraint_violations_in_top10": 1422,
-            "mean_compat_at_10": 0.8145877217354204,
+            "hard_constraint_violations_in_top10": 1484,
+            "mean_compat_at_10": 0.8126641096593077,
             "n_trips": 671,
-            "ndcg_at_10": 0.14652753007892283,
-            "trips_with_violation": 317
+            "ndcg_at_10": 0.15260771051331856,
+            "trips_with_violation": 314
           }
         },
         "min": {
           "gated": {
             "hard_constraint_violations_in_top10": 0,
-            "mean_compat_at_10": 0.6438708717745492,
+            "mean_compat_at_10": 0.6410119910392916,
             "n_trips": 671,
-            "ndcg_at_10": 0.12694392071188282,
+            "ndcg_at_10": 0.13467505466026117,
             "trips_with_violation": 0
           },
           "ungated": {
-            "hard_constraint_violations_in_top10": 940,
-            "mean_compat_at_10": 0.616772500022295,
+            "hard_constraint_violations_in_top10": 990,
+            "mean_compat_at_10": 0.6124122586024641,
             "n_trips": 671,
-            "ndcg_at_10": 0.1410874861962,
-            "trips_with_violation": 252
+            "ndcg_at_10": 0.1479914215786537,
+            "trips_with_violation": 261
           }
         },
         "product": {
           "gated": {
             "hard_constraint_violations_in_top10": 0,
-            "mean_compat_at_10": 0.47623610527291915,
+            "mean_compat_at_10": 0.47308354775878114,
             "n_trips": 671,
-            "ndcg_at_10": 0.12732325532969296,
+            "ndcg_at_10": 0.13216505615729743,
             "trips_with_violation": 0
           },
           "ungated": {
-            "hard_constraint_violations_in_top10": 830,
-            "mean_compat_at_10": 0.46244563887275103,
+            "hard_constraint_violations_in_top10": 884,
+            "mean_compat_at_10": 0.4573242601272083,
             "n_trips": 671,
-            "ndcg_at_10": 0.14079605420767047,
-            "trips_with_violation": 215
+            "ndcg_at_10": 0.1443097261251778,
+            "trips_with_violation": 228
           }
         }
       },
       "status": "MEASURED",
-      "verdict": "Ungated hard-violation counts: geometric_mean (production)=1422, min=940, product=830, arithmetic_mean=1550; NDCG@10 gated: geometric_mean (production)=0.1296, min=0.1269, product=0.1273, arithmetic_mean=0.1292. Geometric mean ungated NDCG 0.1465."
+      "verdict": "Ungated hard-violation counts: geometric_mean (production)=1484, min=990, product=884, arithmetic_mean=1585; NDCG@10 gated: geometric_mean (production)=0.1357, min=0.1347, product=0.1322, arithmetic_mean=0.1341. Geometric mean ungated NDCG 0.1526."
     },
     {
       "alternative": "clip in {5, 10, 50, none}",
@@ -343,44 +343,44 @@
       "metric": "holdout NDCG@10 (mean, 95% CI)",
       "results": {
         "10": {
-          "ci_high": 0.14950123000283322,
-          "ci_low": 0.12892745573028602,
-          "mean": 0.13897671888308777,
+          "ci_high": 0.1544945599250636,
+          "ci_low": 0.13348679272403338,
+          "mean": 0.14393940206508335,
           "n": 605
         },
         "20": {
-          "ci_high": 0.15817881634556524,
-          "ci_low": 0.13795069978450797,
-          "mean": 0.14795691393196728,
+          "ci_high": 0.1589668121452518,
+          "ci_low": 0.13845756050379607,
+          "mean": 0.14848471206262726,
           "n": 605
         },
         "5": {
-          "ci_high": 0.1450661888127925,
-          "ci_low": 0.12547459444542192,
-          "mean": 0.1350848086095049,
+          "ci_high": 0.14581512631038263,
+          "ci_low": 0.12557037244756156,
+          "mean": 0.13563216878564716,
           "n": 605
         },
         "50": {
-          "ci_high": 0.16840602112666891,
-          "ci_low": 0.14652515921674106,
-          "mean": 0.15740809317387874,
+          "ci_high": 0.17267247249506315,
+          "ci_low": 0.1512506046511984,
+          "mean": 0.16178179165615675,
           "n": 605
         },
         "no_ips": {
-          "ci_high": 0.13516362468802173,
-          "ci_low": 0.11611260165583791,
-          "mean": 0.12568945064869458,
+          "ci_high": 0.13391001062911723,
+          "ci_low": 0.11519993311909874,
+          "mean": 0.12442882144164602,
           "n": 605
         },
         "none": {
-          "ci_high": 0.17109687795118902,
-          "ci_low": 0.14958411099524746,
-          "mean": 0.1602650589814647,
+          "ci_high": 0.1678340531766816,
+          "ci_low": 0.14657293243196642,
+          "mean": 0.15707630014556975,
           "n": 605
         }
       },
       "status": "MEASURED",
-      "verdict": "clip 5: 0.1351 [0.1255, 0.1451]; clip 10: 0.1390 [0.1289, 0.1495]; clip 20: 0.1480 [0.1380, 0.1582]; clip 50: 0.1574 [0.1465, 0.1684]; clip none: 0.1603 [0.1496, 0.1711]; clip no_ips: 0.1257 [0.1161, 0.1352]"
+      "verdict": "clip 5: 0.1356 [0.1256, 0.1458]; clip 10: 0.1439 [0.1335, 0.1545]; clip 20: 0.1485 [0.1385, 0.1590]; clip 50: 0.1618 [0.1513, 0.1727]; clip none: 0.1571 [0.1466, 0.1678]; clip no_ips: 0.1244 [0.1152, 0.1339]"
     },
     {
       "alternative": "+-2x half-life; uniform interaction weights",
@@ -397,9 +397,9 @@
             "n_trips_undefined_constant_scores": 72
           },
           "ndcg10": {
-            "ci_high": 0.15817881634556524,
-            "ci_low": 0.13795069978450797,
-            "mean": 0.14795691393196728,
+            "ci_high": 0.1589668121452518,
+            "ci_low": 0.13845756050379607,
+            "mean": 0.14848471206262726,
             "n": 605
           }
         },
@@ -411,9 +411,9 @@
             "n_trips_undefined_constant_scores": 72
           },
           "ndcg10": {
-            "ci_high": 0.1650781505464168,
-            "ci_low": 0.1436662863933083,
-            "mean": 0.15442877553351256,
+            "ci_high": 0.17187712811136122,
+            "ci_low": 0.15146736335571628,
+            "mean": 0.161382284330503,
             "n": 605
           }
         },
@@ -425,9 +425,9 @@
             "n_trips_undefined_constant_scores": 72
           },
           "ndcg10": {
-            "ci_high": 0.15905733205460598,
-            "ci_low": 0.13854025100370546,
-            "mean": 0.14869212426057232,
+            "ci_high": 0.15966416152276383,
+            "ci_low": 0.13968318873924324,
+            "mean": 0.1496016839628522,
             "n": 605
           }
         },
@@ -439,15 +439,15 @@
             "n_trips_undefined_constant_scores": 72
           },
           "ndcg10": {
-            "ci_high": 0.17299278352473638,
-            "ci_low": 0.15238534790733185,
-            "mean": 0.1620544382581773,
+            "ci_high": 0.17361758198228197,
+            "ci_low": 0.15164527854587342,
+            "mean": 0.16237390152227874,
             "n": 605
           }
         }
       },
       "status": "MEASURED",
-      "verdict": "halflife_180d (shipped): NDCG@10 0.1480, D9 0.473; halflife_90d: NDCG@10 0.1487, D9 0.470; halflife_360d: NDCG@10 0.1544, D9 0.474; uniform_weights: NDCG@10 0.1621, D9 0.052"
+      "verdict": "halflife_180d (shipped): NDCG@10 0.1485, D9 0.473; halflife_90d: NDCG@10 0.1496, D9 0.470; halflife_360d: NDCG@10 0.1614, D9 0.474; uniform_weights: NDCG@10 0.1624, D9 0.052"
     },
     {
       "alternative": "quota in {0, 25, 100}",
@@ -457,88 +457,88 @@
       "metric": "NDCG@10; long-tail share and precision @10; candidate recall",
       "results": {
         "0": {
-          "candidate_recall_long_tail": 0.8204353028517767,
-          "candidate_recall_overall": 0.8623797356829281,
+          "candidate_recall_long_tail": 0.7943853570648167,
+          "candidate_recall_overall": 0.845067041699593,
           "longtail_at_10": {
-            "n_longtail_recommended": 1047,
-            "n_longtail_relevant": 254,
+            "n_longtail_recommended": 1045,
+            "n_longtail_relevant": 249,
             "n_total_recommended": 6710,
-            "precision": 0.24259789875835722,
+            "precision": 0.23827751196172248,
             "precision_target_met": false,
-            "share": 0.15603576751117734,
+            "share": 0.1557377049180328,
             "share_target_met": false
           },
-          "mean_candidates_per_trip": 226.45901639344262,
+          "mean_candidates_per_trip": 212.38897168405364,
           "ndcg10": {
-            "ci_high": 0.15853670317076435,
-            "ci_low": 0.1382777693555504,
-            "mean": 0.14831253822670543,
+            "ci_high": 0.15978215063822743,
+            "ci_low": 0.13908781707173465,
+            "mean": 0.1491673771010162,
             "n": 605
           }
         },
         "100": {
-          "candidate_recall_long_tail": 0.884449425379782,
-          "candidate_recall_overall": 0.8868787940041449,
+          "candidate_recall_long_tail": 0.8681869901351051,
+          "candidate_recall_overall": 0.8735913122067709,
           "longtail_at_10": {
-            "n_longtail_recommended": 1114,
-            "n_longtail_relevant": 251,
+            "n_longtail_recommended": 1124,
+            "n_longtail_relevant": 245,
             "n_total_recommended": 6710,
-            "precision": 0.2253141831238779,
+            "precision": 0.2179715302491103,
             "precision_target_met": false,
-            "share": 0.1660208643815201,
+            "share": 0.1675111773472429,
             "share_target_met": false
           },
-          "mean_candidates_per_trip": 274.7242921013413,
+          "mean_candidates_per_trip": 264.4038748137109,
           "ndcg10": {
-            "ci_high": 0.15709497960142155,
-            "ci_low": 0.13686844213328003,
-            "mean": 0.1468698830980661,
+            "ci_high": 0.15757510686510054,
+            "ci_low": 0.13727974637800056,
+            "mean": 0.14717237253831508,
             "n": 605
           }
         },
         "25": {
-          "candidate_recall_long_tail": 0.8342788590893792,
-          "candidate_recall_overall": 0.8675770784463861,
+          "candidate_recall_long_tail": 0.810012663591274,
+          "candidate_recall_overall": 0.8510462057287608,
           "longtail_at_10": {
-            "n_longtail_recommended": 1055,
-            "n_longtail_relevant": 257,
+            "n_longtail_recommended": 1079,
+            "n_longtail_relevant": 248,
             "n_total_recommended": 6710,
-            "precision": 0.24360189573459715,
+            "precision": 0.22984244670991658,
             "precision_target_met": false,
-            "share": 0.1572280178837556,
+            "share": 0.16080476900149032,
             "share_target_met": false
           },
-          "mean_candidates_per_trip": 234.43368107302533,
+          "mean_candidates_per_trip": 221.07004470938898,
           "ndcg10": {
-            "ci_high": 0.1584864087049283,
-            "ci_low": 0.13820334406103774,
-            "mean": 0.1482581580773007,
+            "ci_high": 0.1591947860509942,
+            "ci_low": 0.13882802687050988,
+            "mean": 0.14873020875638898,
             "n": 605
           }
         },
         "50": {
-          "candidate_recall_long_tail": 0.8481165377653217,
-          "candidate_recall_overall": 0.8730686197858597,
+          "candidate_recall_long_tail": 0.8262227145918638,
+          "candidate_recall_overall": 0.8573417575961688,
           "longtail_at_10": {
-            "n_longtail_recommended": 1071,
-            "n_longtail_relevant": 256,
+            "n_longtail_recommended": 1083,
+            "n_longtail_relevant": 246,
             "n_total_recommended": 6710,
-            "precision": 0.23902894491129786,
+            "precision": 0.22714681440443213,
             "precision_target_met": false,
-            "share": 0.15961251862891207,
+            "share": 0.16140089418777942,
             "share_target_met": false
           },
-          "mean_candidates_per_trip": 245.4828614008942,
+          "mean_candidates_per_trip": 233.09538002980625,
           "ndcg10": {
-            "ci_high": 0.15817881634556524,
-            "ci_low": 0.13795069978450797,
-            "mean": 0.14795691393196728,
+            "ci_high": 0.1589668121452518,
+            "ci_low": 0.13845756050379607,
+            "mean": 0.14848471206262726,
             "n": 605
           }
         }
       },
       "status": "MEASURED",
-      "verdict": "quota 0: NDCG@10 0.1483, long-tail share 0.156, candidate recall 0.862; quota 25: NDCG@10 0.1483, long-tail share 0.157, candidate recall 0.868; quota 50: NDCG@10 0.1480, long-tail share 0.160, candidate recall 0.873; quota 100: NDCG@10 0.1469, long-tail share 0.166, candidate recall 0.887"
+      "verdict": "quota 0: NDCG@10 0.1492, long-tail share 0.156, candidate recall 0.845; quota 25: NDCG@10 0.1487, long-tail share 0.161, candidate recall 0.851; quota 50: NDCG@10 0.1485, long-tail share 0.161, candidate recall 0.857; quota 100: NDCG@10 0.1472, long-tail share 0.168, candidate recall 0.874"
     },
     {
       "alternative": "alpha x beta grid",
@@ -551,140 +551,140 @@
           "alpha": 0.5,
           "beta": 0.0,
           "hard_constraint_violations_in_top10": 0,
-          "mean_compat_at_10": 0.7923851538871429,
+          "mean_compat_at_10": 0.791319414377128,
           "n_trips": 671,
-          "ndcg_at_10": 0.12811485716179377,
+          "ndcg_at_10": 0.12946401477909011,
           "trips_with_violation": 0
         },
         {
           "alpha": 0.5,
           "beta": 0.3,
           "hard_constraint_violations_in_top10": 0,
-          "mean_compat_at_10": 0.8352762614382645,
+          "mean_compat_at_10": 0.8350159819777122,
           "n_trips": 671,
-          "ndcg_at_10": 0.1301009742780367,
+          "ndcg_at_10": 0.13495387795557195,
           "trips_with_violation": 0
         },
         {
           "alpha": 0.5,
           "beta": 0.7,
           "hard_constraint_violations_in_top10": 0,
-          "mean_compat_at_10": 0.8475567947180233,
+          "mean_compat_at_10": 0.8469236021469705,
           "n_trips": 671,
-          "ndcg_at_10": 0.12799488436971082,
+          "ndcg_at_10": 0.1355287742878259,
           "trips_with_violation": 0
         },
         {
           "alpha": 0.5,
           "beta": 1.0,
           "hard_constraint_violations_in_top10": 0,
-          "mean_compat_at_10": 0.8550255844144726,
+          "mean_compat_at_10": 0.8542384285518663,
           "n_trips": 671,
-          "ndcg_at_10": 0.12668853200159302,
+          "ndcg_at_10": 0.13364984312616282,
           "trips_with_violation": 0
         },
         {
           "alpha": 0.5,
           "beta": 1.5,
           "hard_constraint_violations_in_top10": 0,
-          "mean_compat_at_10": 0.8644982390381042,
+          "mean_compat_at_10": 0.8637451611921191,
           "n_trips": 671,
-          "ndcg_at_10": 0.12693496643959526,
+          "ndcg_at_10": 0.1323428133856384,
           "trips_with_violation": 0
         },
         {
           "alpha": 1.0,
           "beta": 0.0,
           "hard_constraint_violations_in_top10": 0,
-          "mean_compat_at_10": 0.7923851538871429,
+          "mean_compat_at_10": 0.791319414377128,
           "n_trips": 671,
-          "ndcg_at_10": 0.12811485716179377,
+          "ndcg_at_10": 0.12946401477909011,
           "trips_with_violation": 0
         },
         {
           "alpha": 1.0,
           "beta": 0.3,
           "hard_constraint_violations_in_top10": 0,
-          "mean_compat_at_10": 0.8298963856165402,
+          "mean_compat_at_10": 0.8306226333018593,
           "n_trips": 671,
-          "ndcg_at_10": 0.12955329813032734,
+          "ndcg_at_10": 0.13484988901724762,
           "trips_with_violation": 0
         },
         {
           "alpha": 1.0,
           "beta": 0.7,
           "hard_constraint_violations_in_top10": 0,
-          "mean_compat_at_10": 0.8371092537947428,
+          "mean_compat_at_10": 0.836769380111211,
           "n_trips": 671,
-          "ndcg_at_10": 0.12964824229599647,
+          "ndcg_at_10": 0.13565796948314068,
           "trips_with_violation": 0
         },
         {
           "alpha": 1.0,
           "beta": 1.0,
           "hard_constraint_violations_in_top10": 0,
-          "mean_compat_at_10": 0.8417533592258472,
+          "mean_compat_at_10": 0.8412605655816919,
           "n_trips": 671,
-          "ndcg_at_10": 0.12786074961866417,
+          "ndcg_at_10": 0.13623155477020774,
           "trips_with_violation": 0
         },
         {
           "alpha": 1.0,
           "beta": 1.5,
           "hard_constraint_violations_in_top10": 0,
-          "mean_compat_at_10": 0.8488752993902087,
+          "mean_compat_at_10": 0.8482196007853618,
           "n_trips": 671,
-          "ndcg_at_10": 0.12736297332779642,
+          "ndcg_at_10": 0.13573034469512843,
           "trips_with_violation": 0
         },
         {
           "alpha": 2.0,
           "beta": 0.0,
           "hard_constraint_violations_in_top10": 0,
-          "mean_compat_at_10": 0.7923851538871429,
+          "mean_compat_at_10": 0.791319414377128,
           "n_trips": 671,
-          "ndcg_at_10": 0.12811485716179377,
+          "ndcg_at_10": 0.12946401477909011,
           "trips_with_violation": 0
         },
         {
           "alpha": 2.0,
           "beta": 0.3,
           "hard_constraint_violations_in_top10": 0,
-          "mean_compat_at_10": 0.827397695732921,
+          "mean_compat_at_10": 0.8284585256914617,
           "n_trips": 671,
-          "ndcg_at_10": 0.12974216847776554,
+          "ndcg_at_10": 0.1344911752460689,
           "trips_with_violation": 0
         },
         {
           "alpha": 2.0,
           "beta": 0.7,
           "hard_constraint_violations_in_top10": 0,
-          "mean_compat_at_10": 0.8307583628281981,
+          "mean_compat_at_10": 0.83119850718381,
           "n_trips": 671,
-          "ndcg_at_10": 0.12932665348144418,
+          "ndcg_at_10": 0.13466629133633637,
           "trips_with_violation": 0
         },
         {
           "alpha": 2.0,
           "beta": 1.0,
           "hard_constraint_violations_in_top10": 0,
-          "mean_compat_at_10": 0.8336370566889,
+          "mean_compat_at_10": 0.8334302453456809,
           "n_trips": 671,
-          "ndcg_at_10": 0.13025654808833592,
+          "ndcg_at_10": 0.13484914146420823,
           "trips_with_violation": 0
         },
         {
           "alpha": 2.0,
           "beta": 1.5,
           "hard_constraint_violations_in_top10": 0,
-          "mean_compat_at_10": 0.8382492568149578,
+          "mean_compat_at_10": 0.8375011595094808,
           "n_trips": 671,
-          "ndcg_at_10": 0.129046705077711,
+          "ndcg_at_10": 0.13557554927557883,
           "trips_with_violation": 0
         }
       ],
       "status": "MEASURED",
-      "verdict": "Shipped (alpha=1.0, beta=0.7): NDCG@10 0.1296, compat@10 0.8371. NDCG-best cell (alpha=2.0, beta=1.0): 0.1303, compat@10 0.8336."
+      "verdict": "Shipped (alpha=1.0, beta=0.7): NDCG@10 0.1357, compat@10 0.8368. NDCG-best cell (alpha=1.0, beta=1.0): 0.1362, compat@10 0.8413."
     },
     {
       "alternative": "The original 6 heuristic channels, and subsets of them",

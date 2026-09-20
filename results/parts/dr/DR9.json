@@ -6,86 +6,86 @@
   "metric": "NDCG@10; long-tail share and precision @10; candidate recall",
   "results": {
     "0": {
-      "candidate_recall_long_tail": 0.8204353028517767,
-      "candidate_recall_overall": 0.8623797356829281,
+      "candidate_recall_long_tail": 0.7943853570648167,
+      "candidate_recall_overall": 0.845067041699593,
       "longtail_at_10": {
-        "n_longtail_recommended": 1047,
-        "n_longtail_relevant": 254,
+        "n_longtail_recommended": 1045,
+        "n_longtail_relevant": 249,
         "n_total_recommended": 6710,
-        "precision": 0.24259789875835722,
+        "precision": 0.23827751196172248,
         "precision_target_met": false,
-        "share": 0.15603576751117734,
+        "share": 0.1557377049180328,
         "share_target_met": false
       },
-      "mean_candidates_per_trip": 226.45901639344262,
+      "mean_candidates_per_trip": 212.38897168405364,
       "ndcg10": {
-        "ci_high": 0.15853670317076435,
-        "ci_low": 0.1382777693555504,
-        "mean": 0.14831253822670543,
+        "ci_high": 0.15978215063822743,
+        "ci_low": 0.13908781707173465,
+        "mean": 0.1491673771010162,
         "n": 605
       }
     },
     "100": {
-      "candidate_recall_long_tail": 0.884449425379782,
-      "candidate_recall_overall": 0.8868787940041449,
+      "candidate_recall_long_tail": 0.8681869901351051,
+      "candidate_recall_overall": 0.8735913122067709,
       "longtail_at_10": {
-        "n_longtail_recommended": 1114,
-        "n_longtail_relevant": 251,
+        "n_longtail_recommended": 1124,
+        "n_longtail_relevant": 245,
         "n_total_recommended": 6710,
-        "precision": 0.2253141831238779,
+        "precision": 0.2179715302491103,
         "precision_target_met": false,
-        "share": 0.1660208643815201,
+        "share": 0.1675111773472429,
         "share_target_met": false
       },
-      "mean_candidates_per_trip": 274.7242921013413,
+      "mean_candidates_per_trip": 264.4038748137109,
       "ndcg10": {
-        "ci_high": 0.15709497960142155,
-        "ci_low": 0.13686844213328003,
-        "mean": 0.1468698830980661,
+        "ci_high": 0.15757510686510054,
+        "ci_low": 0.13727974637800056,
+        "mean": 0.14717237253831508,
         "n": 605
       }
     },
     "25": {
-      "candidate_recall_long_tail": 0.8342788590893792,
-      "candidate_recall_overall": 0.8675770784463861,
+      "candidate_recall_long_tail": 0.810012663591274,
+      "candidate_recall_overall": 0.8510462057287608,
       "longtail_at_10": {
-        "n_longtail_recommended": 1055,
-        "n_longtail_relevant": 257,
+        "n_longtail_recommended": 1079,
+        "n_longtail_relevant": 248,
         "n_total_recommended": 6710,
-        "precision": 0.24360189573459715,
+        "precision": 0.22984244670991658,
         "precision_target_met": false,
-        "share": 0.1572280178837556,
+        "share": 0.16080476900149032,
         "share_target_met": false
       },
-      "mean_candidates_per_trip": 234.43368107302533,
+      "mean_candidates_per_trip": 221.07004470938898,
       "ndcg10": {
-        "ci_high": 0.1584864087049283,
-        "ci_low": 0.13820334406103774,
-        "mean": 0.1482581580773007,
+        "ci_high": 0.1591947860509942,
+        "ci_low": 0.13882802687050988,
+        "mean": 0.14873020875638898,
         "n": 605
       }
     },
     "50": {
-      "candidate_recall_long_tail": 0.8481165377653217,
-      "candidate_recall_overall": 0.8730686197858597,
+      "candidate_recall_long_tail": 0.8262227145918638,
+      "candidate_recall_overall": 0.8573417575961688,
       "longtail_at_10": {
-        "n_longtail_recommended": 1071,
-        "n_longtail_relevant": 256,
+        "n_longtail_recommended": 1083,
+        "n_longtail_relevant": 246,
         "n_total_recommended": 6710,
-        "precision": 0.23902894491129786,
+        "precision": 0.22714681440443213,
         "precision_target_met": false,
-        "share": 0.15961251862891207,
+        "share": 0.16140089418777942,
         "share_target_met": false
       },
-      "mean_candidates_per_trip": 245.4828614008942,
+      "mean_candidates_per_trip": 233.09538002980625,
       "ndcg10": {
-        "ci_high": 0.15817881634556524,
-        "ci_low": 0.13795069978450797,
-        "mean": 0.14795691393196728,
+        "ci_high": 0.1589668121452518,
+        "ci_low": 0.13845756050379607,
+        "mean": 0.14848471206262726,
         "n": 605
       }
     }
   },
   "status": "MEASURED",
-  "verdict": "quota 0: NDCG@10 0.1483, long-tail share 0.156, candidate recall 0.862; quota 25: NDCG@10 0.1483, long-tail share 0.157, candidate recall 0.868; quota 50: NDCG@10 0.1480, long-tail share 0.160, candidate recall 0.873; quota 100: NDCG@10 0.1469, long-tail share 0.166, candidate recall 0.887"
+  "verdict": "quota 0: NDCG@10 0.1492, long-tail share 0.156, candidate recall 0.845; quota 25: NDCG@10 0.1487, long-tail share 0.161, candidate recall 0.851; quota 50: NDCG@10 0.1485, long-tail share 0.161, candidate recall 0.857; quota 100: NDCG@10 0.1472, long-tail share 0.168, candidate recall 0.874"
 }

@@ -216,8 +216,9 @@ def diagnoses(metrics: dict[str, Any], scenarios: dict[str, Any] | None = None) 
                 f". The composite is BELOW its best single input ({best_name}, "
                 f"|rho| {_f(abs(best_rho), 3)}): the blend weights were fixed earlier, when the "
                 "geo input carried almost no signal (before the simulator's geo/localness fix). "
-                "Re-weighting against the latent value would leak the oracle into a decision, "
-                "so the index is left as shipped and the gap is reported."
+                "Re-weighting them against the latent localness would be tuning on the oracle "
+                "(there is no oracle-free validation target for this index), so that retune is "
+                "declined on principle: the index is left as shipped and the gap is reported."
                 if stale
                 else ". The index is a weighted blend of these signed correlations, so it "
                 "cannot exceed what its inputs carry."

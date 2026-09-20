@@ -8,68 +8,68 @@
     "arithmetic_mean": {
       "gated": {
         "hard_constraint_violations_in_top10": 0,
-        "mean_compat_at_10": 0.857517356843233,
+        "mean_compat_at_10": 0.857065869049623,
         "n_trips": 671,
-        "ndcg_at_10": 0.12923401173458532,
+        "ndcg_at_10": 0.13414000703669104,
         "trips_with_violation": 0
       },
       "ungated": {
-        "hard_constraint_violations_in_top10": 1550,
-        "mean_compat_at_10": 0.8450887535554025,
+        "hard_constraint_violations_in_top10": 1585,
+        "mean_compat_at_10": 0.8445228662790777,
         "n_trips": 671,
-        "ndcg_at_10": 0.1465249406950428,
-        "trips_with_violation": 319
+        "ndcg_at_10": 0.15094673280971851,
+        "trips_with_violation": 318
       }
     },
     "geometric_mean (production)": {
       "gated": {
         "hard_constraint_violations_in_top10": 0,
-        "mean_compat_at_10": 0.8371092537947428,
+        "mean_compat_at_10": 0.836769380111211,
         "n_trips": 671,
-        "ndcg_at_10": 0.12964824229599647,
+        "ndcg_at_10": 0.13565796948314068,
         "trips_with_violation": 0
       },
       "ungated": {
-        "hard_constraint_violations_in_top10": 1422,
-        "mean_compat_at_10": 0.8145877217354204,
+        "hard_constraint_violations_in_top10": 1484,
+        "mean_compat_at_10": 0.8126641096593077,
         "n_trips": 671,
-        "ndcg_at_10": 0.14652753007892283,
-        "trips_with_violation": 317
+        "ndcg_at_10": 0.15260771051331856,
+        "trips_with_violation": 314
       }
     },
     "min": {
       "gated": {
         "hard_constraint_violations_in_top10": 0,
-        "mean_compat_at_10": 0.6438708717745492,
+        "mean_compat_at_10": 0.6410119910392916,
         "n_trips": 671,
-        "ndcg_at_10": 0.12694392071188282,
+        "ndcg_at_10": 0.13467505466026117,
         "trips_with_violation": 0
       },
       "ungated": {
-        "hard_constraint_violations_in_top10": 940,
-        "mean_compat_at_10": 0.616772500022295,
+        "hard_constraint_violations_in_top10": 990,
+        "mean_compat_at_10": 0.6124122586024641,
         "n_trips": 671,
-        "ndcg_at_10": 0.1410874861962,
-        "trips_with_violation": 252
+        "ndcg_at_10": 0.1479914215786537,
+        "trips_with_violation": 261
       }
     },
     "product": {
       "gated": {
         "hard_constraint_violations_in_top10": 0,
-        "mean_compat_at_10": 0.47623610527291915,
+        "mean_compat_at_10": 0.47308354775878114,
         "n_trips": 671,
-        "ndcg_at_10": 0.12732325532969296,
+        "ndcg_at_10": 0.13216505615729743,
         "trips_with_violation": 0
       },
       "ungated": {
-        "hard_constraint_violations_in_top10": 830,
-        "mean_compat_at_10": 0.46244563887275103,
+        "hard_constraint_violations_in_top10": 884,
+        "mean_compat_at_10": 0.4573242601272083,
         "n_trips": 671,
-        "ndcg_at_10": 0.14079605420767047,
-        "trips_with_violation": 215
+        "ndcg_at_10": 0.1443097261251778,
+        "trips_with_violation": 228
       }
     }
   },
   "status": "MEASURED",
-  "verdict": "Ungated hard-violation counts: geometric_mean (production)=1422, min=940, product=830, arithmetic_mean=1550; NDCG@10 gated: geometric_mean (production)=0.1296, min=0.1269, product=0.1273, arithmetic_mean=0.1292. Geometric mean ungated NDCG 0.1465."
+  "verdict": "Ungated hard-violation counts: geometric_mean (production)=1484, min=990, product=884, arithmetic_mean=1585; NDCG@10 gated: geometric_mean (production)=0.1357, min=0.1347, product=0.1322, arithmetic_mean=0.1341. Geometric mean ungated NDCG 0.1526."
 }

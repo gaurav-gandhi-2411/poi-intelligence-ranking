@@ -53,7 +53,43 @@ def _sig_vs_content(ctx: dict[str, Any]) -> str:
     )
 
 
+def _seed_headline(ctx: dict[str, Any]) -> str:
+    """Primary NDCG@10 as a 5-seed mean +/- sd, stating where the committed seed (42) ranks --
+    the single-seed headline is only honest if it says whether it is a typical draw."""
+    m = ctx["seed_replication"]["metrics"]["ndcg10_lambdamart_ips"]
+    per = m["per_seed"]
+    ranked = sorted(per, key=lambda k: per[k])
+    pos = ranked.index("42")
+    where = (
+        "the LOWEST of the five"
+        if pos == 0
+        else "the HIGHEST of the five"
+        if pos == len(ranked) - 1
+        else f"number {pos + 1} of {len(ranked)} counting from the lowest"
+    )
+    return (
+        f"{m['mean']:.4f} ± {m['sd']:.4f} (mean ± sd over {len(per)} independently regenerated "
+        f"seeds; the committed seed 42, {per['42']:.4f}, is {where})"
+    )
+
+
+def _seed_vs_cosine(ctx: dict[str, Any]) -> str:
+    """How many of the replicated seeds have the primary system above content cosine."""
+    m = ctx["seed_replication"]["metrics"]
+    prim, cos = m["ndcg10_lambdamart_ips"]["per_seed"], m["ndcg10_content_cosine"]["per_seed"]
+    wins = sum(prim[k] > cos[k] for k in prim)
+    gap = sum(prim[k] - cos[k] for k in prim) / len(prim)
+    return f"{wins} of {len(prim)} seeds (mean gap {gap:+.4f} NDCG@10)"
+
+
+def _reproduce_minutes(ctx: dict[str, Any]) -> str:
+    return f"{ctx['timings']['total_seconds'] / 60:.1f} min"
+
+
 _DERIVED: dict[str, Callable[[dict[str, Any]], float | str]] = {
+    "reproduce_minutes": _reproduce_minutes,
+    "seed_headline": _seed_headline,
+    "seed_vs_cosine": _seed_vs_cosine,
     "lift_vs_popularity_pct": _relative_lift_pct,
     "sig_vs_content": _sig_vs_content,
 }

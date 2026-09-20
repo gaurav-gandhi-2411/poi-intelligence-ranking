@@ -2884,3 +2884,38 @@ between-seed table is in RESULTS.md.
 Two results worth flagging because they cut against the shipped choices: DR3 (pointwise objectives
 tie or beat `lambdarank`) and DR7 (less IPS clipping is better on the holdout). Neither was
 adopted, because selecting on the holdout would leak it into a decision.
+
+### Block E — "the one problem" (2026-09-20): does the ranker beat a cosine baseline?
+
+Provenance: `results/parts/{retrieval_ranking_decomposition,ranker_sweep,longtail_stages,e4_k_sweep}.json`
+composed into `results/metrics.json`; scripts `scripts/e4_k_sweep.py`, CLI `decompose|sweep|longtail-stages`.
+
+- **Problem.** Primary NDCG@10 0.1485 vs content cosine 0.1411, Wilcoxon p=0.445 (seed 42): not a
+  supported win over cosine. The "+140% vs popularity" figure compares against the weakest baseline.
+- **E1 decomposition** (fixed-denominator end-to-end NDCG@10; candidate-relative NDCG cannot compare
+  candidate sets). Primary 0.1445 on the old six-channel set, 0.1434 on the learned set; popularity
+  0.0644 / 0.0596; cosine 0.1353 / 0.1357. Retrieval effect on the primary: p=0.308. The gain over
+  popularity (~+0.08) is a ranking gain, not a retrieval gain. Legacy-set retrained booster 0.1462.
+- **E2 ranker sweep** (60 configs, validation only, IPS-weighted NDCG@10, successive halving).
+  Winner = the shipped config (lambdarank, IPS clip 20, all features), 4-seed val 0.3167. No change
+  to the ranker; the holdout was not re-scored under a different config. Sweep never scored cosine.
+- **E3 long-tail precision by stage:** raw ranker 0.221 -> hard gate 0.185 -> utility 0.192 ->
+  MMR 0.154. The miss vs 0.40 is a ranking limit first; gate and MMR each make it worse; no MMR
+  lambda (0.5-1.0) reaches 0.40 (post-hoc holdout diagnostic, not a selection).
+- **E4 blind K rule** (fixed before looking at the holdout): smallest K with IPS-weighted validation
+  recall >= 0.93 -> **K=195** (was 210, selected with a 0.90 rule whose margin was set after seeing
+  the holdout gap). Applied once. Shipped-pipeline holdout: overall recall 0.857 (chance-lift
+  +0.374), long-tail recall 0.826; both gates pass, overall recall is 0.007 above the 0.85 line.
+  Consequence: primary NDCG@10 0.1480 -> 0.1485; p vs cosine 0.329 -> 0.445 (noise-level move).
+- **Three channels, not six** (learned + long-tail floor + interest); geo/semantic/CF/archetype
+  quotas 0 per DR11's marginal-recall grid. The ablation row `-CF_channel` was a no-op by
+  construction (CF quota 0) and is replaced by `-interest_channel` (+0.0012 NDCG@10).
+- **5-seed replication re-run at K=195:** primary 0.1540 +/- 0.0071 (sd); above cosine in 4 of 5
+  seeds (mean gap +0.0110). Seed 42 (0.1485) is the **second-lowest** of five (seed 43: 0.1460) --
+  the earlier expectation that seed 42 was the lowest did not survive the K=195 re-run.
+- **Oracle ceiling 66.2% -> 39.6%:** the old oracle (0.1322, DATA_CARD pre-Block-A) was crippled by
+  the noise-dominated DGP; the rewritten DGP raised the ceiling ~2.8x vs the model's ~1.7x, and the
+  candidate-relative ceiling also depends on the candidate set (E1 oracle rows). Retrieval top-K
+  recall (0.991) is a different quantity and does not explain the ratio.
+- `make reproduce` measured 396 s (6.6 min) on a contended laptop; the 5-minute target is not met
+  and was not chased further.

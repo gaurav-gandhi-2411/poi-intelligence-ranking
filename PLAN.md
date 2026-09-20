@@ -640,3 +640,15 @@ Open items / follow-ups (not blocking): DR3 and DR7 suggest a pointwise objectiv
 clipping may do better on this data (not adopted: selecting on the holdout would leak); the
 localness index weights predate the geo fix and are now below the best single input (not re-tuned:
 would leak the oracle); long-tail precision 0.4 target unmet (hypothesis untested).
+
+## Block E (2026-09-20) — the ranker vs content-cosine problem; ship
+
+- E1 decomposition, E2 ranker sweep, E3 long-tail stages, E4 blind K rule (K=195): DONE. Numbers and
+  provenance in `docs/DATA_CARD.md` (Block E) and `docs/TECHNICAL.md` sections 4.1/4.2/5.
+- Finding: the ranker significantly beats popularity (a ranking gain, not a retrieval gain) but not
+  content cosine (p=0.445 seed 42; above cosine in 4 of 5 seeds). Long-tail precision miss is a
+  ranking-quality limit first (raw 0.221), then made worse by the gate and MMR.
+- Docs corrected: three channels + long-tail floor as the brief-§9 answer, no-op `-CF_channel`
+  replaced, oracle-ceiling explanation, 5-seed headline, honest reproduce timing, localness note.
+- Open (not blocking): a pointwise objective / less IPS clipping (DR3/DR7) remain unadopted; retuning
+  the localness weights against the latent value declined on principle.

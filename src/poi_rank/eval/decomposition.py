@@ -155,31 +155,31 @@ def run_decomposition(
 
     new, old = per_trip["learned_retriever"], per_trip["legacy_6_channel"]
     tests = {
-        "learned: primary vs content_cosine": wil(
+        "learned_primary_vs_content_cosine": wil(
             new["lambdamart_ips_shipped"], new["content_cosine"]
         ),
-        "legacy: primary(retrained) vs content_cosine": wil(
+        "legacy_primary_retrained_vs_content_cosine": wil(
             old["lambdamart_ips_retrained_on_this_set"], old["content_cosine"]
         ),
-        "retrieval effect, primary (learned vs legacy-retrained)": wil(
+        "retrieval_effect_primary_learned_vs_legacy_retrained": wil(
             new["lambdamart_ips_shipped"], old["lambdamart_ips_retrained_on_this_set"]
         ),
-        "retrieval effect, content_cosine": wil(new["content_cosine"], old["content_cosine"]),
-        "retrieval effect, popularity": wil(new["popularity"], old["popularity"]),
+        "retrieval_effect_content_cosine": wil(new["content_cosine"], old["content_cosine"]),
+        "retrieval_effect_popularity": wil(new["popularity"], old["popularity"]),
     }
     ne, oe = e2e["learned_retriever"], e2e["legacy_6_channel"]
     tests_e2e = {
-        "learned: primary vs content_cosine": wil(
+        "learned_primary_vs_content_cosine": wil(
             ne["lambdamart_ips_shipped"], ne["content_cosine"]
         ),
-        "legacy: primary(retrained) vs content_cosine": wil(
+        "legacy_primary_retrained_vs_content_cosine": wil(
             oe["lambdamart_ips_retrained_on_this_set"], oe["content_cosine"]
         ),
-        "retrieval effect, primary (learned vs legacy-retrained)": wil(
+        "retrieval_effect_primary_learned_vs_legacy_retrained": wil(
             ne["lambdamart_ips_shipped"], oe["lambdamart_ips_retrained_on_this_set"]
         ),
-        "retrieval effect, content_cosine": wil(ne["content_cosine"], oe["content_cosine"]),
-        "retrieval effect, popularity": wil(ne["popularity"], oe["popularity"]),
+        "retrieval_effect_content_cosine": wil(ne["content_cosine"], oe["content_cosine"]),
+        "retrieval_effect_popularity": wil(ne["popularity"], oe["popularity"]),
     }
     m = {s: {k: v["mean"] for k, v in t.items()} for s, t in table_e2e.items()}
     lg, lc = m["learned_retriever"], m["legacy_6_channel"]

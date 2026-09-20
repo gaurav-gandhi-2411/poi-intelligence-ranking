@@ -10,6 +10,18 @@ recommender evaluated against an oracle ceiling, an exposure-bias-corrected prim
 measured ablations and a Decision Register in which every design choice carries a measured
 number or an explicit `NOT RUN`.
 
+## Headline — read this first
+
+Primary system (IPS-weighted LambdaMART + hard-gated utility) NDCG@10 on the unbiased random-exposure
+holdout: **{{~seed_headline}}**. It is a **significant** improvement over the popularity ranker the
+incumbents already run (Wilcoxon p={{wilcoxon.lambdamart_ips_vs_popularity.p_value|.3g}}, seed 42) and a
+**not significant** improvement over a plain content-cosine baseline (p={{wilcoxon.lambdamart_ips_vs_content_cosine.p_value|.3g}}
+at seed 42; the primary is above content cosine in {{~seed_vs_cosine}}). A measured decomposition
+(TECHNICAL.md section 4.1) shows the gain over popularity comes from *ranking*, not from the learned
+retriever: the retriever raised candidate recall without moving end-to-end NDCG@10 significantly.
+The relative-lift number against popularity is real but is not the right headline on its own,
+because it compares against the weakest reasonable baseline.
+
 ## The result that matters commercially
 
 The incumbents already rank by popularity. On the unbiased random-exposure holdout
@@ -52,8 +64,8 @@ uv run python -m poi_rank.cli compose                # the only writer of result
 That is `make reproduce` (data → gates → train → evaluate → compose). `make reproduce-full` adds
 `recommend` (a seeded 300-trip inspection sample), `scenarios`, `lodo` and the docs. Wall-clock
 on a 16-logical-core laptop CPU (`scripts/time_reproduce.py`):
-**{{timings.total_seconds|.0f}} s for `reproduce`**, **{{timings_full.total_seconds|.0f}} s for
-`reproduce-full`**. Per-stage timings are in `docs/RESULTS.md`.
+**{{timings.total_seconds|.0f}} s ({{~reproduce_minutes}}) for `reproduce`**, **{{timings_full.total_seconds|.0f}} s for
+`reproduce-full`**. Per-stage timings are in `docs/RESULTS.md`. The original target was 5 minutes; the measured value is above it and was not chased further (the two largest stages are `train` and `evaluate`, i.e. LightGBM fits; the per-stage table is in `docs/RESULTS.md`).
 
 Integrity and tests:
 
@@ -69,7 +81,7 @@ uv run ruff check src tests && uv run mypy
 
 | Metric | Value |
 |---|---|
-| Primary system NDCG@10 | **{{systems.lambdamart_ips.metrics.ndcg@10.mean|.4f}}** |
+| Primary system NDCG@10 (seed 42, committed run) | **{{systems.lambdamart_ips.metrics.ndcg@10.mean|.4f}}** — 5-seed: {{~seed_headline}} |
 | vs popularity | **{{~lift_vs_popularity_pct|+.1f}}% relative**, Wilcoxon p={{wilcoxon.lambdamart_ips_vs_popularity.p_value|.3g}} |
 | vs best baseline (content cosine) | p={{wilcoxon.lambdamart_ips_vs_content_cosine.p_value|.3g}} — {{~sig_vs_content}} |
 | % of candidate-level oracle ceiling | {{systems.lambdamart_ips.pct_of_ceiling_ndcg10|.1%}} (target ≥70% — missed, diagnosed) |

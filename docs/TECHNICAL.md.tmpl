@@ -100,11 +100,33 @@ carries its `p_expose`, which is what makes IPS possible.
 
 {{@bias_gap}}
 
-**Oracle ceiling.** Ranking the same candidates by the true noise-free utility gives NDCG@10
-{{systems.oracle.metrics.ndcg@10.mean|.4f}}; the primary system reaches
-{{systems.lambdamart_ips.pct_of_ceiling_ndcg10|.1%}} of it. The ceiling is candidate-level and
-exposure-capped (unexposed candidates count as label 0), which is why it sits far below the
-slate-level oracle measured by Gate-A.
+**Oracle ceiling — and why "% of ceiling" fell from 66.2% to
+{{systems.lambdamart_ips.pct_of_ceiling_ndcg10|.1%}}.** Ranking the same candidates by the true
+noise-free utility gives NDCG@10 {{systems.oracle.metrics.ndcg@10.mean|.4f}}; the primary system
+reaches {{systems.lambdamart_ips.pct_of_ceiling_ndcg10|.1%}} of it. The earlier report (DATA_CARD
+history: primary 0.0875 against an oracle of 0.1322 = 66.2%) is **not comparable** to this one, for
+two measured reasons, neither of which is "the model got worse" (the primary system's own NDCG@10
+went *up*, from 0.0875 to {{systems.lambdamart_ips.metrics.ndcg@10.mean|.4f}}):
+
+1. **The old oracle was crippled by the old data-generating process.** Before the simulator
+   rewrite the labels were noise-dominated, so even a ranker with the true utility scored only
+   0.1322 (DATA_CARD documents this: an oracle at 0.1322 is itself the evidence that labels were
+   mostly noise). A model closing 66.2% of a near-noise ceiling is a small absolute number. After
+   the rewrite the labels are utility-driven and the ceiling rose to
+   {{systems.oracle.metrics.ndcg@10.mean|.4f}} — the ceiling grew by a larger factor than the
+   model's score, so the ratio fell even though the model improved.
+2. **The candidate-relative ceiling depends on the candidate set.** The oracle re-ranks *its own*
+   candidates, so a retriever that surfaces more relevant POIs raises the ideal too. Measured on
+   identical holdout trips (E1), the candidate-relative oracle NDCG@10 is
+   {{retrieval_ranking_decomposition.ndcg10_candidate_relative.legacy_6_channel.oracle.mean|.4f}} on the old six-channel set and
+   {{retrieval_ranking_decomposition.ndcg10_candidate_relative.learned_retriever.oracle.mean|.4f}} on the learned set.
+
+A related figure that is easy to confuse with the ceiling: retrieval top-K recall by true utility
+({{decision_register.rows.10.results.true_utility_top_k_recall_diagnostic|.3f}}) measures how
+many truly relevant POIs a top-K by the true utility would surface. That is a *recall* diagnostic of
+the catalog, not the NDCG ceiling, and it does not by itself explain the ratio. The ceiling is
+candidate-level and exposure-capped (unexposed candidates count as label 0), which is why it sits
+below the slate-level oracle measured by Gate-A.
 
 ## 3. Feature architecture
 
@@ -160,9 +182,21 @@ text-embedding block changes NDCG@10 by {{ablations.5.delta_ndcg@10|+.4f}}
 embedding and taste-vector columns add noise the trees fit; their information still reaches the
 model through the engineered `interact_cos_taste_poi` (which is not dropped with the raw block),
 so the ablation says the *raw blocks* are not earning their columns, not that taste is useless.
+
 Dropping them is a candidate improvement that was deliberately **not** applied: choosing it on
 this holdout number would be selecting on the holdout. Explicit interests and the behavioural
 block are within noise.
+
+**Channel ablations.** The earlier `-CF_channel` row was a **no-op by construction** (the CF quota
+is 0 in the shipped candidate generator, so removing it changed nothing and the row carried no
+information); it is replaced by `-interest_channel`, a channel that is actually in the shipped
+union. Both channel ablations re-score the already-trained ranker over a smaller candidate set, and
+both come out *slightly positive* for NDCG@10: `-interest_channel`
+{{ablations.3.delta_ndcg@10|+.4f}} (p={{ablations.3.wilcoxon_p_value|.3g}}), `-long_tail_quota` {{ablations.4.delta_ndcg@10|+.4f}}
+(p={{ablations.4.wilcoxon_p_value|.3g}}). The effects are ~1% of NDCG@10 and small in absolute terms:
+a plausible reading (not separately tested) is that a leaner set leaves the ranker fewer
+low-relevance items to misplace. These two channels are **not** justified by top-10 relevance; they are justified by
+recall and long-tail exposure (section 4), which NDCG@10 over the exposed labels does not reward.
 
 ## 4. Candidate generation
 
@@ -178,18 +212,48 @@ LightGBM over the same observable pair features the ranker uses, scoring the *fu
 catalog and taking the top-K per trip, unioned with the long-tail hard floor and the interest
 channel. Train trips are scored **cross-fitted** (K-fold by trip — no trip is scored by a model
 that saw it), holdout trips by the full-train model; a test asserts both the leakage discipline
-and thread-count invariance. Geo, semantic, CF and archetype quotas are set to 0 (their
-marginal recall was measured, not assumed; DR11). K was chosen on a train-carved validation
-split against IPS-weighted logged positives (smallest K with validation recall ≥ 0.90; the
-margin above the gate was set after seeing that validation runs above the holdout). **Selection
-audit:** that rule gave K={{a3_retriever_grid.selection_audit.shipped_k}} on the grid computed
-before the category-affinity feature entered the retriever; re-running the same rule on the final
-feature set gives K={{a3_retriever_grid.selection_audit.rule_k_on_final_feature_grid}}, whose
-holdout recall is {{a3_retriever_grid.selection_audit.holdout_recall_at_rule_k_reporting_only|.3f}}
-(vs {{a3_retriever_grid.selection_audit.holdout_recall_at_shipped_k_reporting_only|.3f}} at the
-shipped K, in the grid's simplified non-cross-fitted setup). K was not re-selected after the
-fact, so the overall-recall gate pass is a **knife-edge result** that partly reflects a choice
-made with knowledge of the holdout gap.
+and thread-count invariance.
+
+**Three channels, not six.** The candidate set is the union of exactly three channels: the
+**learned** retriever (the workhorse), the **long-tail hard floor** and the **interest** channel.
+Geo, semantic, CF and archetype quotas are 0. This applies the brief's own rule (spec section 7:
+"a channel that adds no marginal recall gets deleted") to the measured grid (Decision Register
+DR11, frozen A3 grid at learned K=210): adding geo, semantic, CF and archetype on top of
+long-tail + interest raises overall holdout recall from
+{{decision_register.rows.10.results.K210_rows.2.holdout_recall|.3f}} to
+{{decision_register.rows.10.results.K210_rows.5.holdout_recall|.3f}} while inflating the
+candidate set from {{decision_register.rows.10.results.K210_rows.2.size|.0f}} to
+{{decision_register.rows.10.results.K210_rows.5.size|.0f}} POIs per trip and cutting the
+chance-corrected lift from {{decision_register.rows.10.results.K210_rows.2.holdout_lift|.3f}} to
+{{decision_register.rows.10.results.K210_rows.5.holdout_lift|.3f}} — recall bought by volume, not
+by discrimination. The **interest** channel is the one that survived the marginal test (recall
+{{decision_register.rows.10.results.K210_rows.1.holdout_recall|.3f}} →
+{{decision_register.rows.10.results.K210_rows.2.holdout_recall|.3f}} for a small increase in set size).
+
+**Answer to the brief's section 9 ("how do we avoid killing the long tail?").** The long-tail
+channel is a **hard floor of 50 candidates per trip that the learned retriever cannot
+cannibalise**, and the long-tail stratum's recall is measured separately from overall recall (gate
+row, `recall_strata` below). The quota does not raise the shipped long-tail *share* — DR9 below
+shows the share is set by the ranker and re-ranker, not by the quota — but it is what guarantees
+the ranker is *offered* long-tail POIs, and stage-by-stage precision is diagnosed in section 4.2.
+
+**K rule (E4, pre-registered, blind, applied once).** The learned K is the *smallest K whose
+IPS-weighted validation recall is at least 0.93* (validation = 20% of the train trips against
+logged positives weighted 1/clip(p_expose); the holdout is reporting-only and was never consulted).
+That rule gives **K={{e4_k_sweep.rule_k}}**. It replaces the previous K=210, which had been
+chosen with a 0.90 rule whose margin was adjusted after seeing the holdout gap (a contaminated
+choice; the audit is kept in `results/parts/a3_retriever_grid.json`). The full sweep, holdout
+column included:
+
+{{@k_sweep}}
+
+At the rule K the holdout gives overall recall
+{{e4_k_sweep.holdout_at_rule_k_reporting_only.recall|.3f}}, long-tail recall
+{{e4_k_sweep.holdout_at_rule_k_reporting_only.lt|.3f}}, and chance-corrected lift
+{{e4_k_sweep.holdout_at_rule_k_reporting_only.lift|+.3f}} (candidate set
+{{e4_k_sweep.holdout_at_rule_k_reporting_only.size|.0f}} POIs per trip in the sweep's
+simplified non-cross-fitted setup; the shipped pipeline's own recall rows are in the gates and the
+scorecard). K was not adjusted after the holdout was read; whatever the gate rows show is the result.
 
 {{@recall_strata}}
 
@@ -201,6 +265,52 @@ Oracle-relevance recall (top 5% of the catalog by true utility; reporting-only):
 the share is set by the ranker, not the quota:
 
 {{@dr9}}
+
+### 4.1 Retrieval vs ranking: where does the gain over popularity come from? (E1)
+
+The learned retriever raised candidate recall from
+{{decision_register.rows.10.results.legacy_six_channel_union.recall|.3f}} (the six-channel union it
+replaced) to the recall in the gates, yet the ranker's NDCG@10 edge over content cosine stayed
+small. Candidate-relative NDCG@10 normalises each candidate set by its *own* ideal ranking, so it
+cannot compare two candidate sets — a better retriever surfaces more positives, raising the ideal
+and lowering the ratio for the same ranker. The decomposition therefore uses an **end-to-end
+NDCG@10 with a fixed denominator** (the ideal over every logged label of the trip, identical for
+every candidate set and system), scoring every system on both candidate sets on the same holdout
+trips (the "retrained" row refits the ranker on the old set's own training candidates):
+
+{{@decomposition}}
+
+Reading: on the fixed denominator, popularity moves by
+{{retrieval_ranking_decomposition.decomposition_of_popularity_to_primary_gain_end_to_end.from_retrieval_alone_popularity_learned_minus_legacy|+.4f}}
+when only the retriever changes; the primary system's gain over popularity is
+{{retrieval_ranking_decomposition.decomposition_of_popularity_to_primary_gain_end_to_end.from_ranker_on_legacy_set|+.4f}} on the legacy set and
+{{retrieval_ranking_decomposition.decomposition_of_popularity_to_primary_gain_end_to_end.from_ranker_on_learned_set|+.4f}} on the learned set.
+**The gain over popularity is a ranking gain, not a retrieval gain.** Primary vs content cosine on
+the same (learned) set: paired Wilcoxon p =
+{{retrieval_ranking_decomposition.paired_tests_end_to_end.learned_primary_vs_content_cosine.p_value|.3f}};
+retrieval effect on the primary system (learned vs legacy-retrained): p =
+{{retrieval_ranking_decomposition.paired_tests_end_to_end.retrieval_effect_primary_learned_vs_legacy_retrained.p_value|.3f}}.
+The honest headline is therefore: a **significant** improvement over the popularity ranker the
+incumbents run, and a **not significant** edge over a plain content-cosine baseline — on this
+simulator the taste signal a cosine captures is most of what a learned ranker extracts.
+
+### 4.2 Long-tail precision at every stage (E3)
+
+The long-tail precision target (0.40) is missed. Measured at each serving stage on the same holdout
+trips (share = fraction of returned slots that are long-tail; precision = fraction of those that
+are positives):
+
+{{@longtail_stages}}
+
+Reading: the raw ranker's long-tail precision is {{longtail_stages.stages.1_raw_ranker_top10.long_tail_precision|.3f}}
+— already far below the 0.40 target before any post-processing, so the miss is first a
+ranking-quality limit (long-tail positives are simply harder to rank). The serving stages then
+make it worse: the hard gate takes it to {{longtail_stages.stages.2_after_hard_gate_raw_order.long_tail_precision|.3f}}, the utility
+layer is ~neutral ({{longtail_stages.stages.3_after_utility.long_tail_precision|.3f}}), and the MMR diversity re-rank takes it to
+{{longtail_stages.stages.4_final_after_mmr.long_tail_precision|.3f}}. The gate and MMR each cost about the same, and the
+lambda sweep shows that even with no diversity term (lambda 1) precision stays well under 0.40, so
+no serving-layer setting reaches the target. The lambda sweep is a post-hoc diagnostic on the
+holdout — it is not a selection and lambda is unchanged.
 
 ## 5. Ranking model choice — LambdaMART justified over a two-tower ranker
 
@@ -240,6 +350,28 @@ p={{wilcoxon.lambdamart_vs_lambdamart_ips.p_value|.3g}}.
 The logistic-regression baseline is now regularised (L2 strength chosen by trip-grouped CV
 log-loss: C={{logistic_regression_cv.selected_c}}); the original unregularised fit on 300+
 columns risked being a straw man.
+
+**One legitimate shot at the ranker (E2).** A single joint sweep over the objective
+(lambdarank / binary / rank_xendcg), the IPS clip ceiling and the feature blocks (raw text
+embedding, raw taste vector) — {{ranker_sweep.n_configs}} configurations, scored on
+**validation only** (the holdout was not read) with an IPS-weighted validation NDCG@10 (plain
+validation NDCG would reward fitting the popularity-biased log). Successive halving: all
+configurations at seed 42, then the top five re-fit over three more seeds; the winner is the best
+4-seed mean.
+
+{{@sweep}}
+
+The validation winner is the configuration that already ships: no change was made to the ranker,
+so the single holdout result in this document is the shipped ranker's. The spread across the three
+objectives is small (a few thousandths of validation NDCG); the large effects are the IPS clip
+(no clipping is clearly worst) and keeping the raw text-embedding block. That last point disagrees
+with the holdout feature-block ablation above, where dropping the raw text block moved holdout
+NDCG@10 by {{ablations.5.delta_ndcg@10|+.4f}} (p={{ablations.5.wilcoxon_p_value|.3g}}, not
+significant). The two measure different things (IPS-weighted validation on the logged, biased
+population vs unweighted random-exposure holdout) and neither is decisive; the config was chosen
+by the validation-only rule fixed in advance, and the sweep never scored content cosine, so it
+says nothing about closing the gap to it — only that no ranker knob in this grid beats the
+shipped one on validation.
 
 ## 6. IPS correction
 
@@ -414,6 +546,12 @@ capped at a seeded 300-trip sample; `scenarios`), leave-one-destination-out, and
 
 {{@timings}}
 
+**Honest wall-clock:** `make reproduce` measured {{~reproduce_minutes}} on the dev laptop (other
+processes were running, so timings carry roughly 30-40% noise). The original 5-minute target is
+**not met** and was deliberately not chased further: the two largest stages are `train` and
+`evaluate` (LightGBM fits), and shaving them would cost fidelity (fewer seeds/rounds) rather than
+remove waste.
+
 Where the time went (measured): the confidence ensemble was being retrained inside every
 `evaluate` / `recommend` / `scenarios` call — it is now fit once in `train` and loaded; TreeSHAP
 runs on returned rows only; MMR and its lambda sweep are vectorised with lambda-independent
@@ -433,3 +571,8 @@ Cloud is *not* used for reproduction.
 within-seed, this is between-seed):
 
 {{@seed_table}}
+
+Headline: primary NDCG@10 = {{~seed_headline}}. The primary system is above content cosine in
+{{~seed_vs_cosine}}. The overall candidate-recall gate (0.85) is passed in every seed, with the
+lowest seed at {{seed_replication.metrics.candidate_recall_overall.min|.4f}} — the margin over the
+gate is thin, which is the honest reading of a pre-registered K that was fixed on validation.

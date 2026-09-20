@@ -1,0 +1,72 @@
+{
+  "lambda_default": 0.8,
+  "mmr_lambda_diagnostic_post_hoc_on_holdout": {
+    "0.5": {
+      "long_tail_precision": 0.1384217335058215,
+      "long_tail_share": 0.2343134283116096,
+      "n_long_tail_recommended": 1546,
+      "n_total_recommended": 6598
+    },
+    "0.6": {
+      "long_tail_precision": 0.14504324683965403,
+      "long_tail_share": 0.2277963019096696,
+      "n_long_tail_recommended": 1503,
+      "n_total_recommended": 6598
+    },
+    "0.7": {
+      "long_tail_precision": 0.14845360824742268,
+      "long_tail_share": 0.2205213701121552,
+      "n_long_tail_recommended": 1455,
+      "n_total_recommended": 6598
+    },
+    "0.8": {
+      "long_tail_precision": 0.1541049798115747,
+      "long_tail_share": 0.22521976356471657,
+      "n_long_tail_recommended": 1486,
+      "n_total_recommended": 6598
+    },
+    "0.9": {
+      "long_tail_precision": 0.1725516322451699,
+      "long_tail_share": 0.22749317975143982,
+      "n_long_tail_recommended": 1501,
+      "n_total_recommended": 6598
+    },
+    "1": {
+      "long_tail_precision": 0.19154388212684176,
+      "long_tail_share": 0.23658684449833284,
+      "n_long_tail_recommended": 1561,
+      "n_total_recommended": 6598
+    }
+  },
+  "stages": {
+    "0_candidate_pool (positive rate among long-tail candidates)": {
+      "head_positive_rate": 0.1325058472083922,
+      "long_tail_precision": 0.0990277123399152,
+      "long_tail_share": 0.4478124380622351
+    },
+    "1_raw_ranker_top10": {
+      "long_tail_precision": 0.22123893805309736,
+      "long_tail_share": 0.2020864381520119,
+      "n_long_tail_recommended": 1356,
+      "n_total_recommended": 6710
+    },
+    "2_after_hard_gate_raw_order": {
+      "long_tail_precision": 0.1852340145023072,
+      "long_tail_share": 0.22991815701727797,
+      "n_long_tail_recommended": 1517,
+      "n_total_recommended": 6598
+    },
+    "3_after_utility": {
+      "long_tail_precision": 0.19154388212684176,
+      "long_tail_share": 0.23658684449833284,
+      "n_long_tail_recommended": 1561,
+      "n_total_recommended": 6598
+    },
+    "4_final_after_mmr": {
+      "long_tail_precision": 0.1541049798115747,
+      "long_tail_share": 0.22521976356471657,
+      "n_long_tail_recommended": 1486,
+      "n_total_recommended": 6598
+    }
+  }
+}

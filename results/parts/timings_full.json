@@ -1,76 +1,76 @@
 {
   "target": "reproduce-full",
-  "total_seconds": 452.3,
+  "total_seconds": 492.9,
   "stages": [
     {
       "stage": "generate",
-      "seconds": 34.3,
+      "seconds": 35.2,
       "returncode": 0
     },
     {
       "stage": "prepare",
-      "seconds": 5.8,
+      "seconds": 5.9,
       "returncode": 0
     },
     {
       "stage": "features",
-      "seconds": 21.5,
+      "seconds": 19.9,
       "returncode": 0
     },
     {
       "stage": "candidates",
-      "seconds": 41.9,
+      "seconds": 48.1,
       "returncode": 0
     },
     {
       "stage": "gate-dgp",
-      "seconds": 10.6,
+      "seconds": 11.4,
       "returncode": 0
     },
     {
       "stage": "train",
-      "seconds": 102.2,
+      "seconds": 123.4,
       "returncode": 0
     },
     {
       "stage": "evaluate",
-      "seconds": 131.0,
+      "seconds": 128.1,
       "returncode": 0
     },
     {
       "stage": "representation",
-      "seconds": 13.3,
+      "seconds": 16.8,
       "returncode": 0
     },
     {
       "stage": "gate-representation",
-      "seconds": 3.0,
+      "seconds": 3.4,
       "returncode": 0
     },
     {
       "stage": "compose",
-      "seconds": 3.2,
+      "seconds": 3.5,
       "returncode": 0
     },
     {
       "stage": "recommend",
-      "seconds": 24.6,
+      "seconds": 24.4,
       "returncode": 0
     },
     {
       "stage": "scenarios",
-      "seconds": 25.2,
+      "seconds": 26.8,
       "returncode": 0
     },
     {
       "stage": "lodo",
-      "seconds": 35.4,
+      "seconds": 46.0,
       "returncode": 0
     },
     {
       "stage": "docs",
       "seconds": 0.2,
-      "returncode": 0
+      "returncode": 1
     }
   ]
 }

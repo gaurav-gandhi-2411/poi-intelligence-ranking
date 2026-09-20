@@ -1,0 +1,297 @@
+{
+  "pre_registered_rule": "smallest K with IPS-weighted validation overall recall >= 0.93 (val = 20% of train trips vs logged positives, weighted 1/clip(p_expose)); applied once, blind to the holdout column, which is reporting-only",
+  "rule_k": 195,
+  "holdout_at_rule_k_reporting_only": {
+    "recall": 0.866,
+    "lt": 0.828,
+    "size": 233.0,
+    "lift": 0.382
+  },
+  "grid": [
+    {
+      "learned_K": 90,
+      "val_ips_weighted_selection": {
+        "recall": 0.768,
+        "lt": 0.714,
+        "size": 150.0,
+        "lift": 0.457
+      },
+      "holdout_reporting_only": {
+        "recall": 0.685,
+        "lt": 0.613,
+        "size": 152.0,
+        "lift": 0.37
+      }
+    },
+    {
+      "learned_K": 105,
+      "val_ips_weighted_selection": {
+        "recall": 0.8,
+        "lt": 0.753,
+        "size": 160.0,
+        "lift": 0.467
+      },
+      "holdout_reporting_only": {
+        "recall": 0.723,
+        "lt": 0.654,
+        "size": 163.0,
+        "lift": 0.385
+      }
+    },
+    {
+      "learned_K": 120,
+      "val_ips_weighted_selection": {
+        "recall": 0.834,
+        "lt": 0.795,
+        "size": 171.0,
+        "lift": 0.479
+      },
+      "holdout_reporting_only": {
+        "recall": 0.755,
+        "lt": 0.69,
+        "size": 174.0,
+        "lift": 0.395
+      }
+    },
+    {
+      "learned_K": 135,
+      "val_ips_weighted_selection": {
+        "recall": 0.86,
+        "lt": 0.83,
+        "size": 182.0,
+        "lift": 0.482
+      },
+      "holdout_reporting_only": {
+        "recall": 0.781,
+        "lt": 0.72,
+        "size": 185.0,
+        "lift": 0.398
+      }
+    },
+    {
+      "learned_K": 150,
+      "val_ips_weighted_selection": {
+        "recall": 0.883,
+        "lt": 0.847,
+        "size": 194.0,
+        "lift": 0.481
+      },
+      "holdout_reporting_only": {
+        "recall": 0.805,
+        "lt": 0.749,
+        "size": 197.0,
+        "lift": 0.397
+      }
+    },
+    {
+      "learned_K": 165,
+      "val_ips_weighted_selection": {
+        "recall": 0.902,
+        "lt": 0.867,
+        "size": 205.0,
+        "lift": 0.476
+      },
+      "holdout_reporting_only": {
+        "recall": 0.829,
+        "lt": 0.781,
+        "size": 209.0,
+        "lift": 0.396
+      }
+    },
+    {
+      "learned_K": 180,
+      "val_ips_weighted_selection": {
+        "recall": 0.919,
+        "lt": 0.892,
+        "size": 218.0,
+        "lift": 0.468
+      },
+      "holdout_reporting_only": {
+        "recall": 0.849,
+        "lt": 0.806,
+        "size": 221.0,
+        "lift": 0.391
+      }
+    },
+    {
+      "learned_K": 195,
+      "val_ips_weighted_selection": {
+        "recall": 0.933,
+        "lt": 0.905,
+        "size": 230.0,
+        "lift": 0.456
+      },
+      "holdout_reporting_only": {
+        "recall": 0.866,
+        "lt": 0.828,
+        "size": 233.0,
+        "lift": 0.382
+      }
+    },
+    {
+      "learned_K": 210,
+      "val_ips_weighted_selection": {
+        "recall": 0.945,
+        "lt": 0.917,
+        "size": 242.0,
+        "lift": 0.443
+      },
+      "holdout_reporting_only": {
+        "recall": 0.881,
+        "lt": 0.847,
+        "size": 246.0,
+        "lift": 0.371
+      }
+    },
+    {
+      "learned_K": 225,
+      "val_ips_weighted_selection": {
+        "recall": 0.957,
+        "lt": 0.936,
+        "size": 255.0,
+        "lift": 0.428
+      },
+      "holdout_reporting_only": {
+        "recall": 0.893,
+        "lt": 0.863,
+        "size": 258.0,
+        "lift": 0.358
+      }
+    },
+    {
+      "learned_K": 240,
+      "val_ips_weighted_selection": {
+        "recall": 0.963,
+        "lt": 0.943,
+        "size": 268.0,
+        "lift": 0.407
+      },
+      "holdout_reporting_only": {
+        "recall": 0.906,
+        "lt": 0.881,
+        "size": 271.0,
+        "lift": 0.344
+      }
+    },
+    {
+      "learned_K": 255,
+      "val_ips_weighted_selection": {
+        "recall": 0.972,
+        "lt": 0.958,
+        "size": 281.0,
+        "lift": 0.389
+      },
+      "holdout_reporting_only": {
+        "recall": 0.915,
+        "lt": 0.893,
+        "size": 283.0,
+        "lift": 0.328
+      }
+    },
+    {
+      "learned_K": 270,
+      "val_ips_weighted_selection": {
+        "recall": 0.979,
+        "lt": 0.967,
+        "size": 294.0,
+        "lift": 0.369
+      },
+      "holdout_reporting_only": {
+        "recall": 0.924,
+        "lt": 0.905,
+        "size": 296.0,
+        "lift": 0.31
+      }
+    },
+    {
+      "learned_K": 285,
+      "val_ips_weighted_selection": {
+        "recall": 0.985,
+        "lt": 0.974,
+        "size": 307.0,
+        "lift": 0.348
+      },
+      "holdout_reporting_only": {
+        "recall": 0.933,
+        "lt": 0.916,
+        "size": 308.0,
+        "lift": 0.293
+      }
+    },
+    {
+      "learned_K": 300,
+      "val_ips_weighted_selection": {
+        "recall": 0.99,
+        "lt": 0.98,
+        "size": 320.0,
+        "lift": 0.325
+      },
+      "holdout_reporting_only": {
+        "recall": 0.942,
+        "lt": 0.928,
+        "size": 321.0,
+        "lift": 0.276
+      }
+    },
+    {
+      "learned_K": 315,
+      "val_ips_weighted_selection": {
+        "recall": 0.993,
+        "lt": 0.984,
+        "size": 333.0,
+        "lift": 0.301
+      },
+      "holdout_reporting_only": {
+        "recall": 0.949,
+        "lt": 0.937,
+        "size": 334.0,
+        "lift": 0.257
+      }
+    },
+    {
+      "learned_K": 330,
+      "val_ips_weighted_selection": {
+        "recall": 0.996,
+        "lt": 0.993,
+        "size": 346.0,
+        "lift": 0.277
+      },
+      "holdout_reporting_only": {
+        "recall": 0.956,
+        "lt": 0.947,
+        "size": 347.0,
+        "lift": 0.237
+      }
+    },
+    {
+      "learned_K": 345,
+      "val_ips_weighted_selection": {
+        "recall": 0.997,
+        "lt": 0.995,
+        "size": 359.0,
+        "lift": 0.252
+      },
+      "holdout_reporting_only": {
+        "recall": 0.964,
+        "lt": 0.955,
+        "size": 359.0,
+        "lift": 0.218
+      }
+    },
+    {
+      "learned_K": 360,
+      "val_ips_weighted_selection": {
+        "recall": 0.999,
+        "lt": 0.996,
+        "size": 372.0,
+        "lift": 0.226
+      },
+      "holdout_reporting_only": {
+        "recall": 0.971,
+        "lt": 0.965,
+        "size": 372.0,
+        "lift": 0.199
+      }
+    }
+  ]
+}

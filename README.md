@@ -10,6 +10,18 @@ recommender evaluated against an oracle ceiling, an exposure-bias-corrected prim
 measured ablations and a Decision Register in which every design choice carries a measured
 number or an explicit `NOT RUN`.
 
+## Headline — read this first
+
+Primary system (IPS-weighted LambdaMART + hard-gated utility) NDCG@10 on the unbiased random-exposure
+holdout: **0.1540 ± 0.0071 (mean ± sd over 5 independently regenerated seeds; the committed seed 42, 0.1485, is number 2 of 5 counting from the lowest)**. It is a **significant** improvement over the popularity ranker the
+incumbents already run (Wilcoxon p=4.34e-41, seed 42) and a
+**not significant** improvement over a plain content-cosine baseline (p=0.445
+at seed 42; the primary is above content cosine in 4 of 5 seeds (mean gap +0.0110 NDCG@10)). A measured decomposition
+(TECHNICAL.md section 4.1) shows the gain over popularity comes from *ranking*, not from the learned
+retriever: the retriever raised candidate recall without moving end-to-end NDCG@10 significantly.
+The relative-lift number against popularity is real but is not the right headline on its own,
+because it compares against the weakest reasonable baseline.
+
 ## The result that matters commercially
 
 The incumbents already rank by popularity. On the unbiased random-exposure holdout
@@ -17,15 +29,15 @@ The incumbents already rank by popularity. On the unbiased random-exposure holdo
 
 | | This system | Popularity ranker |
 |---|---|---|
-| Long-tail share (bottom-50% popularity stratum) | **0.223** | 0.000 |
-| Catalog coverage@10 | **64.9%** | 5.5% |
-| NDCG@10 | **0.1480** [0.1380, 0.1582] | 0.0616 |
+| Long-tail share (bottom-50% popularity stratum) | **0.225** | 0.000 |
+| Catalog coverage@10 | **66.4%** | 5.7% |
+| NDCG@10 | **0.1485** [0.1385, 0.1590] | 0.0629 |
 
-Long-tail **precision** is 0.145 (target 0.40 — a miss, diagnosed in
+Long-tail **precision** is 0.154 (target 0.40 — a miss, diagnosed in
 `docs/RESULTS.md`), so the honest claim is: it surfaces the long tail far more than a
 popularity ranker at a real relevance gain, but not yet at the precision a product would want.
 The bias-gap table (popularity +0.083 vs primary
-+0.010 NDCG@10 between biased and unbiased holdouts) shows why the
++0.009 NDCG@10 between biased and unbiased holdouts) shows why the
 comparison must be made on the unbiased holdout.
 
 ## Quick start
@@ -52,8 +64,8 @@ uv run python -m poi_rank.cli compose                # the only writer of result
 That is `make reproduce` (data → gates → train → evaluate → compose). `make reproduce-full` adds
 `recommend` (a seeded 300-trip inspection sample), `scenarios`, `lodo` and the docs. Wall-clock
 on a 16-logical-core laptop CPU (`scripts/time_reproduce.py`):
-**367 s for `reproduce`**, **452 s for
-`reproduce-full`**. Per-stage timings are in `docs/RESULTS.md`.
+**396 s (6.6 min) for `reproduce`**, **493 s for
+`reproduce-full`**. Per-stage timings are in `docs/RESULTS.md`. The original target was 5 minutes; the measured value is above it and was not chased further (the two largest stages are `train` and `evaluate`, i.e. LightGBM fits; the per-stage table is in `docs/RESULTS.md`).
 
 Integrity and tests:
 
@@ -69,13 +81,13 @@ uv run ruff check src tests && uv run mypy
 
 | Metric | Value |
 |---|---|
-| Primary system NDCG@10 | **0.1480** |
-| vs popularity | **+140.2% relative**, Wilcoxon p=5.69e-43 |
-| vs best baseline (content cosine) | p=0.329 — NOT statistically significant at 0.05, so not a supported win over that baseline |
+| Primary system NDCG@10 (seed 42, committed run) | **0.1485** — 5-seed: 0.1540 ± 0.0071 (mean ± sd over 5 independently regenerated seeds; the committed seed 42, 0.1485, is number 2 of 5 counting from the lowest) |
+| vs popularity | **+136.2% relative**, Wilcoxon p=4.34e-41 |
+| vs best baseline (content cosine) | p=0.445 — NOT statistically significant at 0.05, so not a supported win over that baseline |
 | % of candidate-level oracle ceiling | 39.6% (target ≥70% — missed, diagnosed) |
-| Candidate recall (exposed positives), overall / long-tail | 0.873 / 0.848 |
+| Candidate recall (exposed positives), overall / long-tail | 0.857 / 0.826 |
 | Hard-constraint violations in top-10 | **0** |
-| ECE after isotonic calibration | **0.0418** |
+| ECE after isotonic calibration | **0.0466** |
 
 Acceptance gates — Gate-A overall pass: **True**; Gate-B overall pass: **True**. Every scorecard row, every miss with its diagnosis, all nine
 systems, the bias-gap table, per-stratum recall with chance baselines, cold-start cohorts, the
