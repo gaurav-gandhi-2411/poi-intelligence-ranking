@@ -144,7 +144,7 @@ datagen ──► data prep ──► feature store (parquet)
       POI representation  Traveler repr.  Behavioral aggregates
              └────────────────┬────────────────┘
                               ▼
-                   Candidate generation (6 channels + quotas)
+                   Candidate generation (design-time: 6 channels; SHIPPED: learned + long-tail + interest, see docs/TECHNICAL.md s4)
                               ▼
                    LambdaMART ranker (IPS-weighted)
                               ▼

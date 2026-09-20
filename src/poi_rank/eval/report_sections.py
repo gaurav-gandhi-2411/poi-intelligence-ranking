@@ -185,11 +185,21 @@ def diagnoses(metrics: dict[str, Any], scenarios: dict[str, Any] | None = None) 
         if raw
         else ""
     )
+    lift = metrics.get("derived", {}).get("longtail_lift_over_base_rate")
+    lift_txt = (
+        f" Measured against the pool's own long-tail positive rate ({_f(lift['base_rate'], 3)}) "
+        f"the served list is a {lift['final_after_mmr']:.3f}x lift (raw ranker "
+        f"{lift['raw_ranker']:.3f}x): the 0.40 target was set a priori without reference to that "
+        "base rate and was miscalibrated at design time, so lift over base rate is the primary "
+        "statistic and raw precision secondary (TECHNICAL.md section 4.2)."
+        if lift
+        else ""
+    )
     out["longtail_precision"] = (
         f"Long-tail precision is {_f(lt['precision'])} over "
         f"{lt['n_longtail_recommended']} long-tail recommendations, with candidate recall "
         f"{_f(metrics['candidate_recall']['long_tail']['recall_mean'], 3)} in that stratum, so "
-        "retrieval is not the bottleneck." + tail
+        "retrieval is not the bottleneck." + lift_txt + tail
     )
     reg = {r["id"]: r for r in metrics.get("decision_register", {}).get("rows", [])}
     dr9 = reg.get("DR9", {}).get("results")
@@ -530,14 +540,24 @@ def decomposition_table(metrics: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+_LIFT_KEYS = ("raw_ranker", "after_gate", "after_utility", "final_after_mmr")
+
+
 def longtail_stage_table(metrics: dict[str, Any]) -> str:
     d = metrics.get("longtail_stages")
     if d is None:
         return "NOT RUN."
-    lines = ["| Stage | Long-tail share | Long-tail precision |", "|---|---|---|"]
+    lift = metrics.get("derived", {}).get("longtail_lift_over_base_rate", {})
+    lift_by_stage = dict(zip(d["stages"], [1.0, *[lift.get(k) for k in _LIFT_KEYS]], strict=True))
+    lines = [
+        "| Stage | Long-tail share | Long-tail precision | Lift over pool base rate |",
+        "|---|---|---|---|",
+    ]
     for name, v in d["stages"].items():
+        lf = lift_by_stage.get(name)
         lines.append(
-            f"| {name} | {_f(v['long_tail_share'], 3)} | {_f(v['long_tail_precision'], 3)} |"
+            f"| {name} | {_f(v['long_tail_share'], 3)} | {_f(v['long_tail_precision'], 3)} | "
+            f"{'—' if lf is None else f'{lf:.3f}x'} |"
         )
     lines += [
         "",

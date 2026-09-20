@@ -1,0 +1,26 @@
+{
+  "caveat": "wall clock measured while other processes (concurrent doc edits and test runs, plus other projects) were using the CPU, so it is an upper bound; the same pipeline measured 396 s on a warm cache",
+  "commit": "60c399a",
+  "keys_that_differ": [],
+  "method": "git clone from GitHub into a clean directory outside the working tree; uv sync --frozen with a fresh empty UV_CACHE_DIR and a new .venv; then the README quick-start commands in order with PYTHONHASHSEED=0 (make is not installed on the verification machine; the Makefile reproduce target runs the same ten stages in the same order)",
+  "metrics_json_identical_to_committed": true,
+  "metrics_json_sha256": "5eb1a58c0cd375a15d298f793dafe3740415c53c81882cb96df1c96890bba052",
+  "model_and_retriever_artifacts_identical_ignoring_line_endings": true,
+  "note": "clone+checkout took ~16 s and is included in total_seconds but not in pipeline_seconds",
+  "pipeline_seconds": 571,
+  "stage_seconds": {
+    "candidates": 64,
+    "compose": 3,
+    "evaluate": 208,
+    "features": 36,
+    "gate-dgp": 15,
+    "gate-representation": 3,
+    "generate": 67,
+    "prepare": 7,
+    "representation": 15,
+    "train": 150,
+    "uv_sync_frozen_cold_cache": 108
+  },
+  "total_seconds": 695,
+  "uv_sync_seconds": 108
+}

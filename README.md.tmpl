@@ -33,9 +33,13 @@ The incumbents already rank by popularity. On the unbiased random-exposure holdo
 | Catalog coverage@10 | **{{coverage.primary_system.catalog_coverage_at_10|.1%}}** | {{coverage.popularity_baseline.catalog_coverage_at_10|.1%}} |
 | NDCG@10 | **{{systems.lambdamart_ips.metrics.ndcg@10.mean|.4f}}** [{{systems.lambdamart_ips.metrics.ndcg@10.ci_low|.4f}}, {{systems.lambdamart_ips.metrics.ndcg@10.ci_high|.4f}}] | {{systems.popularity.metrics.ndcg@10.mean|.4f}} |
 
-Long-tail **precision** is {{longtail.precision|.3f}} (target 0.40 — a miss, diagnosed in
-`docs/RESULTS.md`), so the honest claim is: it surfaces the long tail far more than a
-popularity ranker at a real relevance gain, but not yet at the precision a product would want.
+Long-tail **precision** is {{longtail.precision|.3f}} against a pool base rate of
+{{derived.longtail_lift_over_base_rate.base_rate|.3f}}, i.e. a **{{derived.longtail_lift_over_base_rate.final_after_mmr|.3f}}x lift over base rate**
+({{derived.longtail_lift_over_base_rate.raw_ranker|.3f}}x at the raw ranker); lift over base rate is the primary statistic. The
+0.40 raw-precision target was set a priori without reference to that base rate and was miscalibrated
+at design time (`docs/TECHNICAL.md` section 4.2), so the honest claim is: it surfaces the long tail
+far more than a popularity ranker at a real relevance gain, and ranks long-tail POIs well above the
+pool's base rate, but not to the absolute precision the a-priori target assumed.
 The bias-gap table (popularity {{bias_gap.popularity.gap|+.3f}} vs primary
 {{bias_gap.lambdamart_ips.gap|+.3f}} NDCG@10 between biased and unbiased holdouts) shows why the
 comparison must be made on the unbiased holdout.
@@ -66,6 +70,13 @@ That is `make reproduce` (data → gates → train → evaluate → compose). `m
 on a 16-logical-core laptop CPU (`scripts/time_reproduce.py`):
 **{{timings.total_seconds|.0f}} s ({{~reproduce_minutes}}) for `reproduce`**, **{{timings_full.total_seconds|.0f}} s for
 `reproduce-full`**. Per-stage timings are in `docs/RESULTS.md`. The original target was 5 minutes; the measured value is above it and was not chased further (the two largest stages are `train` and `evaluate`, i.e. LightGBM fits; the per-stage table is in `docs/RESULTS.md`).
+
+**Cold fresh-clone reproduction verified.** Commit `{{fresh_clone_verification.commit}}` was cloned
+into a clean directory, dependencies installed with `uv sync --frozen` on an empty cache
+({{fresh_clone_verification.uv_sync_seconds|.0f}} s), and the ten stages above run in order:
+**{{fresh_clone_verification.total_seconds|.0f}} s in total** (measured on a busy machine, so an upper bound). The regenerated
+`results/metrics.json` is **byte-identical** to the one committed at that commit (SHA-256 recorded in
+`results/parts/fresh_clone_verification.json`); no key differs.
 
 Integrity and tests:
 

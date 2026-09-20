@@ -1,0 +1,53 @@
+# Submission — poi-intelligence-ranking (konnect.kr take-home)
+
+> Generated from `submission/SUBMISSION.md.tmpl`; every number resolves from `results/metrics.json`.
+
+**Repo:** https://github.com/gaurav-gandhi-2411/poi-intelligence-ranking · **Tag:** `v1.0-konnect-submission`
+(cold fresh-clone reproduction verified at commit `{{fresh_clone_verification.commit}}`).
+
+## Clone and run (CPU only, no API keys, no network; these stages, in this order, were run from a cold clone)
+
+```bash
+git clone https://github.com/gaurav-gandhi-2411/poi-intelligence-ranking.git && cd poi-intelligence-ranking
+git checkout v1.0-konnect-submission
+uv sync --frozen && export PYTHONHASHSEED=0      # PowerShell: $env:PYTHONHASHSEED = "0"
+for s in generate prepare features candidates gate-dgp train evaluate representation \
+         gate-representation compose; do uv run python -m poi_rank.cli $s; done   # = make reproduce
+```
+
+Verified on an empty cache: **{{fresh_clone_verification.total_seconds|.0f}} s** including a
+{{fresh_clone_verification.uv_sync_seconds|.0f}} s dependency install (busy machine, upper bound);
+the regenerated `results/metrics.json` is byte-identical to the committed one.
+
+## What a reviewer should see (`results/metrics.json`, seed 42)
+
+- Primary NDCG@10 **{{systems.lambdamart_ips.metrics.ndcg@10.mean|.4f}}** vs popularity
+  {{systems.popularity.metrics.ndcg@10.mean|.4f}} (p={{wilcoxon.lambdamart_ips_vs_popularity.p_value|.3g}}) and content cosine
+  {{systems.content_cosine.metrics.ndcg@10.mean|.4f}} (p={{wilcoxon.lambdamart_ips_vs_content_cosine.p_value|.3g}}, not significant);
+  5-seed: {{~seed_headline}}.
+- Candidate recall {{candidate_recall.overall.recall_mean|.3f}} overall / {{candidate_recall.long_tail.recall_mean|.3f}} long-tail;
+  Gate-A pass **{{gate_dgp.overall_pass}}**, Gate-B pass **{{gate_representation.overall_pass}}**;
+  hard-constraint violations **{{constraint_compatibility.n_hard_constraint_violations}}**; ECE {{calibration.ece_after|.4f}}.
+
+## Three strongest results
+
+1. **Hard constraints (DR1).** The brief's additive formula puts {{derived.dr1_hard_constraints.brief_additive_violations}}
+   hard-constraint violations in the top-10s of {{derived.dr1_hard_constraints.n_trips}} holdout trips
+   ({{derived.dr1_hard_constraints.brief_additive_trips_with_violation}} trips affected); the shipped multiplicative, hard-gated
+   utility has {{derived.dr1_hard_constraints.shipped_multiplicative_gated_violations}}.
+2. **Exposure bias is measured, not assumed.** The NDCG@10 gap between the biased log and the
+   random-exposure holdout is {{bias_gap.popularity.gap|+.3f}} for popularity but only
+   {{bias_gap.lambdamart_ips.gap|+.3f}} for the IPS-trained primary; the headline is computed on the unbiased holdout.
+3. **Oracle-free selection.** Every choice (retriever K by a pre-registered rule, features, LR
+   regularisation, ranker sweep) was made on train-carved validation; the true-utility oracle scored
+   results but never chose anything (firewall tests + `poi_rank.cli audit --deep`).
+
+## What was missed, and why (full scorecard: `docs/RESULTS.md`)
+
+- Ranker vs content cosine: {{derived.ndcg10_gain_content_cosine_to_primary|+.4f}} NDCG@10, not significant on one seed
+  (above cosine in {{~seed_vs_cosine}}); the popularity-to-cosine step is {{derived.ndcg10_gain_popularity_to_content_cosine|+.4f}}.
+- % of oracle ceiling {{systems.lambdamart_ips.pct_of_ceiling_ndcg10|.1%}} (target 70%); within/cross-archetype ratio
+  {{personalization.archetype.within_cross_ratio|.2f}} (target 2.0); localness index rho {{localness_validation.spearman_rho|.3f}} (target 0.6).
+- Long-tail share {{longtail.share|.3f}} (target 0.25); precision {{longtail.precision|.3f}} is a
+  {{derived.longtail_lift_over_base_rate.final_after_mmr|.3f}}x lift over the pool base rate — the 0.40 target was set without reference to that rate.
+- `make reproduce` is above the 5-minute goal; DR5 (ANN benchmark) not run. All data is synthetic.

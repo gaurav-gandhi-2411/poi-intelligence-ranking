@@ -256,9 +256,10 @@
       "experiment": "NOT RUN",
       "id": "DR5",
       "metric": "NOT RUN",
+      "not_run_reason": "ANN only matters at catalog sizes far beyond this take-home's three destinations; cut for time, so 'brute force is fine here' is reasoning, not evidence",
       "results": null,
       "status": "NOT RUN",
-      "verdict": "NOT RUN (cut for time; no evidence either way)"
+      "verdict": "NOT RUN (ANN only matters at catalog sizes far beyond this take-home's three destinations; cut for time, so 'brute force is fine here' is reasoning, not evidence)"
     },
     {
       "alternative": "min(), plain product, arithmetic mean",

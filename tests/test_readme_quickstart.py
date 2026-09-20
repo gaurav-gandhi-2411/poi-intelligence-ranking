@@ -19,7 +19,16 @@ reduced-bootstrap `EvalConfig`) for `train`/`evaluate`/`lodo`/`scenarios`, which
 are the genuinely slow steps at production settings. Every command from
 README.md's quick-start table is invoked, in the documented order, writing only
 into a `tmp_path` sandbox -- never the repo's own committed `data/synthetic/`,
-`artifacts/`, or `results/`."""
+`artifacts/`, or `results/`.
+
+**Deliberately the one COLD end-to-end test.** Every other slow test shares the session-scoped
+`generated_data -> prepared_data -> built_features -> generated_candidates` fixture chain
+(`tests/conftest.py`), built once per session. This test cannot: its whole purpose is to prove that
+the documented CLI sequence works from an empty directory, so it rebuilds the pipeline itself (that
+is why it dominates the slow tier's wall clock). Sharing the fixtures would turn it back into a test
+of the Python functions rather than of the CLI a reviewer runs. It is `slow` (serial lane,
+`-m slow`) so the light tier and CI's fast job never pay for it, and it should be run with the
+machine otherwise idle (it holds a full pipeline's frames in one process)."""
 
 from __future__ import annotations
 

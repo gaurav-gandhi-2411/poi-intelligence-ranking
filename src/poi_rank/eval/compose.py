@@ -46,10 +46,60 @@ COMPOSED_PARTS: dict[str, str | None] = {
     "longtail_stages": "longtail_stages",
     "e4_k_sweep": "e4_k_sweep",
     "ranker_sweep": "ranker_sweep",
+    "fresh_clone_verification": "fresh_clone_verification",
     "timings": "timings",
     "timings_full": "timings_full",
 }
 REQUIRED_PARTS = (EVALUATE_PART,)
+
+
+def derived_numbers(m: dict[str, Any]) -> dict[str, Any]:
+    """Quantities the docs quote that are pure functions of composed parts (differences and
+    ratios). They live in metrics.json so every number in the docs traces to a stored value."""
+    out: dict[str, Any] = {}
+    systems = m.get("systems", {})
+    if {"popularity", "content_cosine", "lambdamart_ips"} <= systems.keys():
+        pop, cos, prim = (
+            systems[k]["metrics"]["ndcg@10"]["mean"]
+            for k in ("popularity", "content_cosine", "lambdamart_ips")
+        )
+        out["ndcg10_gain_popularity_to_content_cosine"] = cos - pop
+        out["ndcg10_gain_content_cosine_to_primary"] = prim - cos
+    stages = m.get("longtail_stages", {}).get("stages")
+    if stages:
+        base_key = next(k for k in stages if k.startswith("0_candidate_pool"))
+        base = stages[base_key]["long_tail_precision"]
+        lift = {"base_rate": base}
+        for name, key in (
+            ("raw_ranker", "1_raw_ranker_top10"),
+            ("after_gate", "2_after_hard_gate_raw_order"),
+            ("after_utility", "3_after_utility"),
+            ("final_after_mmr", "4_final_after_mmr"),
+        ):
+            lift[name] = stages[key]["long_tail_precision"] / base
+        out["longtail_lift_over_base_rate"] = lift
+        sweep = m["longtail_stages"].get("mmr_lambda_diagnostic_post_hoc_on_holdout", {})
+        out["mmr_lambda_lift_over_base_rate"] = {
+            lam: v["long_tail_precision"] / base for lam, v in sweep.items()
+        }
+    dr1 = next(
+        (r for r in m.get("decision_register", {}).get("rows", []) if r["id"] == "DR1"), None
+    )
+    if dr1 and dr1.get("results"):
+        res = dr1["results"]
+        out["dr1_hard_constraints"] = {
+            "brief_additive_violations": res["additive_no_gate (brief)"][
+                "hard_constraint_violations_in_top10"
+            ],
+            "brief_additive_trips_with_violation": res["additive_no_gate (brief)"][
+                "trips_with_violation"
+            ],
+            "shipped_multiplicative_gated_violations": res["multiplicative_gated (production)"][
+                "hard_constraint_violations_in_top10"
+            ],
+            "n_trips": res["multiplicative_gated (production)"]["n_trips"],
+        }
+    return out
 
 
 def parts_dir(results_dir: Path) -> Path:
@@ -87,6 +137,7 @@ def compose_metrics(results_dir: Path) -> Path:
         else:
             composed[key] = content
     composed["parts_present"] = present
+    composed["derived"] = derived_numbers(composed)
     out = results_dir / METRICS_FILENAME
     out.write_text(json.dumps(composed, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return out

@@ -7,7 +7,7 @@ whether candidate generation would have included a POI the traveler was later
 observed to like is not latent information and reads nothing from the oracle-only
 export directory.
 
-Three reported numbers (all against the full 6-channel union candidate set):
+Three reported numbers (all against the full candidate union):
 
 1. **Overall `candidate_recall@250`** -- mean per-trip recall over all holdout trips
    with >= 1 relevant POI.
@@ -119,7 +119,7 @@ def overall_and_longtail_recall(
     long_tail_cutoff: float = 0.5,
 ) -> dict[str, RecallResult]:
     """Overall `candidate_recall@250` and the bottom-50%-popularity-stratum recall
-    (spec.md's exact requirement), both against the full 6-channel union."""
+    (spec.md's exact requirement), both against the full candidate union."""
     holdout = _canonical_holdout(pois_df, holdout_random)
     pop_pct_by_poi = dict(zip(pois_df["poi_id"], pois_df["pop_pct"], strict=True))
 
@@ -136,7 +136,7 @@ def overall_and_longtail_recall(
 def marginal_recall_per_channel(
     pois_df: pd.DataFrame, candidates_df: pd.DataFrame, holdout_random: pd.DataFrame
 ) -> dict[str, dict[str, float]]:
-    """Leave-one-channel-out marginal OVERALL recall@250 for each of the 6 channels:
+    """Leave-one-channel-out marginal OVERALL recall@250 for each enabled channel:
     `recall_full - recall_without_channel`. Reported for every channel regardless of
     the result -- spec.md section 7 says a channel with ~0 marginal recall "gets
     deleted"; this function's job is only to measure and report honestly, never to

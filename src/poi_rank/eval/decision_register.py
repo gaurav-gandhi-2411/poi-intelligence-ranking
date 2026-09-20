@@ -58,6 +58,8 @@ DR_CATALOG: dict[str, dict[str, str]] = {
     "DR5": {
         "decision": "Brute-force cosine retrieval",
         "alternative": "ANN index (faiss / hnswlib)",
+        "not_run_reason": "ANN only matters at catalog sizes far beyond this take-home's three "
+        "destinations; cut for time, so 'brute force is fine here' is reasoning, not evidence",
     },
     "DR6": {
         "decision": "Geometric-mean compatibility aggregation",
@@ -118,7 +120,9 @@ def compose_register(results_dir: Path) -> Path:
                     "experiment": "NOT RUN",
                     "metric": "NOT RUN",
                     "results": None,
-                    "verdict": "NOT RUN (cut for time; no evidence either way)",
+                    "verdict": "NOT RUN ("
+                    + meta.get("not_run_reason", "cut for time; no evidence either way")
+                    + ")",
                     "status": "NOT RUN",
                 }
             )

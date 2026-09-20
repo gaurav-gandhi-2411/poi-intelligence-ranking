@@ -27,7 +27,7 @@ then the orchestrator commits+pushes. Every commit leaves `make reproduce` green
    tables (99 / 139 cols, block-prefixed for later ablations), temporal
    as-of-cutoff on implicit taste (635/800 trips correctly cold-start),
    POI-id reconciliation across the Phase-2 dedup merge (self-discovered fix).
-5. **Candidate generation** (`d0a98a5`) — 6 channels w/ hard quotas, union to
+5. **Candidate generation** (`d0a98a5`; SUPERSEDED — shipped set is learned retriever + long-tail + interest, see Block E) — 6 channels w/ hard quotas, union to
    ~187 candidates/trip. **candidate_recall@250 = 0.4413 vs target 0.90
    (long-tail 0.3936 vs 0.80) — honest miss**, root-caused to a genuine
    information ceiling (2 of 7 DGP utility terms have zero observable proxy;

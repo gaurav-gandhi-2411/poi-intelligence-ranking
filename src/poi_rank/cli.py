@@ -340,7 +340,8 @@ def candidates(
         DEFAULT_ARTIFACTS_DIR, help="Directory the fitted retriever is saved to"
     ),
 ) -> None:
-    """Run the Phase 4a candidate-generation pipeline (6 channels + quotas) and
+    """Run candidate generation (learned retriever + long-tail floor + interest; the legacy
+    geo/semantic/CF/archetype channels have quota 0) and
     print candidate-set-size + candidate-recall@250 (overall, long-tail-stratum,
     per-channel marginal) summaries."""
     cfg = CandidatesConfig.from_yaml(config_path)

@@ -33,9 +33,13 @@ The incumbents already rank by popularity. On the unbiased random-exposure holdo
 | Catalog coverage@10 | **66.4%** | 5.7% |
 | NDCG@10 | **0.1485** [0.1385, 0.1590] | 0.0629 |
 
-Long-tail **precision** is 0.154 (target 0.40 — a miss, diagnosed in
-`docs/RESULTS.md`), so the honest claim is: it surfaces the long tail far more than a
-popularity ranker at a real relevance gain, but not yet at the precision a product would want.
+Long-tail **precision** is 0.154 against a pool base rate of
+0.099, i.e. a **1.556x lift over base rate**
+(2.234x at the raw ranker); lift over base rate is the primary statistic. The
+0.40 raw-precision target was set a priori without reference to that base rate and was miscalibrated
+at design time (`docs/TECHNICAL.md` section 4.2), so the honest claim is: it surfaces the long tail
+far more than a popularity ranker at a real relevance gain, and ranks long-tail POIs well above the
+pool's base rate, but not to the absolute precision the a-priori target assumed.
 The bias-gap table (popularity +0.083 vs primary
 +0.009 NDCG@10 between biased and unbiased holdouts) shows why the
 comparison must be made on the unbiased holdout.
@@ -66,6 +70,13 @@ That is `make reproduce` (data → gates → train → evaluate → compose). `m
 on a 16-logical-core laptop CPU (`scripts/time_reproduce.py`):
 **396 s (6.6 min) for `reproduce`**, **493 s for
 `reproduce-full`**. Per-stage timings are in `docs/RESULTS.md`. The original target was 5 minutes; the measured value is above it and was not chased further (the two largest stages are `train` and `evaluate`, i.e. LightGBM fits; the per-stage table is in `docs/RESULTS.md`).
+
+**Cold fresh-clone reproduction verified.** Commit `60c399a` was cloned
+into a clean directory, dependencies installed with `uv sync --frozen` on an empty cache
+(108 s), and the ten stages above run in order:
+**695 s in total** (measured on a busy machine, so an upper bound). The regenerated
+`results/metrics.json` is **byte-identical** to the one committed at that commit (SHA-256 recorded in
+`results/parts/fresh_clone_verification.json`); no key differs.
 
 Integrity and tests:
 

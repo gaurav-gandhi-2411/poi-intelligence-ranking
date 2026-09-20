@@ -2919,3 +2919,14 @@ composed into `results/metrics.json`; scripts `scripts/e4_k_sweep.py`, CLI `deco
   recall (0.991) is a different quantity and does not explain the ratio.
 - `make reproduce` measured 396 s (6.6 min) on a contended laptop; the 5-minute target is not met
   and was not chased further.
+- **`data/synthetic/candidates_legacy6.parquet`** (committed, 1.1 MB): the candidate set the
+  ORIGINAL six-channel generator (geo, interest, semantic, item-item CF, long-tail, archetype; config
+  `configs/features_legacy6.yaml`, taken from commit `9215f8b`) produces for the same trips, built
+  by the `decompose` CLI command. It is read only by `src/poi_rank/eval/decomposition.py` (E1), which
+  scores every system on both this set and the shipped learned-retriever set to separate the
+  retrieval effect from the ranking effect. It is committed so the decomposition (and its part
+  `results/parts/retrieval_ranking_decomposition.json`) can be re-run from a clone without
+  regenerating the old pipeline. It is NOT used by `make reproduce`, training or serving.
+- **DR5 (ANN benchmark) stays NOT RUN:** ANN only matters at catalog sizes far beyond this
+  take-home's three destinations; cut for time, so "brute force is fine here" is reasoning, not
+  evidence.

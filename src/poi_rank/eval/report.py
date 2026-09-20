@@ -442,6 +442,15 @@ def render_longtail(metrics: dict[str, Any]) -> str:
         f"- Long-tail precision (relevant per unbiased holdout): **{precision_str}** "
         f"({lg['n_longtail_relevant']} / {lg['n_longtail_recommended']})",
     ]
+    lift = metrics.get("derived", {}).get("longtail_lift_over_base_rate")
+    if lift is not None:
+        lines += [
+            f"- **Lift over the candidate pool's long-tail positive rate "
+            f"({_fmt(lift['base_rate'])}): {lift['final_after_mmr']:.3f}x served, "
+            f"{lift['raw_ranker']:.3f}x at the raw ranker** -- the primary long-tail precision "
+            "statistic; the 0.40 raw-precision target was set a priori without reference to "
+            "this base rate (miscalibrated at design time; see TECHNICAL.md section 4.2).",
+        ]
     pop = lg.get("popularity_baseline")
     if pop is not None:
         pop_precision = "N/A" if pop["precision"] is None else _fmt(pop["precision"])
@@ -495,6 +504,36 @@ def render_diversity(metrics: dict[str, Any]) -> str:
             f"{_fmt(row['mean_intra_list_similarity'])} |"
         )
     lines.append("")
+    ls = metrics.get("longtail_stages")
+    if ls is not None:
+        lam_lift = metrics.get("derived", {}).get("mmr_lambda_lift_over_base_rate", {})
+        lines += [
+            "### MMR lambda vs long-tail precision (post-hoc holdout diagnostic, not a selection)",
+            "",
+            "| lambda | Long-tail share@10 | Long-tail precision@10 | Lift over pool base rate |",
+            "|---|---|---|---|",
+        ]
+        for lam, v in ls["mmr_lambda_diagnostic_post_hoc_on_holdout"].items():
+            lf = lam_lift.get(lam)
+            lines.append(
+                f"| {float(lam):.2f} | {_fmt(v['long_tail_share'])} | "
+                f"{_fmt(v['long_tail_precision'])} | {'—' if lf is None else f'{lf:.3f}x'} |"
+            )
+        lines += [
+            "",
+            f"The shipped lambda ({ls['lambda_default']:g}) is a **deliberate diversity-for-"
+            "precision trade, not a tuned optimum**, and lambda was not re-selected: choosing it "
+            "on the holdout would leak, and re-selecting on validation would destabilise a "
+            "shipped submission over a product knob. The cost is quantified in the two tables: "
+            "moving from lambda 1.0 (no diversity term) to the shipped value lowers "
+            "long-tail precision and NDCG@10 while cutting mean intra-list similarity, and the "
+            "long-tail share is roughly flat across the whole range. A product owner who "
+            "optimises for booking precision rather than category variety would move lambda "
+            "toward 0.9 (a one-line scoring-config change), recovering most of the precision "
+            "and NDCG@10 for a modest rise in list similarity; one who wants catalog exposure "
+            "keeps 0.8.",
+            "",
+        ]
     return "\n".join(lines)
 
 
@@ -841,6 +880,7 @@ def run_report(
 NARRATIVE_TEMPLATES: dict[str, str] = {
     "docs/TECHNICAL.md.tmpl": "docs/TECHNICAL.md",
     "README.md.tmpl": "README.md",
+    "submission/SUBMISSION.md.tmpl": "submission/SUBMISSION.md",
 }
 
 

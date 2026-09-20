@@ -1528,9 +1528,10 @@
         "experiment": "NOT RUN",
         "id": "DR5",
         "metric": "NOT RUN",
+        "not_run_reason": "ANN only matters at catalog sizes far beyond this take-home's three destinations; cut for time, so 'brute force is fine here' is reasoning, not evidence",
         "results": null,
         "status": "NOT RUN",
-        "verdict": "NOT RUN (cut for time; no evidence either way)"
+        "verdict": "NOT RUN (ANN only matters at catalog sizes far beyond this take-home's three destinations; cut for time, so 'brute force is fine here' is reasoning, not evidence)"
       },
       {
         "alternative": "min(), plain product, arithmetic mean",
@@ -2039,6 +2040,31 @@
         "verdict": "Legacy 6-channel union: recall 0.596 (lift +0.203). Shipped learned+long-tail+interest: recall 0.881 (lift +0.371, 246 candidates/trip). Ranking by true utility would recall 0.991 at the same budget (diagnostic)."
       }
     ]
+  },
+  "derived": {
+    "dr1_hard_constraints": {
+      "brief_additive_trips_with_violation": 229,
+      "brief_additive_violations": 901,
+      "n_trips": 671,
+      "shipped_multiplicative_gated_violations": 0
+    },
+    "longtail_lift_over_base_rate": {
+      "after_gate": 1.8705270486960925,
+      "after_utility": 1.9342452491415978,
+      "base_rate": 0.0990277123399152,
+      "final_after_mmr": 1.5561803476041671,
+      "raw_ranker": 2.234111369691031
+    },
+    "mmr_lambda_lift_over_base_rate": {
+      "0.5": 1.3978080502423937,
+      "0.6": 1.4646733062134094,
+      "0.7": 1.499111761138658,
+      "0.8": 1.5561803476041671,
+      "0.9": 1.7424580268287118,
+      "1": 1.9342452491415978
+    },
+    "ndcg10_gain_content_cosine_to_primary": 0.0074092044031165705,
+    "ndcg10_gain_popularity_to_content_cosine": 0.07820758333931113
   },
   "dgp_diagnostics": {
     "D10_description_conditioning": {
@@ -2552,6 +2578,32 @@
     "pre_registered_rule": "smallest K with IPS-weighted validation overall recall >= 0.93 (val = 20% of train trips vs logged positives, weighted 1/clip(p_expose)); applied once, blind to the holdout column, which is reporting-only",
     "rule_k": 195
   },
+  "fresh_clone_verification": {
+    "caveat": "wall clock measured while other processes (concurrent doc edits and test runs, plus other projects) were using the CPU, so it is an upper bound; the same pipeline measured 396 s on a warm cache",
+    "commit": "60c399a",
+    "keys_that_differ": [],
+    "method": "git clone from GitHub into a clean directory outside the working tree; uv sync --frozen with a fresh empty UV_CACHE_DIR and a new .venv; then the README quick-start commands in order with PYTHONHASHSEED=0 (make is not installed on the verification machine; the Makefile reproduce target runs the same ten stages in the same order)",
+    "metrics_json_identical_to_committed": true,
+    "metrics_json_sha256": "5eb1a58c0cd375a15d298f793dafe3740415c53c81882cb96df1c96890bba052",
+    "model_and_retriever_artifacts_identical_ignoring_line_endings": true,
+    "note": "clone+checkout took ~16 s and is included in total_seconds but not in pipeline_seconds",
+    "pipeline_seconds": 571,
+    "stage_seconds": {
+      "candidates": 64,
+      "compose": 3,
+      "evaluate": 208,
+      "features": 36,
+      "gate-dgp": 15,
+      "gate-representation": 3,
+      "generate": 67,
+      "prepare": 7,
+      "representation": 15,
+      "train": 150,
+      "uv_sync_frozen_cold_cache": 108
+    },
+    "total_seconds": 695,
+    "uv_sync_seconds": 108
+  },
   "gate_dgp": {
     "checks": {
       "cold_start_trip_share": {
@@ -2930,6 +2982,7 @@
     "longtail_stages",
     "e4_k_sweep",
     "ranker_sweep",
+    "fresh_clone_verification",
     "timings",
     "timings_full"
   ],
