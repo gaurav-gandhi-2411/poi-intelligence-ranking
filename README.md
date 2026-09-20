@@ -77,18 +77,21 @@ on a 16-logical-core laptop CPU (`scripts/time_reproduce.py`):
 **335 s (5.6 min) for `reproduce`**, **432 s for
 `reproduce-full`**. Per-stage timings are in `docs/RESULTS.md`. The measured `reproduce` value is above the original 5-minute target and was not chased further (the two largest stages are `train` and `evaluate`, i.e. LightGBM fits; the per-stage table is in `docs/RESULTS.md`).
 
-**Cold fresh-clone reproduction verified.** Commit `e34248a` was cloned into a
-clean directory, dependencies installed with `uv sync --frozen` on an empty cache
-(65 s), the `demo` commands below run from the committed
-artifacts (first, cold run: 21 s and
-7 s; warm: about
-4-5 s),
-and the ten stages above run in order: **656 s in total**
-(544 s for the pipeline stages themselves on that cold
-clone; the warm figure above is 335 s). The regenerated `results/metrics.json`
-is **byte-identical** to the one committed at that commit (SHA-256 recorded in
-`results/parts/fresh_clone_verification.json`); no key differs, and the regenerated model files differ
-from the committed ones only in line endings.
+**Cold fresh-clone reproduction verified at the tagged commit.** The commit tagged
+`v1.0-konnect-submission` was cloned into a clean directory, dependencies installed with
+`uv sync --frozen` on an empty cache, the `demo` commands below run from the committed artifacts, and the
+ten stages above run in order; the regenerated `results/metrics.json` is **byte-identical** to the committed
+one (no key differs; regenerated model files differ only in line endings). The verified SHA and the result
+of that final run are recorded in the annotated tag (`git show v1.0-konnect-submission`), because a commit
+cannot contain its own SHA; `bash scripts/verify_fresh_clone.sh` repeats the check for any ref. The most
+recent recorded cold run (`results/parts/fresh_clone_verification.json`): `uv sync`
+177 s, first `demo` runs
+15 s and
+6 s (warm: about
+4-5 s), the ten stages
+431 s, 668 s in total on a busy laptop (the warm
+figure above is 335 s). The committed LightGBM model text is pinned to LF by
+`.gitattributes`, so a Windows checkout (`core.autocrlf=true`) loads it and `make demo` works.
 
 Integrity and tests:
 

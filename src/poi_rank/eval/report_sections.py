@@ -238,19 +238,33 @@ def diagnoses(metrics: dict[str, Any], scenarios: dict[str, Any] | None = None) 
         ov = scenarios["overlap_matrix"]
         cj = ov.get("diagnostic_vs_base_candidate_pool_jaccard")
         h = metrics.get("h_experiments")
+        d4 = metrics.get("scenario4_diagnosis")
         extra = ""
-        if h:
+        if h and d4:
             pre = h["pre_fix_headline"]["scenario4_overlap"]
-            share = h["h0a_shap_shares_final_model"]["localness_fit"]
+            post = d4["post_fix"]["scenario_rows"]
+            pref = post["scenario1_share_carried_by_pref_dependent_features"]
+            hold = d4["post_fix"]["holdout_counterfactual_flip"]
+            ref = d4["post_fix"]["holdout_personalization_reference"]
+            pre_taste = d4["pre_fix"]["scenario_rows"]["scenario1_base_attribution_share_by_group"][
+                "implicit_taste"
+            ]
+            j_all = _f(hold["flip_top10_jaccard_all_trips"], 3)
+            j_cold = _f(hold["flip_top10_jaccard_cold_start_trips"], 3)
             extra = (
-                f" Before the feature-skew fix (TECHNICAL.md section 5.1) this row was "
-                f"{_f(pre, 3)}; the fix changed how much the ranker relies on which signals, and "
-                "the flip now moves the top-10 less. The localness_fit group carries only "
-                f"{_f(share, 3)} of the final model grouped-SHAP attribution (section 5.2), so "
-                "touristiness_pref has limited leverage on the ranking. UNVERIFIED hypothesis: "
-                "the label-carrying implicit features used to interact with the preference terms "
-                "in a way the corrected features do not (untested; diagnostic scenario, not a "
-                "product requirement)."
+                f" Before the feature-skew fix this row was {_f(pre, 3)}. Measured (TECHNICAL.md "
+                "section 10.1): the features that read touristiness_pref carry "
+                f"{_f(pref, 3)} of the final model attribution for a cold-start traveler, and "
+                f"negating the preference on the {hold['n_trips']} real holdout trips leaves the "
+                f"raw top-10 at Jaccard {j_all} ({j_cold} for pure cold-start trips). "
+                "Personalization by taste is healthy (cross-archetype Jaccard "
+                f"{_f(ref['cross_archetype_jaccard_true_labels'], 3)}); touristiness_pref is a "
+                "weak lever for a brand-new traveler, whose ranking is driven mainly by stated "
+                "interests, popularity/quality and compatibility. The pre-fix value reflected an "
+                f"off-distribution response ({_f(pre_taste, 3)} of that model attribution sat on "
+                "leak-trained history-based features, absent for these travelers), not stronger "
+                "personalization (interpretation; the numbers are measured). Reported as a "
+                "cold-start limitation."
             )
         out["scenario4"] = (
             f"Top-10 overlap {_f(ov['diagnostic_vs_base_jaccard'], 3)} with candidate-pool "
@@ -259,20 +273,28 @@ def diagnoses(metrics: dict[str, Any], scenarios: dict[str, Any] | None = None) 
         )
     dv = metrics["confidence_decile_validation"]
     h = metrics.get("h_experiments", {}).get("pre_fix_headline", {})
+    cd = metrics.get("confidence_diagnosis")
     pre_conf = h.get("confidence_decile_spearman")
-    pre_txt = (
-        f" Before the feature-skew fix (TECHNICAL.md section 5.1) this row was {_f(pre_conf, 3)}: "
-        "the confidence ensemble and the ranker were retrained on the corrected features and the "
-        "decile ordering changed with them (the holdout features themselves are unchanged)."
-        if pre_conf is not None
-        else ""
-    )
-    out["confidence_decile"] = (
-        f"Confidence-decile Spearman is {_f(dv['spearman_rho'], 3)}." + pre_txt + " UNVERIFIED "
-        "hypothesis: the evidence-volume terms dominate the ensemble-sd term, so deciles separate "
-        "by evidence volume rather than correctness; test = per-component Spearman vs decile "
-        "NDCG (untested)."
-    )
+    if cd and pre_conf is not None:
+        pre_c, post_c = cd["pre_fix"], cd["post_fix"]
+        t_pre = _f(pre_c["trip_level_spearman_confidence_vs_ndcg"], 3)
+        t_post = _f(post_c["trip_level_spearman_confidence_vs_ndcg"], 3)
+        v_pre = _f(pre_c["spearman_interaction_count_vs_ndcg"], 3)
+        v_post = _f(post_c["spearman_interaction_count_vs_ndcg"], 3)
+        tail = (
+            f" Before the feature-skew fix this row was {_f(pre_conf, 3)}. Measured (TECHNICAL.md "
+            "section 10.1): the statistic is a rank correlation over ten decile means of a weak "
+            f"trip-level relationship (trip-level Spearman {t_pre} before, {t_post} after). The "
+            "confidence inputs on holdout are unchanged and dominated by the traveler-evidence "
+            "term; what changed is the ranker: before the fix its NDCG rose with history volume "
+            f"(Spearman {v_pre}), after it does not ({v_post}), so an evidence-volume-dominated "
+            "confidence has nothing to track. The pre-fix figure was inflated by the leaked "
+            "features; the post-fix value is the honest one. Reweighting toward the ensemble term "
+            "would be tuning on holdout labels and is declined."
+        )
+    else:
+        tail = ""
+    out["confidence_decile"] = f"Confidence-decile Spearman is {_f(dv['spearman_rho'], 3)}." + tail
     return out
 
 

@@ -3,9 +3,32 @@
 > Generated from `submission/SUBMISSION.md.tmpl`; every number resolves from `results/metrics.json`.
 
 **Repo:** https://github.com/gaurav-gandhi-2411/poi-intelligence-ranking · **Tag:** `v1.0-konnect-submission`
-(cold fresh-clone reproduction verified at commit `{{fresh_clone_verification.commit}}`).
 
-## Clone and run (CPU only, no API keys, no network; these stages, in this order, were run from a cold clone)
+## Headline: we found a train/serve skew in our own pipeline, and retracted our own conclusion
+
+Train-time traveler features were computed as-of each trip's `start_date`, but a trip's browsing session
+(the source of the labels) is dated 0-45 days *before* it, so train and validation features carried the
+labels and holdout features could not: the median days since the last interaction is
+**{{h_experiments.feature_skew_pre_fix.train_trips.days_since_last_interaction_median|.0f}} on train trips vs
+{{h_experiments.feature_skew_pre_fix.holdout_trips.days_since_last_interaction_median|.0f}} on holdout trips**. The first tag reported the ranker as no better than content
+cosine ({{h_experiments.pre_fix_headline.ndcg10_primary|.4f}} vs {{h_experiments.pre_fix_headline.ndcg10_content_cosine|.4f}}, p={{h_experiments.pre_fix_headline.wilcoxon_primary_vs_content_cosine_p|.3g}}); that
+conclusion is retracted in the docs (`docs/TECHNICAL.md` sections 5.1, 10.1) and the whole pipeline was re-run.
+The fix also *cost* two scorecard rows (confidence-decile Spearman
+{{h_experiments.pre_fix_headline.confidence_decile_spearman|.3f}} → {{confidence_decile_validation.spearman_rho|.3f}}, scenario-4 flip overlap {{h_experiments.pre_fix_headline.scenario4_overlap|.3f}} → {{scenarios.overlap_matrix.diagnostic_vs_base_jaccard|.3f}});
+both are diagnosed with measured mechanisms, not tuned away. **Holdout feature distributions were inspected
+to diagnose a train/serve skew. No labels were used for selection and no hyperparameter was chosen on holdout.**
+
+## Three supporting results
+
+1. **Primary vs content cosine:** NDCG@10 **{{systems.lambdamart_ips.metrics.ndcg@10.mean|.4f}}** vs
+   {{systems.content_cosine.metrics.ndcg@10.mean|.4f}} (p={{wilcoxon.lambdamart_ips_vs_content_cosine.p_value|.3g}}); above cosine in {{~seed_vs_cosine}}; 5-seed {{~seed_headline}}.
+2. **Hard constraints (DR1):** the brief's additive formula puts {{derived.dr1_hard_constraints.brief_additive_violations}} violations into the
+   top-10s of {{derived.dr1_hard_constraints.n_trips}} holdout trips; the gated multiplicative utility has
+   {{derived.dr1_hard_constraints.shipped_multiplicative_gated_violations}}.
+3. **Oracle-free selection:** every choice (K, features, regularisation, ranker sweep, experiment H) was made on
+   train-carved validation; the true-utility oracle scored results but never chose anything.
+
+## Clone and run (CPU only, no API keys, no network)
 
 ```bash
 git clone https://github.com/gaurav-gandhi-2411/poi-intelligence-ranking.git && cd poi-intelligence-ranking
@@ -13,46 +36,24 @@ git checkout v1.0-konnect-submission
 uv sync --frozen && export PYTHONHASHSEED=0      # PowerShell: $env:PYTHONHASHSEED = "0"
 for s in generate prepare features candidates gate-dgp train evaluate representation \
          gate-representation compose; do uv run python -m poi_rank.cli $s; done   # = make reproduce
+make demo TRAVELER=U0005                          # live top-10 from the committed artifacts
 ```
 
-Verified on an empty cache: **{{fresh_clone_verification.total_seconds|.0f}} s** including a
-{{fresh_clone_verification.uv_sync_seconds|.0f}} s dependency install ({{fresh_clone_verification.pipeline_seconds|.0f}} s for the ten stages;
-warm rerun {{timings.total_seconds|.0f}} s); the regenerated `results/metrics.json` is byte-identical to
-the committed one. Live demo (also verified from the clone): `make demo TRAVELER=U0005`.
+`make reproduce` measured {{timings.total_seconds|.0f}} s ({{~reproduce_minutes}}; reported as measured, no longer optimised).
+The tagged commit was cold-cloned (empty uv cache, new venv), run in the order above, and its regenerated
+`results/metrics.json` compared byte-for-byte with the committed file; the verified SHA and the result are in the
+annotated tag (`git show v1.0-konnect-submission`), and `bash scripts/verify_fresh_clone.sh` repeats the check.
 
-## What a reviewer should see (`results/metrics.json`, seed 42)
+## What a reviewer should see (seed 42)
 
-- Primary NDCG@10 **{{systems.lambdamart_ips.metrics.ndcg@10.mean|.4f}}** vs popularity
-  {{systems.popularity.metrics.ndcg@10.mean|.4f}} (p={{wilcoxon.lambdamart_ips_vs_popularity.p_value|.3g}}) and content cosine
-  {{systems.content_cosine.metrics.ndcg@10.mean|.4f}} (p={{wilcoxon.lambdamart_ips_vs_content_cosine.p_value|.3g}});
-  5-seed: {{~seed_headline}}; above cosine in {{~seed_vs_cosine}}.
-- Candidate recall {{candidate_recall.overall.recall_mean|.3f}} overall / {{candidate_recall.long_tail.recall_mean|.3f}} long-tail;
-  Gate-A pass **{{gate_dgp.overall_pass}}**, Gate-B pass **{{gate_representation.overall_pass}}**;
-  hard-constraint violations **{{constraint_compatibility.n_hard_constraint_violations}}**; ECE {{calibration.ece_after|.4f}}.
+Primary NDCG@10 {{systems.lambdamart_ips.metrics.ndcg@10.mean|.4f}}, popularity {{systems.popularity.metrics.ndcg@10.mean|.4f}}; candidate recall
+{{candidate_recall.overall.recall_mean|.3f}} overall / {{candidate_recall.long_tail.recall_mean|.3f}} long-tail; Gate-A **{{gate_dgp.overall_pass}}**, Gate-B **{{gate_representation.overall_pass}}**;
+hard-constraint violations **{{constraint_compatibility.n_hard_constraint_violations}}**; ECE {{calibration.ece_after|.4f}}.
 
-## Three strongest results
+## What was missed, and why (7 MISSED rows; full scorecard: `docs/RESULTS.md`)
 
-1. **Hard constraints (DR1).** The brief's additive formula puts {{derived.dr1_hard_constraints.brief_additive_violations}}
-   hard-constraint violations in the top-10s of {{derived.dr1_hard_constraints.n_trips}} holdout trips
-   ({{derived.dr1_hard_constraints.brief_additive_trips_with_violation}} trips affected); the shipped multiplicative, hard-gated
-   utility has {{derived.dr1_hard_constraints.shipped_multiplicative_gated_violations}}.
-2. **Exposure bias is measured, not assumed.** The NDCG@10 gap between the biased log and the
-   random-exposure holdout is {{bias_gap.popularity.gap|+.3f}} for popularity but only
-   {{bias_gap.lambdamart_ips.gap|+.3f}} for the IPS-trained primary; the headline is computed on the unbiased holdout.
-3. **Oracle-free selection.** Every choice (retriever K by a pre-registered rule, features, LR
-   regularisation, ranker sweep) was made on train-carved validation; the true-utility oracle scored
-   results but never chose anything (firewall tests + `poi_rank.cli audit --deep`).
-
-## What was missed, and why (full scorecard: `docs/RESULTS.md`)
-
-- **Late-found bug, fixed** (`docs/TECHNICAL.md` section 5.1): train-time traveler features contained each
-  trip's own labelled browsing session. As first tagged the ranker looked no better than cosine
-  ({{h_experiments.pre_fix_headline.ndcg10_primary|.4f}} vs {{h_experiments.pre_fix_headline.ndcg10_content_cosine|.4f}}); after the fix it is well above
-  it. The fix also moved scorecard rows the other way: confidence-decile Spearman
-  {{h_experiments.pre_fix_headline.confidence_decile_spearman|.3f}} → {{confidence_decile_validation.spearman_rho|.3f}} and scenario-4 flip overlap
-  {{h_experiments.pre_fix_headline.scenario4_overlap|.3f}} → {{scenarios.overlap_matrix.diagnostic_vs_base_jaccard|.3f}}; both now MISSED.
-- % of oracle ceiling {{systems.lambdamart_ips.pct_of_ceiling_ndcg10|.1%}} (target 70%); within/cross-archetype ratio
-  {{personalization.archetype.within_cross_ratio|.2f}} (target 2.0); localness index rho {{localness_validation.spearman_rho|.3f}} (target 0.6).
-- Long-tail share {{longtail.share|.3f}} (target 0.25); precision {{longtail.precision|.3f}} is a
-  {{derived.longtail_lift_over_base_rate.final_after_mmr|.3f}}x lift over the pool base rate — the 0.40 target was set without reference to that rate.
-- `make reproduce` {{~reproduce_vs_target}}; DR5 (ANN benchmark) not run. All data is synthetic.
+- % of oracle ceiling {{systems.lambdamart_ips.pct_of_ceiling_ndcg10|.1%}} (target 70%); localness index rho {{localness_validation.spearman_rho|.3f}} (target 0.6).
+- Long-tail share {{longtail.share|.3f}} (target 0.25) and precision {{longtail.precision|.3f}}. **Two rows trace to targets set without reference to the data's
+  baselines**: long-tail precision 0.40 (pool base rate {{derived.longtail_lift_over_base_rate.base_rate|.3f}}) and the within/cross-archetype ratio 2.0 (a perfect ranker reaches
+  {{scenario4_diagnosis.post_fix.holdout_personalization_reference.perfect_ranker_within_cross_ratio|.2f}}); the recall 0.85 and chance-lift +0.35 targets were also set a priori and made the K rule infeasible (DR13).
+- Decisions worth reading (DR3 objective, DR12 retrieval design, DR13 K selection): `docs/TECHNICAL.md` section 12.1. DR5 (ANN benchmark) not run; all data is synthetic.

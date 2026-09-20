@@ -427,6 +427,112 @@ def run_dr11(results_dir: Path) -> None:
     )
 
 
+def run_dr12(data_dir: Path, results_dir: Path) -> None:
+    """Learned retriever vs the original six-channel union: candidate recall / Gate-B rows
+    (recomputed here on the corrected features) next to the end-to-end NDCG@10 of
+    `eval/decomposition.py` (a ranker retrained on each set)."""
+    from poi_rank.candidates.recall_metrics import recall_with_chance_lift
+
+    pois = pd.read_parquet(data_dir / "pois_prepared.parquet")
+    hold = pd.read_parquet(data_dir / "interactions_holdout_random.parquet")
+    sets = {
+        "learned_retriever": pd.read_parquet(data_dir / "candidates.parquet"),
+        "legacy_six_channel": pd.read_parquet(data_dir / "candidates_legacy6.parquet"),
+    }
+    dec = json.loads(
+        (results_dir / "parts" / "retrieval_ranking_decomposition.json").read_text("utf-8")
+    )
+    rows: dict[str, Any] = {}
+    for name, cand in sets.items():
+        rec = recall_with_chance_lift(pois, cand, hold)
+        rows[name] = {
+            "recall_overall": rec["overall"]["recall"],
+            "recall_long_tail": rec["long_tail"]["recall"],
+            "lift_overall": rec["overall"]["lift_abs"],
+            "lift_long_tail": rec["long_tail"]["lift_abs"],
+            "mean_candidates_per_trip": dec["mean_candidates_per_trip"][
+                "learned_retriever" if name == "learned_retriever" else "legacy_6_channel"
+            ],
+            "passes_gate_b_recall_overall": rec["overall"]["recall"] >= 0.85,
+            "passes_gate_b_recall_long_tail": rec["long_tail"]["recall"] >= 0.75,
+            "passes_gate_b_lift_overall": rec["overall"]["lift_abs"] >= 0.35,
+            "passes_gate_b_lift_long_tail": rec["long_tail"]["lift_abs"] >= 0.35,
+        }
+        rows[name]["gate_b_rows_passed"] = sum(
+            bool(v) for k, v in rows[name].items() if k.startswith("passes_gate_b")
+        )
+    e2e = dec["ndcg10_end_to_end"]
+    learned_ndcg = e2e["learned_retriever"]["lambdamart_ips_shipped"]["mean"]
+    legacy_ndcg = e2e["legacy_6_channel"]["lambdamart_ips_retrained_on_this_set"]["mean"]
+    p = dec["paired_tests_end_to_end"]["retrieval_effect_primary_learned_vs_legacy_retrained"][
+        "p_value"
+    ]
+    lr, gr = rows["learned_retriever"], rows["legacy_six_channel"]
+    write_dr(
+        results_dir,
+        "DR12",
+        "Recall and Gate-B rows of each candidate set on the corrected features, plus end-to-end "
+        "fixed-denominator NDCG@10 with the ranker retrained on each set (eval/decomposition.py).",
+        "candidate recall / lift over chance; end-to-end NDCG@10",
+        {
+            "candidate_sets": rows,
+            "ndcg10_end_to_end": {
+                "learned_retriever_shipped_ranker": learned_ndcg,
+                "legacy_six_channel_retrained_ranker": legacy_ndcg,
+                "paired_wilcoxon_p": p,
+            },
+        },
+        f"Learned retriever: recall {lr['recall_overall']:.3f} "
+        f"(long-tail {lr['recall_long_tail']:.3f}, lift {lr['lift_overall']:+.3f}); legacy union: "
+        f"recall {gr['recall_overall']:.3f} (long-tail {gr['recall_long_tail']:.3f}, "
+        f"lift {gr['lift_overall']:+.3f}). The legacy union wins end-to-end NDCG@10 "
+        f"({legacy_ndcg:.4f} vs {learned_ndcg:.4f}, paired p={p:.3g}) with a ranker retrained on "
+        "each set. The retriever ships (it is the one that meets the recall and long-tail gate "
+        "rows); switching on a holdout comparison would be selection leakage.",
+    )
+
+
+def run_dr13(results_dir: Path) -> None:
+    """K selection: the two pre-registered criteria are jointly infeasible (lift = recall - chance,
+    and chance grows with K), resolved by a validation-only tie-break."""
+    sweep = json.loads((results_dir / "parts" / "e4_k_sweep.json").read_text("utf-8"))
+    grid = sweep["grid"]
+    both = [
+        g["learned_K"]
+        for g in grid
+        if g["val_ips_weighted_selection"]["recall"] >= 0.93
+        and g["val_ips_weighted_selection"]["lift"] >= 0.35
+    ]
+    by_k = {g["learned_K"]: g for g in grid}
+    rule_k, shipped_k = sweep["rule_k"], sweep["shipped_k"]
+    write_dr(
+        results_dir,
+        "DR13",
+        "Full K sweep on the corrected features: IPS-weighted validation recall and lift over "
+        "chance (selection columns) with the holdout columns reporting-only.",
+        "validation recall (rule: >= 0.93), validation lift (Gate-B row: >= 0.35)",
+        {
+            "rule_k": rule_k,
+            "shipped_k": shipped_k,
+            "grid_ks_satisfying_both_criteria_on_validation": both,
+            "at_rule_k": by_k[rule_k],
+            "at_shipped_k": by_k[shipped_k],
+            "grid": grid,
+        },
+        f"The blind recall rule gives K={rule_k}, whose validation lift is "
+        f"{by_k[rule_k]['val_ips_weighted_selection']['lift']:.3f} < 0.35 (the blocking Gate-B "
+        f"row); {len(both)} grid K satisfy both criteria on validation. Tie-break, validation "
+        "only, applied to the FIRST grid computation (Amendment 2: validation lift 0.363 at "
+        "K=240): "
+        "the largest K with lift >= 0.36 (gate + 0.01 margin) -> K=240. The committed grid was "
+        "recomputed later on the final candidates.parquet and puts the validation lift at K="
+        f"{shipped_k} at {by_k[shipped_k]['val_ips_weighted_selection']['lift']:.3f} (still above "
+        "the 0.35 gate, below the 0.36 margin; the margin rule would now give K="
+        f"{sweep['gate_feasible_k']}). K was not re-selected: no model changes after the "
+        "pre-registered decision, and the shipped pipeline meets the gate on the holdout.",
+    )
+
+
 # -----------------------------------------------------------------------------------
 # DR8: taste half-life and interaction weights -- rebuild traveler features, refit, score
 # -----------------------------------------------------------------------------------

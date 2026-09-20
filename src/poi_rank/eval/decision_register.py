@@ -79,6 +79,14 @@ DR_CATALOG: dict[str, dict[str, str]] = {
         "decision": "Candidate generation = learned retriever + long-tail + interest",
         "alternative": "The original 6 heuristic channels, and subsets of them",
     },
+    "DR12": {
+        "decision": "Retrieval design: learned full-catalog retriever + long-tail floor + interest",
+        "alternative": "The original six-channel heuristic union (ranker retrained on it)",
+    },
+    "DR13": {
+        "decision": "Learned K = 240 (largest grid K with validation lift >= 0.36)",
+        "alternative": "K = 270 from the pre-registered rule (smallest K with val recall >= 0.93)",
+    },
 }
 
 

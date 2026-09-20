@@ -53,6 +53,8 @@ from poi_rank.eval.dr_experiments import (
     run_dr8,
     run_dr9,
     run_dr11,
+    run_dr12,
+    run_dr13,
 )
 from poi_rank.eval.gate_dgp import run_gate_dgp
 from poi_rank.eval.gate_representation import run_gate_representation
@@ -954,6 +956,10 @@ def dr(
         run_dr9(data_dir, artifacts_dir, results_dir, feature_cfg, candidates_cfg, lab)
     if "DR11" in wanted:
         run_dr11(results_dir)
+    if "DR12" in wanted:
+        run_dr12(data_dir, results_dir)
+    if "DR13" in wanted:
+        run_dr13(results_dir)
     if "DR8" in wanted:
         run_dr8(data_dir, results_dir, feature_cfg, lab)
     if "DR4" in wanted:

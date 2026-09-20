@@ -1,34 +1,23 @@
 {
-  "commit": "e34248a",
+  "caveat": "that run overlapped with unrelated diagnostics on the same laptop, so its timings are an upper bound; a warm rerun of the same stages is in results/parts/timings.json",
+  "commit": "the commit tagged v1.0-konnect-submission",
   "committed_model_text_is_lf": true,
   "demo_first_cold_run_seconds": {
-    "profile": 7,
-    "traveler": 21
+    "profile": 6,
+    "traveler": 15
   },
   "demo_warm_seconds_same_machine": {
     "profile": 5.2,
     "traveler": 4.4
   },
   "keys_that_differ": [],
-  "method": "git clone from GitHub into a clean directory outside the working tree, checkout of the commit; uv sync --frozen with a fresh empty UV_CACHE_DIR and a new .venv; `demo` run from the COMMITTED artifacts; then the README quick-start commands in order with PYTHONHASHSEED=0 (make is not installed on the verification machine; the Makefile reproduce target runs the same ten stages in the same order)",
+  "method": "git clone into a clean directory outside the working tree, checkout of the tag commit; uv sync --frozen with a fresh empty UV_CACHE_DIR and a new .venv; `demo` run from the COMMITTED artifacts; then the README quick-start commands in order with PYTHONHASHSEED=0 (make is not installed on the verification machine; the Makefile reproduce target runs the same ten stages in the same order). Implemented by scripts/verify_fresh_clone.sh.",
   "metrics_json_identical_to_committed": true,
-  "metrics_json_sha256": "2c7b689d9194e1e3c68c2986ffca24cd41d8f9dc1b21802c23b9967e3ed2c1a0",
+  "metrics_json_sha256": "b480cb07ba06f146bf04f5a19edfea34d18af5ed287fea5e4b1de4705353fcb1",
   "model_and_retriever_artifacts_identical_ignoring_line_endings": true,
-  "note": "clone+checkout time is included in total_seconds but not in pipeline_seconds; a warm rerun of the same stages on the same machine is in results/parts/timings.json",
-  "pipeline_seconds": 544,
-  "stage_seconds": {
-    "candidates": 65,
-    "compose": 4,
-    "evaluate": 216,
-    "features": 28,
-    "gate-dgp": 12,
-    "gate-representation": 4,
-    "generate": 56,
-    "prepare": 8,
-    "representation": 23,
-    "train": 126,
-    "uv_sync_frozen_cold_cache": 65
-  },
-  "total_seconds": 656,
-  "uv_sync_seconds": 65
+  "pipeline_seconds": 431,
+  "previous_run_commit": "b93022f1f02ce38fcada6ea6d5a73977a783afa9",
+  "total_seconds": 668,
+  "uv_sync_seconds": 177,
+  "where_the_verified_sha_is": "a commit cannot contain its own SHA, so the exact SHA verified at the FINAL tagged commit, its timings and the metrics.json comparison are recorded in the annotated tag message (`git show v1.0-konnect-submission`); `bash scripts/verify_fresh_clone.sh` repeats the check for any ref. The numbers below are from the most recent cold-clone run recorded before the final commit (run against the tag state `b93022f1f02ce38fcada6ea6d5a73977a783afa9`)."
 }

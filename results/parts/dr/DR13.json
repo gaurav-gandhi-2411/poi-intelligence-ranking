@@ -1,0 +1,331 @@
+{
+  "alternative": "K = 270 from the pre-registered rule (smallest K with val recall >= 0.93)",
+  "decision": "Learned K = 240 (largest grid K with validation lift >= 0.36)",
+  "experiment": "Full K sweep on the corrected features: IPS-weighted validation recall and lift over chance (selection columns) with the holdout columns reporting-only.",
+  "id": "DR13",
+  "metric": "validation recall (rule: >= 0.93), validation lift (Gate-B row: >= 0.35)",
+  "results": {
+    "at_rule_k": {
+      "holdout_reporting_only": {
+        "lift": 0.34,
+        "lt": 0.92,
+        "recall": 0.947,
+        "size": 292.0
+      },
+      "learned_K": 270,
+      "val_ips_weighted_selection": {
+        "lift": 0.327,
+        "lt": 0.9,
+        "recall": 0.933,
+        "size": 292.0
+      }
+    },
+    "at_shipped_k": {
+      "holdout_reporting_only": {
+        "lift": 0.371,
+        "lt": 0.89,
+        "recall": 0.924,
+        "size": 267.0
+      },
+      "learned_K": 240,
+      "val_ips_weighted_selection": {
+        "lift": 0.358,
+        "lt": 0.877,
+        "recall": 0.911,
+        "size": 266.0
+      }
+    },
+    "grid": [
+      {
+        "holdout_reporting_only": {
+          "lift": 0.388,
+          "lt": 0.639,
+          "recall": 0.701,
+          "size": 151.0
+        },
+        "learned_K": 90,
+        "val_ips_weighted_selection": {
+          "lift": 0.363,
+          "lt": 0.627,
+          "recall": 0.676,
+          "size": 151.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.405,
+          "lt": 0.678,
+          "recall": 0.739,
+          "size": 161.0
+        },
+        "learned_K": 105,
+        "val_ips_weighted_selection": {
+          "lift": 0.379,
+          "lt": 0.663,
+          "recall": 0.713,
+          "size": 161.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.413,
+          "lt": 0.708,
+          "recall": 0.769,
+          "size": 172.0
+        },
+        "learned_K": 120,
+        "val_ips_weighted_selection": {
+          "lift": 0.389,
+          "lt": 0.698,
+          "recall": 0.745,
+          "size": 172.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.417,
+          "lt": 0.742,
+          "recall": 0.796,
+          "size": 183.0
+        },
+        "learned_K": 135,
+        "val_ips_weighted_selection": {
+          "lift": 0.394,
+          "lt": 0.727,
+          "recall": 0.773,
+          "size": 183.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.418,
+          "lt": 0.771,
+          "recall": 0.82,
+          "size": 194.0
+        },
+        "learned_K": 150,
+        "val_ips_weighted_selection": {
+          "lift": 0.399,
+          "lt": 0.757,
+          "recall": 0.802,
+          "size": 194.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.416,
+          "lt": 0.798,
+          "recall": 0.843,
+          "size": 206.0
+        },
+        "learned_K": 165,
+        "val_ips_weighted_selection": {
+          "lift": 0.399,
+          "lt": 0.782,
+          "recall": 0.825,
+          "size": 206.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.415,
+          "lt": 0.822,
+          "recall": 0.866,
+          "size": 218.0
+        },
+        "learned_K": 180,
+        "val_ips_weighted_selection": {
+          "lift": 0.394,
+          "lt": 0.799,
+          "recall": 0.845,
+          "size": 217.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.407,
+          "lt": 0.842,
+          "recall": 0.883,
+          "size": 230.0
+        },
+        "learned_K": 195,
+        "val_ips_weighted_selection": {
+          "lift": 0.389,
+          "lt": 0.824,
+          "recall": 0.864,
+          "size": 229.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.396,
+          "lt": 0.859,
+          "recall": 0.897,
+          "size": 242.0
+        },
+        "learned_K": 210,
+        "val_ips_weighted_selection": {
+          "lift": 0.379,
+          "lt": 0.846,
+          "recall": 0.88,
+          "size": 241.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.384,
+          "lt": 0.874,
+          "recall": 0.911,
+          "size": 254.0
+        },
+        "learned_K": 225,
+        "val_ips_weighted_selection": {
+          "lift": 0.37,
+          "lt": 0.862,
+          "recall": 0.897,
+          "size": 254.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.371,
+          "lt": 0.89,
+          "recall": 0.924,
+          "size": 267.0
+        },
+        "learned_K": 240,
+        "val_ips_weighted_selection": {
+          "lift": 0.358,
+          "lt": 0.877,
+          "recall": 0.911,
+          "size": 266.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.356,
+          "lt": 0.906,
+          "recall": 0.936,
+          "size": 280.0
+        },
+        "learned_K": 255,
+        "val_ips_weighted_selection": {
+          "lift": 0.344,
+          "lt": 0.887,
+          "recall": 0.923,
+          "size": 279.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.34,
+          "lt": 0.92,
+          "recall": 0.947,
+          "size": 292.0
+        },
+        "learned_K": 270,
+        "val_ips_weighted_selection": {
+          "lift": 0.327,
+          "lt": 0.9,
+          "recall": 0.933,
+          "size": 292.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.323,
+          "lt": 0.934,
+          "recall": 0.957,
+          "size": 306.0
+        },
+        "learned_K": 285,
+        "val_ips_weighted_selection": {
+          "lift": 0.311,
+          "lt": 0.916,
+          "recall": 0.944,
+          "size": 305.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.304,
+          "lt": 0.945,
+          "recall": 0.964,
+          "size": 318.0
+        },
+        "learned_K": 300,
+        "val_ips_weighted_selection": {
+          "lift": 0.296,
+          "lt": 0.938,
+          "recall": 0.956,
+          "size": 318.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.282,
+          "lt": 0.952,
+          "recall": 0.97,
+          "size": 332.0
+        },
+        "learned_K": 315,
+        "val_ips_weighted_selection": {
+          "lift": 0.277,
+          "lt": 0.952,
+          "recall": 0.964,
+          "size": 331.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.26,
+          "lt": 0.96,
+          "recall": 0.976,
+          "size": 345.0
+        },
+        "learned_K": 330,
+        "val_ips_weighted_selection": {
+          "lift": 0.258,
+          "lt": 0.96,
+          "recall": 0.973,
+          "size": 345.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.237,
+          "lt": 0.967,
+          "recall": 0.98,
+          "size": 358.0
+        },
+        "learned_K": 345,
+        "val_ips_weighted_selection": {
+          "lift": 0.237,
+          "lt": 0.968,
+          "recall": 0.98,
+          "size": 358.0
+        }
+      },
+      {
+        "holdout_reporting_only": {
+          "lift": 0.213,
+          "lt": 0.974,
+          "recall": 0.985,
+          "size": 372.0
+        },
+        "learned_K": 360,
+        "val_ips_weighted_selection": {
+          "lift": 0.212,
+          "lt": 0.971,
+          "recall": 0.984,
+          "size": 372.0
+        }
+      }
+    ],
+    "grid_ks_satisfying_both_criteria_on_validation": [],
+    "rule_k": 270,
+    "shipped_k": 240
+  },
+  "status": "MEASURED",
+  "verdict": "The blind recall rule gives K=270, whose validation lift is 0.327 < 0.35 (the blocking Gate-B row); 0 grid K satisfy both criteria on validation. Tie-break, validation only, applied to the FIRST grid computation (Amendment 2: validation lift 0.363 at K=240): the largest K with lift >= 0.36 (gate + 0.01 margin) -> K=240. The committed grid was recomputed later on the final candidates.parquet and puts the validation lift at K=240 at 0.358 (still above the 0.35 gate, below the 0.36 margin; the margin rule would now give K=225). K was not re-selected: no model changes after the pre-registered decision, and the shipped pipeline meets the gate on the holdout."
+}

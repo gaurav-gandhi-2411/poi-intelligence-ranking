@@ -2980,3 +2980,19 @@ Session-log numbers not backed by a committed artifact are marked (log).
   verification record and README/SUBMISSION text were committed after it): `uv sync --frozen` on an
   empty cache, `demo` from the committed artifacts, then the ten `reproduce` stages -> byte-identical
   `results/metrics.json`. Details: `results/parts/fresh_clone_verification.json`.
+- **K clarification (DR13):** the shipped K=240 was chosen on the FIRST grid computation (validation lift 0.363);
+  the committed grid, recomputed on the final `candidates.parquet`, gives 0.358 at K=240 (above the 0.35 gate,
+  under the 0.36 margin; the margin rule would now give K=225). K was not re-selected.
+- **Final-pass diagnostics (2026-09-21).** Scenario-4 flip overlap (0.176 -> 0.538) and confidence-decile
+  Spearman (0.879 -> 0.358) were diagnosed by running `scripts/diagnose_scenario4.py` and
+  `scripts/diagnose_confidence.py` against a checkout of each tree (pre-fix worktree at `ec8ac4a`, final tree);
+  outputs in `results/experiments/j2/`, composed as `scenario4_diagnosis` / `confidence_diagnosis`. Findings
+  (TECHNICAL.md section 10.1): touristiness-dependent features carry 7% of attribution for a cold-start
+  traveler and negating the preference changes the raw top-10 of a real trip by ~1 item in 10; the pre-fix
+  0.176 came from an off-distribution response of the leak-trained model; the 0.879 decile figure was a
+  ten-point statistic of a weak (0.22 trip-level) relationship produced by the leaked features. Not re-tuned.
+- **Decision Register additions:** DR12 (learned retriever vs six-channel union: the union wins end-to-end
+  NDCG@10, the retriever passes the Gate-B rows) and DR13 (the recall rule and the chance-lift row are jointly
+  infeasible; K=240 by a validation-only tie-break), both promoted into TECHNICAL.md section 12.1 with DR3.
+  Three a-priori targets (long-tail precision 0.40, recall 0.85, chance-lift +0.35) disclosed as miscalibrated
+  (section 10.2). `scripts/verify_fresh_clone.sh` re-runs the cold-clone verification for any ref.

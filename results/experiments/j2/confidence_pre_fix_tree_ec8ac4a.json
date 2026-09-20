@@ -1,0 +1,40 @@
+{
+  "confidence_weights": {
+    "calibration": 0.2,
+    "ensemble": 0.2,
+    "poi": 0.2,
+    "reviews": 0.2,
+    "traveler": 0.2
+  },
+  "decile_spearman_recomputed": 0.8787878787878788,
+  "ensemble_std_top10": {
+    "mean": 0.34462422425991923,
+    "sd": 0.07665595850729501
+  },
+  "holdout_interaction_count": {
+    "mean": 32.54710743801653,
+    "median": 31.0,
+    "share_zero": 0.10743801652892562
+  },
+  "mean_ndcg": 0.1356744695561885,
+  "n_trips": 605,
+  "sd_ndcg": 0.126457523417514,
+  "spearman_ensemble_std_vs_ndcg": -0.04925216531684066,
+  "spearman_interaction_count_vs_ndcg": 0.1307788685818597,
+  "trip_level_between_trip_sd_by_term": {
+    "calibration_stability": 0.09412424826304677,
+    "ensemble_agreement": 0.07363550867893642,
+    "poi_impressions": 0.0783675685246766,
+    "reviews": 0.03407394825487115,
+    "traveler_evidence": 0.2769266666017626
+  },
+  "trip_level_sd_confidence": 0.07366321128994308,
+  "trip_level_spearman_by_term_vs_ndcg": {
+    "calibration_stability": 0.07340809716455589,
+    "ensemble_agreement": 0.04981823041815154,
+    "poi_impressions": 0.24506140344070396,
+    "reviews": 0.10811481263364799,
+    "traveler_evidence": 0.1307788685818597
+  },
+  "trip_level_spearman_confidence_vs_ndcg": 0.22058014179780738
+}

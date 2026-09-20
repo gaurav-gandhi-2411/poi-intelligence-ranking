@@ -666,3 +666,7 @@ would leak the oracle); long-tail precision 0.4 target unmet (hypothesis unteste
 - Open: scorecard now has 7 MISSED rows (2 new from the fix: confidence-decile, scenario-4); H holdout
   effect is +0.0026 only; localness weights still not re-tuned (would tune on the oracle).
 - `make demo`, `docs/results.html`, `submission/SUBMISSION.md` added.
+- Final pass J1-J6 (2026-09-21): cold-clone verification is now a script (`scripts/verify_fresh_clone.sh
+  [ref]`); the final verified SHA lives in the annotated tag message because a commit cannot contain its
+  own SHA. J2 diagnosed the two regressed rows with measured mechanisms; J3-J5 promoted DR3/DR12/DR13,
+  the three miscalibrated targets and the skew headline into TECHNICAL.md / SUBMISSION.md.

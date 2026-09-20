@@ -1,0 +1,42 @@
+{
+  "alternative": "The original six-channel heuristic union (ranker retrained on it)",
+  "decision": "Retrieval design: learned full-catalog retriever + long-tail floor + interest",
+  "experiment": "Recall and Gate-B rows of each candidate set on the corrected features, plus end-to-end fixed-denominator NDCG@10 with the ranker retrained on each set (eval/decomposition.py).",
+  "id": "DR12",
+  "metric": "candidate recall / lift over chance; end-to-end NDCG@10",
+  "results": {
+    "candidate_sets": {
+      "learned_retriever": {
+        "gate_b_rows_passed": 4,
+        "lift_long_tail": 0.41693619629640377,
+        "lift_overall": 0.37368544427110595,
+        "mean_candidates_per_trip": 266.38152011922506,
+        "passes_gate_b_lift_long_tail": true,
+        "passes_gate_b_lift_overall": true,
+        "passes_gate_b_recall_long_tail": true,
+        "passes_gate_b_recall_overall": true,
+        "recall_long_tail": 0.8975155374255375,
+        "recall_overall": 0.9262135366807853
+      },
+      "legacy_six_channel": {
+        "gate_b_rows_passed": 0,
+        "lift_long_tail": 0.16281809803357133,
+        "lift_overall": 0.20291612132972214,
+        "mean_candidates_per_trip": 189.69150521609538,
+        "passes_gate_b_lift_long_tail": false,
+        "passes_gate_b_lift_overall": false,
+        "passes_gate_b_recall_long_tail": false,
+        "passes_gate_b_recall_overall": false,
+        "recall_long_tail": 0.5402764613727343,
+        "recall_overall": 0.596424711925548
+      }
+    },
+    "ndcg10_end_to_end": {
+      "learned_retriever_shipped_ranker": 0.18141821567016206,
+      "legacy_six_channel_retrained_ranker": 0.19186594113453032,
+      "paired_wilcoxon_p": 0.004701358166986931
+    }
+  },
+  "status": "MEASURED",
+  "verdict": "Learned retriever: recall 0.926 (long-tail 0.898, lift +0.374); legacy union: recall 0.596 (long-tail 0.540, lift +0.203). The legacy union wins end-to-end NDCG@10 (0.1919 vs 0.1814, paired p=0.0047) with a ranker retrained on each set. The retriever ships (it is the one that meets the recall and long-tail gate rows); switching on a holdout comparison would be selection leakage."
+}

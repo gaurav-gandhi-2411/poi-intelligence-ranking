@@ -1,0 +1,235 @@
+{
+  "method": "scripts/diagnose_scenario4.py run against a checkout of each tree (pre-fix worktree at the tagged submission commit ec8ac4a, and the final tree); grouped/typed TreeSHAP on the scenario 1 and 4 candidate rows plus a counterfactual touristiness flip on real holdout trips",
+  "post_fix": {
+    "feature_groups": [
+      "interest_match",
+      "implicit_taste",
+      "localness_fit",
+      "popularity",
+      "price_fit",
+      "geo",
+      "hours",
+      "party_fit",
+      "quality",
+      "novelty"
+    ],
+    "holdout_counterfactual_flip": {
+      "flip_top10_jaccard_all_trips": 0.9041495017650009,
+      "flip_top10_jaccard_cold_start_trips": 0.812826062826063,
+      "flip_top10_jaccard_strong_pref_trips": 0.8221082400186878,
+      "flip_top10_jaccard_trips_with_history": 0.9151266096174279,
+      "n_cold_start_trips": 72,
+      "n_strong_pref_trips": 67,
+      "n_trips": 671,
+      "note": "raw ranker score top-10 among the trip candidates, before the hard gate, utility and MMR layers; touristiness_pref negated and every dependent feature recomputed"
+    },
+    "holdout_personalization_reference": {
+      "cross_archetype_jaccard_true_labels": 0.07518144758954318,
+      "mean_pairwise_jaccard_at_10_same_destination": 0.0763758724432526,
+      "perfect_ranker_within_cross_ratio": 1.8900472604989524,
+      "within_archetype_jaccard_true_labels": 0.09028163176646188,
+      "within_cross_ratio_true_labels": 1.2008498726887902
+    },
+    "scenario_rows": {
+      "candidate_pool_jaccard": 0.7169811320754716,
+      "flip_change_over_score_sd": 0.8043852558783109,
+      "flip_mean_abs_raw_score_change": 0.6185195063157773,
+      "flip_mean_abs_shap_change_by_feature_type": {
+        "cross_features_xf": 0.15429133348615484,
+        "pair_features_interact": 0.021721137970825657,
+        "poi_side": 0.1296605439819235,
+        "stated_traveler_explicit": 0.41396664498870367,
+        "traveler_history_implicit": 0.14580512965792103
+      },
+      "flip_mean_abs_shap_change_by_group": {
+        "geo": 0.045521592709067124,
+        "hours": 0.005519298604081666,
+        "implicit_taste": 0.22502480716379655,
+        "interest_match": 0.0351425767773191,
+        "localness_fit": 0.49484630205001284,
+        "novelty": 0.0003976311464997388,
+        "party_fit": 0.0012014057691795974,
+        "popularity": 0.044552976351306575,
+        "price_fit": 0.009486133563501099,
+        "quality": 0.003752065950764394
+      },
+      "flip_share_of_total_change_by_group": {
+        "geo": 0.05259907186519477,
+        "hours": 0.006377412709984902,
+        "implicit_taste": 0.26001058616524597,
+        "interest_match": 0.040606376258670515,
+        "localness_fit": 0.5717826344544856,
+        "novelty": 0.0004594529322435951,
+        "party_fit": 0.0013881945826502312,
+        "popularity": 0.0514798596764371,
+        "price_fit": 0.010960992165154313,
+        "quality": 0.004335419189933065
+      },
+      "n_candidates_s1": 271,
+      "n_candidates_s4": 275,
+      "n_common_pool": 228,
+      "pref_dependent_features": [
+        "explicit_touristiness_pref",
+        "interact_localness_gap",
+        "xf_loc_align",
+        "xf_loc_gap",
+        "xf_loc_x_pref",
+        "xf_pop_x_pref"
+      ],
+      "raw_score_sd_across_candidates_s1": 0.7689344151894155,
+      "raw_score_spearman_s1_vs_s4_common_pool": 0.932741169430897,
+      "raw_score_top10_jaccard_s1_vs_s4_common_pool": 0.8181818181818182,
+      "scenario1_base_attribution_share_by_feature_type": {
+        "cross_features_xf": 0.1732437192981038,
+        "pair_features_interact": 0.12626157724958745,
+        "poi_side": 0.3519445300295848,
+        "stated_traveler_explicit": 0.13773010220843218,
+        "traveler_history_implicit": 0.21082007121429178
+      },
+      "scenario1_base_attribution_share_by_group": {
+        "geo": 0.013288122717645798,
+        "hours": 0.0037386694922367397,
+        "implicit_taste": 0.537229592711396,
+        "interest_match": 0.17159608520467154,
+        "localness_fit": 0.08492523022260999,
+        "novelty": 0.004060474419800548,
+        "party_fit": 0.016230466410363742,
+        "popularity": 0.08849183866942067,
+        "price_fit": 0.04163632275018092,
+        "quality": 0.03880319740167405
+      },
+      "scenario1_share_carried_by_pref_dependent_features": 0.07044874306201039,
+      "scenario4_flip_attribution_share_by_feature_type": {
+        "cross_features_xf": 0.20822572087793056,
+        "pair_features_interact": 0.13399859724527,
+        "poi_side": 0.35237295578347205,
+        "stated_traveler_explicit": 0.11992726011483301,
+        "traveler_history_implicit": 0.18547546597849443
+      },
+      "scenario4_flip_attribution_share_by_group": {
+        "geo": 0.028945090601617908,
+        "hours": 0.004814883311696971,
+        "implicit_taste": 0.486906048071621,
+        "interest_match": 0.17410963012060462,
+        "localness_fit": 0.1042687126440023,
+        "novelty": 0.004281541431854804,
+        "party_fit": 0.016013617708699104,
+        "popularity": 0.09168458238273124,
+        "price_fit": 0.04761265324377776,
+        "quality": 0.04136324048339424
+      },
+      "scenario_implicit_interaction_count": 0.0
+    }
+  },
+  "pre_fix": {
+    "feature_groups": [
+      "interest_match",
+      "implicit_taste",
+      "localness_fit",
+      "popularity",
+      "price_fit",
+      "geo",
+      "hours",
+      "party_fit",
+      "quality",
+      "novelty"
+    ],
+    "holdout_counterfactual_flip": {
+      "flip_top10_jaccard_all_trips": 0.882453736030487,
+      "flip_top10_jaccard_cold_start_trips": 0.7781142468642469,
+      "flip_top10_jaccard_strong_pref_trips": 0.7786193905596891,
+      "flip_top10_jaccard_trips_with_history": 0.8949953774661622,
+      "n_cold_start_trips": 72,
+      "n_strong_pref_trips": 67,
+      "n_trips": 671,
+      "note": "raw ranker score top-10 among the trip candidates, before the hard gate, utility and MMR layers; touristiness_pref negated and every dependent feature recomputed"
+    },
+    "holdout_personalization_reference": {
+      "cross_archetype_jaccard_true_labels": 0.03848811877985011,
+      "mean_pairwise_jaccard_at_10_same_destination": 0.03943986684999817,
+      "perfect_ranker_within_cross_ratio": 1.8607647825935785,
+      "within_archetype_jaccard_true_labels": 0.05083958838449417,
+      "within_cross_ratio_true_labels": 1.3209164281396495
+    },
+    "scenario_rows": {
+      "candidate_pool_jaccard": 0.6120401337792643,
+      "flip_change_over_score_sd": 0.6784234741309338,
+      "flip_mean_abs_raw_score_change": 0.27423943942661744,
+      "flip_mean_abs_shap_change_by_feature_type": {
+        "pair_features_interact": 0.04170508004407735,
+        "poi_side": 0.20380545479698495,
+        "stated_traveler_explicit": 0.24445853624330222,
+        "traveler_history_implicit": 0.13230978473332117
+      },
+      "flip_mean_abs_shap_change_by_group": {
+        "geo": 0.01683942441546524,
+        "hours": 0.00011404140957768796,
+        "implicit_taste": 0.17842109295107908,
+        "interest_match": 0.10582773632403758,
+        "localness_fit": 0.305939707016086,
+        "party_fit": 1.319870567685159e-06,
+        "popularity": 0.012756411141238546,
+        "price_fit": 0.0017595712232057468,
+        "quality": 0.0006195514664280181
+      },
+      "flip_share_of_total_change_by_group": {
+        "geo": 0.027060897631396994,
+        "hours": 0.00018326415643326897,
+        "implicit_taste": 0.2867220881490993,
+        "interest_match": 0.17006481151441025,
+        "localness_fit": 0.49164406625077395,
+        "party_fit": 2.1210275029364853e-06,
+        "popularity": 0.020499509218381513,
+        "price_fit": 0.0028276249574535816,
+        "quality": 0.0009956170945482575
+      },
+      "n_candidates_s1": 242,
+      "n_candidates_s4": 240,
+      "n_common_pool": 183,
+      "pref_dependent_features": [
+        "explicit_touristiness_pref",
+        "interact_localness_gap"
+      ],
+      "raw_score_sd_across_candidates_s1": 0.4042304694393431,
+      "raw_score_spearman_s1_vs_s4_common_pool": 0.8699333453431816,
+      "raw_score_top10_jaccard_s1_vs_s4_common_pool": 0.25,
+      "scenario1_base_attribution_share_by_feature_type": {
+        "pair_features_interact": 0.45164354795253425,
+        "poi_side": 0.17453400182799964,
+        "stated_traveler_explicit": 0.011395666032075898,
+        "traveler_history_implicit": 0.36242678418739016
+      },
+      "scenario1_base_attribution_share_by_group": {
+        "geo": 0.002950588879685746,
+        "hours": 0.0007678073672502102,
+        "implicit_taste": 0.825080338056248,
+        "interest_match": 0.09673945947217563,
+        "localness_fit": 0.019690603418680726,
+        "party_fit": 0.0009535764678694201,
+        "popularity": 0.02013921287364108,
+        "price_fit": 0.024464992533896654,
+        "quality": 0.009213420930552507
+      },
+      "scenario1_share_carried_by_pref_dependent_features": 0.009721259531690347,
+      "scenario4_flip_attribution_share_by_feature_type": {
+        "pair_features_interact": 0.44242565642781667,
+        "poi_side": 0.17719468101642688,
+        "stated_traveler_explicit": 0.0245344155624416,
+        "traveler_history_implicit": 0.3558452469933149
+      },
+      "scenario4_flip_attribution_share_by_group": {
+        "geo": 0.003680447770314847,
+        "hours": 0.0007698951710737853,
+        "implicit_taste": 0.8084771944495168,
+        "interest_match": 0.09950073121886442,
+        "localness_fit": 0.03403740103715341,
+        "party_fit": 0.0008798987063381634,
+        "popularity": 0.020142108694356616,
+        "price_fit": 0.023517031642523296,
+        "quality": 0.008995291309858532
+      },
+      "scenario_implicit_interaction_count": 0.0
+    }
+  },
+  "pre_fix_commit": "ec8ac4a"
+}

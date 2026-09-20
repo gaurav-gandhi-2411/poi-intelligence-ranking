@@ -48,6 +48,8 @@ COMPOSED_PARTS: dict[str, str | None] = {
     "ranker_sweep": "ranker_sweep",
     "fresh_clone_verification": "fresh_clone_verification",
     "h_experiments": "h_experiments",
+    "scenario4_diagnosis": "scenario4_diagnosis",
+    "confidence_diagnosis": "confidence_diagnosis",
     "timings": "timings",
     "timings_full": "timings_full",
 }
@@ -115,6 +117,13 @@ def derived_numbers(m: dict[str, Any]) -> dict[str, Any]:
             - sweep["previous_shipped_config_4_seed"]["mean"],
             "adoption_bar": 0.010,
         }
+    dr3 = next(
+        (r for r in m.get("decision_register", {}).get("rows", []) if r["id"] == "DR3"), None
+    )
+    if dr3 and dr3.get("results"):
+        out["dr3_binary_minus_lambdarank"] = (
+            dr3["results"]["binary"]["mean"] - dr3["results"]["lambdarank"]["mean"]
+        )
     dr1 = next(
         (r for r in m.get("decision_register", {}).get("rows", []) if r["id"] == "DR1"), None
     )

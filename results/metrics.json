@@ -1237,6 +1237,90 @@
     "spearman_rho": 0.35757575757575755,
     "target_met": false
   },
+  "confidence_diagnosis": {
+    "method": "scripts/diagnose_confidence.py run against a checkout of each tree",
+    "post_fix": {
+      "confidence_weights": {
+        "calibration": 0.2,
+        "ensemble": 0.2,
+        "poi": 0.2,
+        "reviews": 0.2,
+        "traveler": 0.2
+      },
+      "decile_spearman_recomputed": 0.35757575757575755,
+      "ensemble_std_top10": {
+        "mean": 0.20087911775451503,
+        "sd": 0.05798418757272048
+      },
+      "holdout_interaction_count": {
+        "mean": 32.54710743801653,
+        "median": 31.0,
+        "share_zero": 0.10743801652892562
+      },
+      "mean_ndcg": 0.16452364870684108,
+      "n_trips": 605,
+      "sd_ndcg": 0.1303552746381004,
+      "spearman_ensemble_std_vs_ndcg": -0.15614218699820032,
+      "spearman_interaction_count_vs_ndcg": -0.03977500358984521,
+      "trip_level_between_trip_sd_by_term": {
+        "calibration_stability": 0.09460866887618344,
+        "ensemble_agreement": 0.07655260213908197,
+        "poi_impressions": 0.055087763131694646,
+        "reviews": 0.03240726145713786,
+        "traveler_evidence": 0.2769266666017626
+      },
+      "trip_level_sd_confidence": 0.05852592103700034,
+      "trip_level_spearman_by_term_vs_ndcg": {
+        "calibration_stability": 0.02628950131394338,
+        "ensemble_agreement": 0.15579082908732073,
+        "poi_impressions": 0.13211505426650721,
+        "reviews": 0.03730127088096211,
+        "traveler_evidence": -0.03977500358984521
+      },
+      "trip_level_spearman_confidence_vs_ndcg": 0.06430985542623992
+    },
+    "pre_fix": {
+      "confidence_weights": {
+        "calibration": 0.2,
+        "ensemble": 0.2,
+        "poi": 0.2,
+        "reviews": 0.2,
+        "traveler": 0.2
+      },
+      "decile_spearman_recomputed": 0.8787878787878788,
+      "ensemble_std_top10": {
+        "mean": 0.34462422425991923,
+        "sd": 0.07665595850729501
+      },
+      "holdout_interaction_count": {
+        "mean": 32.54710743801653,
+        "median": 31.0,
+        "share_zero": 0.10743801652892562
+      },
+      "mean_ndcg": 0.1356744695561885,
+      "n_trips": 605,
+      "sd_ndcg": 0.126457523417514,
+      "spearman_ensemble_std_vs_ndcg": -0.04925216531684066,
+      "spearman_interaction_count_vs_ndcg": 0.1307788685818597,
+      "trip_level_between_trip_sd_by_term": {
+        "calibration_stability": 0.09412424826304677,
+        "ensemble_agreement": 0.07363550867893642,
+        "poi_impressions": 0.0783675685246766,
+        "reviews": 0.03407394825487115,
+        "traveler_evidence": 0.2769266666017626
+      },
+      "trip_level_sd_confidence": 0.07366321128994308,
+      "trip_level_spearman_by_term_vs_ndcg": {
+        "calibration_stability": 0.07340809716455589,
+        "ensemble_agreement": 0.04981823041815154,
+        "poi_impressions": 0.24506140344070396,
+        "reviews": 0.10811481263364799,
+        "traveler_evidence": 0.1307788685818597
+      },
+      "trip_level_spearman_confidence_vs_ndcg": 0.22058014179780738
+    },
+    "pre_fix_commit": "ec8ac4a"
+  },
   "constraint_compatibility": {
     "compatibility_target": 0.7,
     "n_above_target": 6114,
@@ -2038,6 +2122,379 @@
         },
         "status": "MEASURED",
         "verdict": "Legacy 6-channel union: recall 0.596 (lift +0.203). Shipped learned+long-tail+interest: recall 0.881 (lift +0.371, 246 candidates/trip). Ranking by true utility would recall 0.991 at the same budget (diagnostic)."
+      },
+      {
+        "alternative": "The original six-channel heuristic union (ranker retrained on it)",
+        "decision": "Retrieval design: learned full-catalog retriever + long-tail floor + interest",
+        "experiment": "Recall and Gate-B rows of each candidate set on the corrected features, plus end-to-end fixed-denominator NDCG@10 with the ranker retrained on each set (eval/decomposition.py).",
+        "id": "DR12",
+        "metric": "candidate recall / lift over chance; end-to-end NDCG@10",
+        "results": {
+          "candidate_sets": {
+            "learned_retriever": {
+              "gate_b_rows_passed": 4,
+              "lift_long_tail": 0.41693619629640377,
+              "lift_overall": 0.37368544427110595,
+              "mean_candidates_per_trip": 266.38152011922506,
+              "passes_gate_b_lift_long_tail": true,
+              "passes_gate_b_lift_overall": true,
+              "passes_gate_b_recall_long_tail": true,
+              "passes_gate_b_recall_overall": true,
+              "recall_long_tail": 0.8975155374255375,
+              "recall_overall": 0.9262135366807853
+            },
+            "legacy_six_channel": {
+              "gate_b_rows_passed": 0,
+              "lift_long_tail": 0.16281809803357133,
+              "lift_overall": 0.20291612132972214,
+              "mean_candidates_per_trip": 189.69150521609538,
+              "passes_gate_b_lift_long_tail": false,
+              "passes_gate_b_lift_overall": false,
+              "passes_gate_b_recall_long_tail": false,
+              "passes_gate_b_recall_overall": false,
+              "recall_long_tail": 0.5402764613727343,
+              "recall_overall": 0.596424711925548
+            }
+          },
+          "ndcg10_end_to_end": {
+            "learned_retriever_shipped_ranker": 0.18141821567016206,
+            "legacy_six_channel_retrained_ranker": 0.19186594113453032,
+            "paired_wilcoxon_p": 0.004701358166986931
+          }
+        },
+        "status": "MEASURED",
+        "verdict": "Learned retriever: recall 0.926 (long-tail 0.898, lift +0.374); legacy union: recall 0.596 (long-tail 0.540, lift +0.203). The legacy union wins end-to-end NDCG@10 (0.1919 vs 0.1814, paired p=0.0047) with a ranker retrained on each set. The retriever ships (it is the one that meets the recall and long-tail gate rows); switching on a holdout comparison would be selection leakage."
+      },
+      {
+        "alternative": "K = 270 from the pre-registered rule (smallest K with val recall >= 0.93)",
+        "decision": "Learned K = 240 (largest grid K with validation lift >= 0.36)",
+        "experiment": "Full K sweep on the corrected features: IPS-weighted validation recall and lift over chance (selection columns) with the holdout columns reporting-only.",
+        "id": "DR13",
+        "metric": "validation recall (rule: >= 0.93), validation lift (Gate-B row: >= 0.35)",
+        "results": {
+          "at_rule_k": {
+            "holdout_reporting_only": {
+              "lift": 0.34,
+              "lt": 0.92,
+              "recall": 0.947,
+              "size": 292.0
+            },
+            "learned_K": 270,
+            "val_ips_weighted_selection": {
+              "lift": 0.327,
+              "lt": 0.9,
+              "recall": 0.933,
+              "size": 292.0
+            }
+          },
+          "at_shipped_k": {
+            "holdout_reporting_only": {
+              "lift": 0.371,
+              "lt": 0.89,
+              "recall": 0.924,
+              "size": 267.0
+            },
+            "learned_K": 240,
+            "val_ips_weighted_selection": {
+              "lift": 0.358,
+              "lt": 0.877,
+              "recall": 0.911,
+              "size": 266.0
+            }
+          },
+          "grid": [
+            {
+              "holdout_reporting_only": {
+                "lift": 0.388,
+                "lt": 0.639,
+                "recall": 0.701,
+                "size": 151.0
+              },
+              "learned_K": 90,
+              "val_ips_weighted_selection": {
+                "lift": 0.363,
+                "lt": 0.627,
+                "recall": 0.676,
+                "size": 151.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.405,
+                "lt": 0.678,
+                "recall": 0.739,
+                "size": 161.0
+              },
+              "learned_K": 105,
+              "val_ips_weighted_selection": {
+                "lift": 0.379,
+                "lt": 0.663,
+                "recall": 0.713,
+                "size": 161.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.413,
+                "lt": 0.708,
+                "recall": 0.769,
+                "size": 172.0
+              },
+              "learned_K": 120,
+              "val_ips_weighted_selection": {
+                "lift": 0.389,
+                "lt": 0.698,
+                "recall": 0.745,
+                "size": 172.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.417,
+                "lt": 0.742,
+                "recall": 0.796,
+                "size": 183.0
+              },
+              "learned_K": 135,
+              "val_ips_weighted_selection": {
+                "lift": 0.394,
+                "lt": 0.727,
+                "recall": 0.773,
+                "size": 183.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.418,
+                "lt": 0.771,
+                "recall": 0.82,
+                "size": 194.0
+              },
+              "learned_K": 150,
+              "val_ips_weighted_selection": {
+                "lift": 0.399,
+                "lt": 0.757,
+                "recall": 0.802,
+                "size": 194.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.416,
+                "lt": 0.798,
+                "recall": 0.843,
+                "size": 206.0
+              },
+              "learned_K": 165,
+              "val_ips_weighted_selection": {
+                "lift": 0.399,
+                "lt": 0.782,
+                "recall": 0.825,
+                "size": 206.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.415,
+                "lt": 0.822,
+                "recall": 0.866,
+                "size": 218.0
+              },
+              "learned_K": 180,
+              "val_ips_weighted_selection": {
+                "lift": 0.394,
+                "lt": 0.799,
+                "recall": 0.845,
+                "size": 217.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.407,
+                "lt": 0.842,
+                "recall": 0.883,
+                "size": 230.0
+              },
+              "learned_K": 195,
+              "val_ips_weighted_selection": {
+                "lift": 0.389,
+                "lt": 0.824,
+                "recall": 0.864,
+                "size": 229.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.396,
+                "lt": 0.859,
+                "recall": 0.897,
+                "size": 242.0
+              },
+              "learned_K": 210,
+              "val_ips_weighted_selection": {
+                "lift": 0.379,
+                "lt": 0.846,
+                "recall": 0.88,
+                "size": 241.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.384,
+                "lt": 0.874,
+                "recall": 0.911,
+                "size": 254.0
+              },
+              "learned_K": 225,
+              "val_ips_weighted_selection": {
+                "lift": 0.37,
+                "lt": 0.862,
+                "recall": 0.897,
+                "size": 254.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.371,
+                "lt": 0.89,
+                "recall": 0.924,
+                "size": 267.0
+              },
+              "learned_K": 240,
+              "val_ips_weighted_selection": {
+                "lift": 0.358,
+                "lt": 0.877,
+                "recall": 0.911,
+                "size": 266.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.356,
+                "lt": 0.906,
+                "recall": 0.936,
+                "size": 280.0
+              },
+              "learned_K": 255,
+              "val_ips_weighted_selection": {
+                "lift": 0.344,
+                "lt": 0.887,
+                "recall": 0.923,
+                "size": 279.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.34,
+                "lt": 0.92,
+                "recall": 0.947,
+                "size": 292.0
+              },
+              "learned_K": 270,
+              "val_ips_weighted_selection": {
+                "lift": 0.327,
+                "lt": 0.9,
+                "recall": 0.933,
+                "size": 292.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.323,
+                "lt": 0.934,
+                "recall": 0.957,
+                "size": 306.0
+              },
+              "learned_K": 285,
+              "val_ips_weighted_selection": {
+                "lift": 0.311,
+                "lt": 0.916,
+                "recall": 0.944,
+                "size": 305.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.304,
+                "lt": 0.945,
+                "recall": 0.964,
+                "size": 318.0
+              },
+              "learned_K": 300,
+              "val_ips_weighted_selection": {
+                "lift": 0.296,
+                "lt": 0.938,
+                "recall": 0.956,
+                "size": 318.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.282,
+                "lt": 0.952,
+                "recall": 0.97,
+                "size": 332.0
+              },
+              "learned_K": 315,
+              "val_ips_weighted_selection": {
+                "lift": 0.277,
+                "lt": 0.952,
+                "recall": 0.964,
+                "size": 331.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.26,
+                "lt": 0.96,
+                "recall": 0.976,
+                "size": 345.0
+              },
+              "learned_K": 330,
+              "val_ips_weighted_selection": {
+                "lift": 0.258,
+                "lt": 0.96,
+                "recall": 0.973,
+                "size": 345.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.237,
+                "lt": 0.967,
+                "recall": 0.98,
+                "size": 358.0
+              },
+              "learned_K": 345,
+              "val_ips_weighted_selection": {
+                "lift": 0.237,
+                "lt": 0.968,
+                "recall": 0.98,
+                "size": 358.0
+              }
+            },
+            {
+              "holdout_reporting_only": {
+                "lift": 0.213,
+                "lt": 0.974,
+                "recall": 0.985,
+                "size": 372.0
+              },
+              "learned_K": 360,
+              "val_ips_weighted_selection": {
+                "lift": 0.212,
+                "lt": 0.971,
+                "recall": 0.984,
+                "size": 372.0
+              }
+            }
+          ],
+          "grid_ks_satisfying_both_criteria_on_validation": [],
+          "rule_k": 270,
+          "shipped_k": 240
+        },
+        "status": "MEASURED",
+        "verdict": "The blind recall rule gives K=270, whose validation lift is 0.327 < 0.35 (the blocking Gate-B row); 0 grid K satisfy both criteria on validation. Tie-break, validation only, applied to the FIRST grid computation (Amendment 2: validation lift 0.363 at K=240): the largest K with lift >= 0.36 (gate + 0.01 margin) -> K=240. The committed grid was recomputed later on the final candidates.parquet and puts the validation lift at K=240 at 0.358 (still above the 0.35 gate, below the 0.36 margin; the margin rule would now give K=225). K was not re-selected: no model changes after the pre-registered decision, and the shipped pipeline meets the gate on the holdout."
       }
     ]
   },
@@ -2048,6 +2505,7 @@
       "n_trips": 671,
       "shipped_multiplicative_gated_violations": 0
     },
+    "dr3_binary_minus_lambdarank": 0.020400248729679216,
     "h_holdout_effect": {
       "final": 0.18420513608035807,
       "gain": 0.0026283297375900294,
@@ -2630,38 +3088,27 @@
     "shipped_k": 240
   },
   "fresh_clone_verification": {
-    "commit": "e34248a",
+    "caveat": "that run overlapped with unrelated diagnostics on the same laptop, so its timings are an upper bound; a warm rerun of the same stages is in results/parts/timings.json",
+    "commit": "the commit tagged v1.0-konnect-submission",
     "committed_model_text_is_lf": true,
     "demo_first_cold_run_seconds": {
-      "profile": 7,
-      "traveler": 21
+      "profile": 6,
+      "traveler": 15
     },
     "demo_warm_seconds_same_machine": {
       "profile": 5.2,
       "traveler": 4.4
     },
     "keys_that_differ": [],
-    "method": "git clone from GitHub into a clean directory outside the working tree, checkout of the commit; uv sync --frozen with a fresh empty UV_CACHE_DIR and a new .venv; `demo` run from the COMMITTED artifacts; then the README quick-start commands in order with PYTHONHASHSEED=0 (make is not installed on the verification machine; the Makefile reproduce target runs the same ten stages in the same order)",
+    "method": "git clone into a clean directory outside the working tree, checkout of the tag commit; uv sync --frozen with a fresh empty UV_CACHE_DIR and a new .venv; `demo` run from the COMMITTED artifacts; then the README quick-start commands in order with PYTHONHASHSEED=0 (make is not installed on the verification machine; the Makefile reproduce target runs the same ten stages in the same order). Implemented by scripts/verify_fresh_clone.sh.",
     "metrics_json_identical_to_committed": true,
-    "metrics_json_sha256": "2c7b689d9194e1e3c68c2986ffca24cd41d8f9dc1b21802c23b9967e3ed2c1a0",
+    "metrics_json_sha256": "b480cb07ba06f146bf04f5a19edfea34d18af5ed287fea5e4b1de4705353fcb1",
     "model_and_retriever_artifacts_identical_ignoring_line_endings": true,
-    "note": "clone+checkout time is included in total_seconds but not in pipeline_seconds; a warm rerun of the same stages on the same machine is in results/parts/timings.json",
-    "pipeline_seconds": 544,
-    "stage_seconds": {
-      "candidates": 65,
-      "compose": 4,
-      "evaluate": 216,
-      "features": 28,
-      "gate-dgp": 12,
-      "gate-representation": 4,
-      "generate": 56,
-      "prepare": 8,
-      "representation": 23,
-      "train": 126,
-      "uv_sync_frozen_cold_cache": 65
-    },
-    "total_seconds": 656,
-    "uv_sync_seconds": 65
+    "pipeline_seconds": 431,
+    "previous_run_commit": "b93022f1f02ce38fcada6ea6d5a73977a783afa9",
+    "total_seconds": 668,
+    "uv_sync_seconds": 177,
+    "where_the_verified_sha_is": "a commit cannot contain its own SHA, so the exact SHA verified at the FINAL tagged commit, its timings and the metrics.json comparison are recorded in the annotated tag message (`git show v1.0-konnect-submission`); `bash scripts/verify_fresh_clone.sh` repeats the check for any ref. The numbers below are from the most recent cold-clone run recorded before the final commit (run against the tag state `b93022f1f02ce38fcada6ea6d5a73977a783afa9`)."
   },
   "gate_dgp": {
     "checks": {
@@ -3533,6 +3980,8 @@
     "ranker_sweep",
     "fresh_clone_verification",
     "h_experiments",
+    "scenario4_diagnosis",
+    "confidence_diagnosis",
     "timings",
     "timings_full"
   ],
@@ -4296,6 +4745,241 @@
         "p_value": 0.004701358166986931
       }
     }
+  },
+  "scenario4_diagnosis": {
+    "method": "scripts/diagnose_scenario4.py run against a checkout of each tree (pre-fix worktree at the tagged submission commit ec8ac4a, and the final tree); grouped/typed TreeSHAP on the scenario 1 and 4 candidate rows plus a counterfactual touristiness flip on real holdout trips",
+    "post_fix": {
+      "feature_groups": [
+        "interest_match",
+        "implicit_taste",
+        "localness_fit",
+        "popularity",
+        "price_fit",
+        "geo",
+        "hours",
+        "party_fit",
+        "quality",
+        "novelty"
+      ],
+      "holdout_counterfactual_flip": {
+        "flip_top10_jaccard_all_trips": 0.9041495017650009,
+        "flip_top10_jaccard_cold_start_trips": 0.812826062826063,
+        "flip_top10_jaccard_strong_pref_trips": 0.8221082400186878,
+        "flip_top10_jaccard_trips_with_history": 0.9151266096174279,
+        "n_cold_start_trips": 72,
+        "n_strong_pref_trips": 67,
+        "n_trips": 671,
+        "note": "raw ranker score top-10 among the trip candidates, before the hard gate, utility and MMR layers; touristiness_pref negated and every dependent feature recomputed"
+      },
+      "holdout_personalization_reference": {
+        "cross_archetype_jaccard_true_labels": 0.07518144758954318,
+        "mean_pairwise_jaccard_at_10_same_destination": 0.0763758724432526,
+        "perfect_ranker_within_cross_ratio": 1.8900472604989524,
+        "within_archetype_jaccard_true_labels": 0.09028163176646188,
+        "within_cross_ratio_true_labels": 1.2008498726887902
+      },
+      "scenario_rows": {
+        "candidate_pool_jaccard": 0.7169811320754716,
+        "flip_change_over_score_sd": 0.8043852558783109,
+        "flip_mean_abs_raw_score_change": 0.6185195063157773,
+        "flip_mean_abs_shap_change_by_feature_type": {
+          "cross_features_xf": 0.15429133348615484,
+          "pair_features_interact": 0.021721137970825657,
+          "poi_side": 0.1296605439819235,
+          "stated_traveler_explicit": 0.41396664498870367,
+          "traveler_history_implicit": 0.14580512965792103
+        },
+        "flip_mean_abs_shap_change_by_group": {
+          "geo": 0.045521592709067124,
+          "hours": 0.005519298604081666,
+          "implicit_taste": 0.22502480716379655,
+          "interest_match": 0.0351425767773191,
+          "localness_fit": 0.49484630205001284,
+          "novelty": 0.0003976311464997388,
+          "party_fit": 0.0012014057691795974,
+          "popularity": 0.044552976351306575,
+          "price_fit": 0.009486133563501099,
+          "quality": 0.003752065950764394
+        },
+        "flip_share_of_total_change_by_group": {
+          "geo": 0.05259907186519477,
+          "hours": 0.006377412709984902,
+          "implicit_taste": 0.26001058616524597,
+          "interest_match": 0.040606376258670515,
+          "localness_fit": 0.5717826344544856,
+          "novelty": 0.0004594529322435951,
+          "party_fit": 0.0013881945826502312,
+          "popularity": 0.0514798596764371,
+          "price_fit": 0.010960992165154313,
+          "quality": 0.004335419189933065
+        },
+        "n_candidates_s1": 271,
+        "n_candidates_s4": 275,
+        "n_common_pool": 228,
+        "pref_dependent_features": [
+          "explicit_touristiness_pref",
+          "interact_localness_gap",
+          "xf_loc_align",
+          "xf_loc_gap",
+          "xf_loc_x_pref",
+          "xf_pop_x_pref"
+        ],
+        "raw_score_sd_across_candidates_s1": 0.7689344151894155,
+        "raw_score_spearman_s1_vs_s4_common_pool": 0.932741169430897,
+        "raw_score_top10_jaccard_s1_vs_s4_common_pool": 0.8181818181818182,
+        "scenario1_base_attribution_share_by_feature_type": {
+          "cross_features_xf": 0.1732437192981038,
+          "pair_features_interact": 0.12626157724958745,
+          "poi_side": 0.3519445300295848,
+          "stated_traveler_explicit": 0.13773010220843218,
+          "traveler_history_implicit": 0.21082007121429178
+        },
+        "scenario1_base_attribution_share_by_group": {
+          "geo": 0.013288122717645798,
+          "hours": 0.0037386694922367397,
+          "implicit_taste": 0.537229592711396,
+          "interest_match": 0.17159608520467154,
+          "localness_fit": 0.08492523022260999,
+          "novelty": 0.004060474419800548,
+          "party_fit": 0.016230466410363742,
+          "popularity": 0.08849183866942067,
+          "price_fit": 0.04163632275018092,
+          "quality": 0.03880319740167405
+        },
+        "scenario1_share_carried_by_pref_dependent_features": 0.07044874306201039,
+        "scenario4_flip_attribution_share_by_feature_type": {
+          "cross_features_xf": 0.20822572087793056,
+          "pair_features_interact": 0.13399859724527,
+          "poi_side": 0.35237295578347205,
+          "stated_traveler_explicit": 0.11992726011483301,
+          "traveler_history_implicit": 0.18547546597849443
+        },
+        "scenario4_flip_attribution_share_by_group": {
+          "geo": 0.028945090601617908,
+          "hours": 0.004814883311696971,
+          "implicit_taste": 0.486906048071621,
+          "interest_match": 0.17410963012060462,
+          "localness_fit": 0.1042687126440023,
+          "novelty": 0.004281541431854804,
+          "party_fit": 0.016013617708699104,
+          "popularity": 0.09168458238273124,
+          "price_fit": 0.04761265324377776,
+          "quality": 0.04136324048339424
+        },
+        "scenario_implicit_interaction_count": 0.0
+      }
+    },
+    "pre_fix": {
+      "feature_groups": [
+        "interest_match",
+        "implicit_taste",
+        "localness_fit",
+        "popularity",
+        "price_fit",
+        "geo",
+        "hours",
+        "party_fit",
+        "quality",
+        "novelty"
+      ],
+      "holdout_counterfactual_flip": {
+        "flip_top10_jaccard_all_trips": 0.882453736030487,
+        "flip_top10_jaccard_cold_start_trips": 0.7781142468642469,
+        "flip_top10_jaccard_strong_pref_trips": 0.7786193905596891,
+        "flip_top10_jaccard_trips_with_history": 0.8949953774661622,
+        "n_cold_start_trips": 72,
+        "n_strong_pref_trips": 67,
+        "n_trips": 671,
+        "note": "raw ranker score top-10 among the trip candidates, before the hard gate, utility and MMR layers; touristiness_pref negated and every dependent feature recomputed"
+      },
+      "holdout_personalization_reference": {
+        "cross_archetype_jaccard_true_labels": 0.03848811877985011,
+        "mean_pairwise_jaccard_at_10_same_destination": 0.03943986684999817,
+        "perfect_ranker_within_cross_ratio": 1.8607647825935785,
+        "within_archetype_jaccard_true_labels": 0.05083958838449417,
+        "within_cross_ratio_true_labels": 1.3209164281396495
+      },
+      "scenario_rows": {
+        "candidate_pool_jaccard": 0.6120401337792643,
+        "flip_change_over_score_sd": 0.6784234741309338,
+        "flip_mean_abs_raw_score_change": 0.27423943942661744,
+        "flip_mean_abs_shap_change_by_feature_type": {
+          "pair_features_interact": 0.04170508004407735,
+          "poi_side": 0.20380545479698495,
+          "stated_traveler_explicit": 0.24445853624330222,
+          "traveler_history_implicit": 0.13230978473332117
+        },
+        "flip_mean_abs_shap_change_by_group": {
+          "geo": 0.01683942441546524,
+          "hours": 0.00011404140957768796,
+          "implicit_taste": 0.17842109295107908,
+          "interest_match": 0.10582773632403758,
+          "localness_fit": 0.305939707016086,
+          "party_fit": 1.319870567685159e-06,
+          "popularity": 0.012756411141238546,
+          "price_fit": 0.0017595712232057468,
+          "quality": 0.0006195514664280181
+        },
+        "flip_share_of_total_change_by_group": {
+          "geo": 0.027060897631396994,
+          "hours": 0.00018326415643326897,
+          "implicit_taste": 0.2867220881490993,
+          "interest_match": 0.17006481151441025,
+          "localness_fit": 0.49164406625077395,
+          "party_fit": 2.1210275029364853e-06,
+          "popularity": 0.020499509218381513,
+          "price_fit": 0.0028276249574535816,
+          "quality": 0.0009956170945482575
+        },
+        "n_candidates_s1": 242,
+        "n_candidates_s4": 240,
+        "n_common_pool": 183,
+        "pref_dependent_features": [
+          "explicit_touristiness_pref",
+          "interact_localness_gap"
+        ],
+        "raw_score_sd_across_candidates_s1": 0.4042304694393431,
+        "raw_score_spearman_s1_vs_s4_common_pool": 0.8699333453431816,
+        "raw_score_top10_jaccard_s1_vs_s4_common_pool": 0.25,
+        "scenario1_base_attribution_share_by_feature_type": {
+          "pair_features_interact": 0.45164354795253425,
+          "poi_side": 0.17453400182799964,
+          "stated_traveler_explicit": 0.011395666032075898,
+          "traveler_history_implicit": 0.36242678418739016
+        },
+        "scenario1_base_attribution_share_by_group": {
+          "geo": 0.002950588879685746,
+          "hours": 0.0007678073672502102,
+          "implicit_taste": 0.825080338056248,
+          "interest_match": 0.09673945947217563,
+          "localness_fit": 0.019690603418680726,
+          "party_fit": 0.0009535764678694201,
+          "popularity": 0.02013921287364108,
+          "price_fit": 0.024464992533896654,
+          "quality": 0.009213420930552507
+        },
+        "scenario1_share_carried_by_pref_dependent_features": 0.009721259531690347,
+        "scenario4_flip_attribution_share_by_feature_type": {
+          "pair_features_interact": 0.44242565642781667,
+          "poi_side": 0.17719468101642688,
+          "stated_traveler_explicit": 0.0245344155624416,
+          "traveler_history_implicit": 0.3558452469933149
+        },
+        "scenario4_flip_attribution_share_by_group": {
+          "geo": 0.003680447770314847,
+          "hours": 0.0007698951710737853,
+          "implicit_taste": 0.8084771944495168,
+          "interest_match": 0.09950073121886442,
+          "localness_fit": 0.03403740103715341,
+          "party_fit": 0.0008798987063381634,
+          "popularity": 0.020142108694356616,
+          "price_fit": 0.023517031642523296,
+          "quality": 0.008995291309858532
+        },
+        "scenario_implicit_interaction_count": 0.0
+      }
+    },
+    "pre_fix_commit": "ec8ac4a"
   },
   "seed_replication": {
     "metrics": {

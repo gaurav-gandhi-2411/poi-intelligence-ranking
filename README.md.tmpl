@@ -77,18 +77,21 @@ on a 16-logical-core laptop CPU (`scripts/time_reproduce.py`):
 **{{timings.total_seconds|.0f}} s ({{~reproduce_minutes}}) for `reproduce`**, **{{timings_full.total_seconds|.0f}} s for
 `reproduce-full`**. Per-stage timings are in `docs/RESULTS.md`. The measured `reproduce` value {{~reproduce_vs_target}} (the two largest stages are `train` and `evaluate`, i.e. LightGBM fits; the per-stage table is in `docs/RESULTS.md`).
 
-**Cold fresh-clone reproduction verified.** Commit `{{fresh_clone_verification.commit}}` was cloned into a
-clean directory, dependencies installed with `uv sync --frozen` on an empty cache
-({{fresh_clone_verification.uv_sync_seconds|.0f}} s), the `demo` commands below run from the committed
-artifacts (first, cold run: {{fresh_clone_verification.demo_first_cold_run_seconds.traveler|.0f}} s and
-{{fresh_clone_verification.demo_first_cold_run_seconds.profile|.0f}} s; warm: about
-{{fresh_clone_verification.demo_warm_seconds_same_machine.traveler|.0f}}-{{fresh_clone_verification.demo_warm_seconds_same_machine.profile|.0f}} s),
-and the ten stages above run in order: **{{fresh_clone_verification.total_seconds|.0f}} s in total**
-({{fresh_clone_verification.pipeline_seconds|.0f}} s for the pipeline stages themselves on that cold
-clone; the warm figure above is {{timings.total_seconds|.0f}} s). The regenerated `results/metrics.json`
-is **byte-identical** to the one committed at that commit (SHA-256 recorded in
-`results/parts/fresh_clone_verification.json`); no key differs, and the regenerated model files differ
-from the committed ones only in line endings.
+**Cold fresh-clone reproduction verified at the tagged commit.** The commit tagged
+`v1.0-konnect-submission` was cloned into a clean directory, dependencies installed with
+`uv sync --frozen` on an empty cache, the `demo` commands below run from the committed artifacts, and the
+ten stages above run in order; the regenerated `results/metrics.json` is **byte-identical** to the committed
+one (no key differs; regenerated model files differ only in line endings). The verified SHA and the result
+of that final run are recorded in the annotated tag (`git show v1.0-konnect-submission`), because a commit
+cannot contain its own SHA; `bash scripts/verify_fresh_clone.sh` repeats the check for any ref. The most
+recent recorded cold run (`results/parts/fresh_clone_verification.json`): `uv sync`
+{{fresh_clone_verification.uv_sync_seconds|.0f}} s, first `demo` runs
+{{fresh_clone_verification.demo_first_cold_run_seconds.traveler|.0f}} s and
+{{fresh_clone_verification.demo_first_cold_run_seconds.profile|.0f}} s (warm: about
+{{fresh_clone_verification.demo_warm_seconds_same_machine.traveler|.0f}}-{{fresh_clone_verification.demo_warm_seconds_same_machine.profile|.0f}} s), the ten stages
+{{fresh_clone_verification.pipeline_seconds|.0f}} s, {{fresh_clone_verification.total_seconds|.0f}} s in total on a busy laptop (the warm
+figure above is {{timings.total_seconds|.0f}} s). The committed LightGBM model text is pinned to LF by
+`.gitattributes`, so a Windows checkout (`core.autocrlf=true`) loads it and `make demo` works.
 
 Integrity and tests:
 

@@ -125,3 +125,10 @@ transferred to the holdout at a small fraction of its validation gain (holdout r
 pipeline without H, run in a sandbox at the same K and seed, is
 `results/experiments/h/holdout_ablation_no_h_seed42.json`). The E2 sweep re-run on the final pipeline
 found a winner below the bar and was not adopted. Amendment 2 records the K deviation.
+
+**Note added with DR13 (2026-09-21).** The Amendment 2 numbers (validation lift 0.332 at K=270, 0.363 at K=240)
+came from the FIRST grid computation, which read the channel flags of the candidates file then on disk. The
+committed grid (`results/parts/e4_k_sweep.json`) was recomputed on the final `candidates.parquet` and gives
+0.327 at K=270 and 0.358 at K=240; its "gate + 0.01 margin" rule would select K=225. K=240 was not
+re-selected (no model changes after the pre-registered decision; the shipped pipeline meets the gate on the
+holdout). Both the conclusion (the two rules are jointly infeasible) and the deviation stand; see DR13.

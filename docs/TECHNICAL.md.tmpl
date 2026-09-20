@@ -6,6 +6,53 @@
 > can be stale or hand-typed. `docs/RESULTS.md` is the fully generated results record;
 > `docs/DATA_CARD.md` is the append-only log of every dataset decision.
 
+## Summary — lead with the skew
+
+**The strongest result in this repository is a negative one about our own pipeline.** A train/serve
+feature skew was found in it, quantified, its consequence for a *published* conclusion retracted, and
+the whole pipeline re-run. The implicit traveler block was computed as-of each trip's `start_date`,
+but a trip's browsing session — the source of the graded labels — is dated 0-45 days *before*
+`start_date`, so train and validation features carried the labels and holdout features could not. The
+skew is visible in the committed data: the median days since the last interaction is
+**{{h_experiments.feature_skew_pre_fix.train_trips.days_since_last_interaction_median|.0f}} on train trips against
+{{h_experiments.feature_skew_pre_fix.holdout_trips.days_since_last_interaction_median|.0f}} on holdout trips**. The first tagged
+submission reported the learned ranker as indistinguishable from content cosine
+({{h_experiments.pre_fix_headline.ndcg10_primary|.4f}} vs
+{{h_experiments.pre_fix_headline.ndcg10_content_cosine|.4f}}, p={{h_experiments.pre_fix_headline.wilcoxon_primary_vs_content_cosine_p|.3g}})
+and explained that as evidence for a simple model; that conclusion is **retracted** here (section 5.1).
+
+The three results that stand on top of that:
+
+1. **The primary system beats a well-built content baseline decisively.** NDCG@10
+   {{systems.lambdamart_ips.metrics.ndcg@10.mean|.4f}} against
+   {{systems.content_cosine.metrics.ndcg@10.mean|.4f}} for content cosine
+   (Wilcoxon p={{wilcoxon.lambdamart_ips_vs_content_cosine.p_value|.3g}}), above cosine in
+   {{derived.seed_paired_primary_vs_content_cosine.n_primary_above}} of
+   {{derived.seed_paired_primary_vs_content_cosine.n_seeds}} independently regenerated seeds
+   (section 4.1).
+2. **The brief's own additive scoring formula lets hard constraints through.** It puts
+   {{derived.dr1_hard_constraints.brief_additive_violations}} hard-constraint violations into the
+   top-10s of the holdout, against {{derived.dr1_hard_constraints.shipped_multiplicative_gated_violations}}
+   under the gated multiplicative rule (DR1, section 7).
+3. **Oracle-free selection.** The true-utility oracle scored results but never chose anything: every
+   selection (retriever K, features, regularisation, ranker sweep, experiment H) was made on train-carved
+   validation.
+
+**The holdout, stated precisely.** Holdout feature distributions were inspected to diagnose a
+train/serve skew. No labels were used for selection and no hyperparameter was chosen on holdout.
+(For completeness, holdout NDCG was *evaluated* — never selected on — three times outside the routine
+pipeline run: once on the shipped hyperparameters to measure the effect of the fix, once for the
+one-time read of experiment H, and once in the sandbox ablation that isolates H's effect; the K sweep and
+the Decision Register also print holdout columns that are explicitly reporting-only.)
+
+**The brief on model complexity** (assignment section 10, quoted exactly): "You are not required to
+use a sophisticated model. A simpler model with thoughtful features, a clear learning objective, and
+strong evaluation is preferable to unnecessary model complexity." The evidence here is consistent
+with that in both directions: the neural alternative is not competitive at this data scale (DR2),
+the objective choice is documented against a pointwise alternative (DR3), and — the reason the
+retraction above mattered — the claim that a simple model was "enough" was itself an artifact of a
+feature bug, not a finding.
+
 This is the ML-reasoning and engineering-decision record. It covers what the audit checklist
 requires — problem formulation, the circularity defense, every architectural choice, why
 LambdaMART rather than a two-tower ranker, why the scoring layer is multiplicative rather than
@@ -253,13 +300,19 @@ re-applied to the corrected features. The corrected retriever is honestly weaker
 the recall rule now gives **K={{e4_k_sweep.rule_k}}**, whose validation lift over chance is
 {{e4_k_sweep.at_rule_k.val_ips_weighted_selection.lift|.3f}}: below the BLOCKING Gate-B row
 (lift >= {{e4_k_sweep.gate_b_lift_row_target|.2f}}), so `make reproduce` would stop at Gate-B. No grid K satisfies both
-criteria on validation. Gate-B is the binding ruling, so **the shipped K is
-{{e4_k_sweep.shipped_k}}**: the largest grid K whose validation lift is at least the gate plus a 0.01
-margin (validation recall {{e4_k_sweep.at_shipped_k.val_ips_weighted_selection.recall|.3f}}, validation
-lift {{e4_k_sweep.at_shipped_k.val_ips_weighted_selection.lift|.3f}}). This is a **deviation from the
-requester's E4 recall rule**, made from validation columns only (the holdout column is printed in the
-same table, which is disclosed) and recorded as Amendment 2 in
-`docs/experiments/H-ranker-cross-features.md`. The full sweep, holdout column included:
+criteria on validation (**DR13**: the two pre-registered rules are jointly infeasible because
+lift over chance is recall minus a chance baseline that grows with K, so they pull in opposite
+directions). Gate-B is the binding ruling, so **the shipped K is {{e4_k_sweep.shipped_k}}**, chosen by a
+validation-only tie-break on the FIRST grid computation (largest K with validation lift at least the
+gate plus a 0.01 margin; validation lift 0.363 at K=240 there). The grid committed here was recomputed
+later on the final `candidates.parquet` and puts the validation lift at the shipped K at
+{{e4_k_sweep.at_shipped_k.val_ips_weighted_selection.lift|.3f}} (validation recall
+{{e4_k_sweep.at_shipped_k.val_ips_weighted_selection.recall|.3f}}): above the gate, just under the
+margin, and its margin rule would now give K={{e4_k_sweep.gate_feasible_k}}. K was **not re-selected**
+(no model changes after the pre-registered decision; the shipped pipeline meets the gate on the
+holdout). This is a **deviation from the requester's E4 recall rule**, made from validation columns
+only (the holdout column is printed in the same table, which is disclosed) and recorded as Amendment 2
+in `docs/experiments/H-ranker-cross-features.md`. The full sweep, holdout column included:
 
 {{@k_sweep}}
 
@@ -369,6 +422,8 @@ lambda is unchanged: lambda 0.8 is a deliberate diversity-for-precision trade wh
 quantified there, and even with no diversity term (lambda 1) precision stays well under 0.40.
 
 ## 5. Ranking model choice — LambdaMART justified over a two-tower ranker
+
+*The assignment (section 10): "You are not required to use a sophisticated model. A simpler model with thoughtful features, a clear learning objective, and strong evaluation is preferable to unnecessary model complexity."*
 
 **Chosen:** LightGBM `objective="lambdarank"`, grouped by trip, IPS-weighted, behavioural-block
 dropout (designed for new-POI robustness; its measured effect is in section 10).
@@ -664,6 +719,111 @@ diagnostic, narrated as inbound personas): the flip's top-10 overlap is
 {{scenarios.overlap_matrix.diagnostic_vs_base_jaccard|.3f}} (target ≤ 0.35), from candidate pools
 that overlap at {{scenarios.overlap_matrix.diagnostic_vs_base_candidate_pool_jaccard|.3f}}.
 
+### 10.1 The two rows the skew fix regressed, diagnosed
+
+**Scenario 4 (touristiness flip): overlap {{h_experiments.pre_fix_headline.scenario4_overlap|.3f}} →
+{{scenarios.overlap_matrix.diagnostic_vs_base_jaccard|.3f}}.** Both scenario-4 travelers are synthetic
+and cold-start (zero interaction history), so this row measures how much `touristiness_pref` *alone*
+moves the ranking for a brand-new user. Grouped TreeSHAP of the ranker on the scenario candidate rows,
+for the model as first tagged (measured by running the same script against a checkout of commit
+`{{scenario4_diagnosis.pre_fix_commit}}`) and for the final model:
+
+| Mean absolute attribution share, scenario-1 rows | Pre-fix model | Final model |
+|---|---|---|
+| POI-side features | {{scenario4_diagnosis.pre_fix.scenario_rows.scenario1_base_attribution_share_by_feature_type.poi_side|.1%}} | {{scenario4_diagnosis.post_fix.scenario_rows.scenario1_base_attribution_share_by_feature_type.poi_side|.1%}} |
+| Stated traveler attributes (`explicit_*`) | {{scenario4_diagnosis.pre_fix.scenario_rows.scenario1_base_attribution_share_by_feature_type.stated_traveler_explicit|.1%}} | {{scenario4_diagnosis.post_fix.scenario_rows.scenario1_base_attribution_share_by_feature_type.stated_traveler_explicit|.1%}} |
+| Traveler-history features (`implicit_*`, all zero/absent for these travelers) | {{scenario4_diagnosis.pre_fix.scenario_rows.scenario1_base_attribution_share_by_feature_type.traveler_history_implicit|.1%}} | {{scenario4_diagnosis.post_fix.scenario_rows.scenario1_base_attribution_share_by_feature_type.traveler_history_implicit|.1%}} |
+| Pair features (`interact_*`) | {{scenario4_diagnosis.pre_fix.scenario_rows.scenario1_base_attribution_share_by_feature_type.pair_features_interact|.1%}} | {{scenario4_diagnosis.post_fix.scenario_rows.scenario1_base_attribution_share_by_feature_type.pair_features_interact|.1%}} |
+| Cross features (`xf_*`) | not in that model | {{scenario4_diagnosis.post_fix.scenario_rows.scenario1_base_attribution_share_by_feature_type.cross_features_xf|.1%}} |
+| **Features that read `touristiness_pref`** (preference, localness gap and the `xf_*` crosses) | **{{scenario4_diagnosis.pre_fix.scenario_rows.scenario1_share_carried_by_pref_dependent_features|.1%}}** | **{{scenario4_diagnosis.post_fix.scenario_rows.scenario1_share_carried_by_pref_dependent_features|.1%}}** |
+| `localness_fit` group | {{scenario4_diagnosis.pre_fix.scenario_rows.scenario1_base_attribution_share_by_group.localness_fit|.1%}} | {{scenario4_diagnosis.post_fix.scenario_rows.scenario1_base_attribution_share_by_group.localness_fit|.1%}} |
+| `interest_match` group | {{scenario4_diagnosis.pre_fix.scenario_rows.scenario1_base_attribution_share_by_group.interest_match|.1%}} | {{scenario4_diagnosis.post_fix.scenario_rows.scenario1_base_attribution_share_by_group.interest_match|.1%}} |
+
+What the flip actually moves (only `touristiness_pref` differs between scenarios 1 and 4; POIs in both
+candidate pools): in the final model {{scenario4_diagnosis.post_fix.scenario_rows.flip_share_of_total_change_by_group.localness_fit|.1%}} of the
+change in attribution sits in the `localness_fit` group, and the raw ranker score changes by on average
+{{scenario4_diagnosis.post_fix.scenario_rows.flip_change_over_score_sd|.2f}} of its own spread across candidates (pre-fix model:
+{{scenario4_diagnosis.pre_fix.scenario_rows.flip_change_over_score_sd|.2f}}); the two score vectors stay strongly rank-correlated
+({{scenario4_diagnosis.post_fix.scenario_rows.raw_score_spearman_s1_vs_s4_common_pool|.3f}} vs {{scenario4_diagnosis.pre_fix.scenario_rows.raw_score_spearman_s1_vs_s4_common_pool|.3f}}), and the raw
+top-10 overlap on the shared pool is {{scenario4_diagnosis.post_fix.scenario_rows.raw_score_top10_jaccard_s1_vs_s4_common_pool|.3f}} against
+{{scenario4_diagnosis.pre_fix.scenario_rows.raw_score_top10_jaccard_s1_vs_s4_common_pool|.3f}}; the two candidate pools themselves overlap at
+{{scenario4_diagnosis.post_fix.scenario_rows.candidate_pool_jaccard|.3f}} (pre-fix {{scenario4_diagnosis.pre_fix.scenario_rows.candidate_pool_jaccard|.3f}}).
+
+The same flip applied as a **counterfactual to the {{scenario4_diagnosis.post_fix.holdout_counterfactual_flip.n_trips}} real holdout trips** (raw ranker
+top-10 before the gate/utility/MMR layers, every dependent feature recomputed): mean top-10 Jaccard
+{{scenario4_diagnosis.post_fix.holdout_counterfactual_flip.flip_top10_jaccard_all_trips|.3f}} (pre-fix model {{scenario4_diagnosis.pre_fix.holdout_counterfactual_flip.flip_top10_jaccard_all_trips|.3f}}); trips with history
+{{scenario4_diagnosis.post_fix.holdout_counterfactual_flip.flip_top10_jaccard_trips_with_history|.3f}}, the {{scenario4_diagnosis.post_fix.holdout_counterfactual_flip.n_cold_start_trips}} pure cold-start trips
+{{scenario4_diagnosis.post_fix.holdout_counterfactual_flip.flip_top10_jaccard_cold_start_trips|.3f}}, the {{scenario4_diagnosis.post_fix.holdout_counterfactual_flip.n_strong_pref_trips}} trips with a strong
+stated preference (|pref| >= 0.5) {{scenario4_diagnosis.post_fix.holdout_counterfactual_flip.flip_top10_jaccard_strong_pref_trips|.3f}}. And the personalization metrics
+on real holdout travelers, with the DGP's TRUE archetype labels: cross-archetype Jaccard@10
+{{scenario4_diagnosis.post_fix.holdout_personalization_reference.cross_archetype_jaccard_true_labels|.3f}} (target <= 0.25, met) and within/cross ratio
+{{scenario4_diagnosis.post_fix.holdout_personalization_reference.within_cross_ratio_true_labels|.2f}} against {{scenario4_diagnosis.post_fix.holdout_personalization_reference.perfect_ranker_within_cross_ratio|.2f}} for a
+perfect ranker.
+
+*Finding (measured; interpretation marked).* Personalization by taste and history is real: lists for
+different archetypes are almost disjoint (cross-archetype Jaccard {{scenario4_diagnosis.post_fix.holdout_personalization_reference.cross_archetype_jaccard_true_labels|.3f}}).
+`touristiness_pref` is a **weak lever** in the final model — the features that read it carry
+{{scenario4_diagnosis.post_fix.scenario_rows.scenario1_share_carried_by_pref_dependent_features|.1%}} of attribution for a cold-start traveler, and
+negating it changes the raw top-10 of a real trip by roughly one item in ten (more for cold-start and
+strong-preference trips: Jaccard {{scenario4_diagnosis.post_fix.holdout_counterfactual_flip.flip_top10_jaccard_cold_start_trips|.2f}} and
+{{scenario4_diagnosis.post_fix.holdout_counterfactual_flip.flip_top10_jaccard_strong_pref_trips|.2f}}). For a brand-new traveler the ranking is driven mainly by stated
+interests, popularity/quality and compatibility, not by the touristiness preference. The pre-fix value
+was *not* a sign of stronger personalization: the pre-fix model put {{scenario4_diagnosis.pre_fix.scenario_rows.scenario1_base_attribution_share_by_group.implicit_taste|.1%}} of its
+attribution on the (leak-trained) implicit-taste group and only {{scenario4_diagnosis.pre_fix.scenario_rows.scenario1_share_carried_by_pref_dependent_features|.1%}} on
+preference features, yet the flip changed about three quarters of its raw top-10 — an off-distribution
+response of a model trained on features that always contained a rich (leaked) history, applied to
+travelers with none (interpretation; the measured facts are the numbers above). The row stays MISSED
+and is reported as a genuine cold-start limitation, not tuned away.
+
+**Confidence-decile Spearman: {{confidence_diagnosis.pre_fix.decile_spearman_recomputed|.3f}} →
+{{confidence_diagnosis.post_fix.decile_spearman_recomputed|.3f}}.** The scorecard statistic is a rank correlation over
+only ten decile means (about sixty trips each). Recomputed here with the scorecard's own code for both
+models, and decomposed into the five terms of the confidence score (equal weights, each
+{{confidence_diagnosis.post_fix.confidence_weights.traveler|.1f}}):
+
+| | Pre-fix model | Final model |
+|---|---|---|
+| Decile Spearman (scorecard statistic) | {{confidence_diagnosis.pre_fix.decile_spearman_recomputed|.3f}} | {{confidence_diagnosis.post_fix.decile_spearman_recomputed|.3f}} |
+| Trip-level Spearman, confidence vs per-trip NDCG@10 | {{confidence_diagnosis.pre_fix.trip_level_spearman_confidence_vs_ndcg|.3f}} | {{confidence_diagnosis.post_fix.trip_level_spearman_confidence_vs_ndcg|.3f}} |
+| Trip-level Spearman, traveler-evidence term vs NDCG | {{confidence_diagnosis.pre_fix.trip_level_spearman_by_term_vs_ndcg.traveler_evidence|+.3f}} | {{confidence_diagnosis.post_fix.trip_level_spearman_by_term_vs_ndcg.traveler_evidence|+.3f}} |
+| Trip-level Spearman, ensemble-agreement term vs NDCG | {{confidence_diagnosis.pre_fix.trip_level_spearman_by_term_vs_ndcg.ensemble_agreement|+.3f}} | {{confidence_diagnosis.post_fix.trip_level_spearman_by_term_vs_ndcg.ensemble_agreement|+.3f}} |
+| Between-trip sd of the traveler-evidence term (other terms: at most {{confidence_diagnosis.post_fix.trip_level_between_trip_sd_by_term.calibration_stability|.3f}}) | {{confidence_diagnosis.pre_fix.trip_level_between_trip_sd_by_term.traveler_evidence|.3f}} | {{confidence_diagnosis.post_fix.trip_level_between_trip_sd_by_term.traveler_evidence|.3f}} |
+| Holdout interaction count (mean; share of trips with none) | {{confidence_diagnosis.pre_fix.holdout_interaction_count.mean|.1f}}; {{confidence_diagnosis.pre_fix.holdout_interaction_count.share_zero|.1%}} | {{confidence_diagnosis.post_fix.holdout_interaction_count.mean|.1f}}; {{confidence_diagnosis.post_fix.holdout_interaction_count.share_zero|.1%}} |
+| Ensemble sd over the top-10 (mean) | {{confidence_diagnosis.pre_fix.ensemble_std_top10.mean|.3f}} | {{confidence_diagnosis.post_fix.ensemble_std_top10.mean|.3f}} |
+| Spearman, interaction count vs NDCG | {{confidence_diagnosis.pre_fix.spearman_interaction_count_vs_ndcg|+.3f}} | {{confidence_diagnosis.post_fix.spearman_interaction_count_vs_ndcg|+.3f}} |
+
+*Mechanism (measured).* The confidence inputs on holdout did not change distribution (interaction
+counts are identical, since the fix does not touch holdout features), and the traveler-evidence term
+dominates the between-trip variation of confidence (its sd is several times that of any other term).
+What changed is the *ranker*: before the fix its NDCG rose with the traveler's history volume
+(Spearman {{confidence_diagnosis.pre_fix.spearman_interaction_count_vs_ndcg|+.3f}} between interaction count and NDCG), because it had been trained on
+features that leaked the answer for well-documented trips; after the fix NDCG no longer depends on
+history volume ({{confidence_diagnosis.post_fix.spearman_interaction_count_vs_ndcg|+.3f}}), so an evidence-volume-dominated
+confidence score has nothing to track. The ensemble-disagreement term became the most informative one
+({{confidence_diagnosis.post_fix.trip_level_spearman_by_term_vs_ndcg.ensemble_agreement|+.3f}}) but contributes little variance. Read plainly: the pre-fix
+decile figure was a ten-point statistic of a weak trip-level relationship
+({{confidence_diagnosis.pre_fix.trip_level_spearman_confidence_vs_ndcg|.2f}}) that came from the leaked features, i.e. it was
+inflated; {{confidence_diagnosis.post_fix.decile_spearman_recomputed|.3f}} is the honest post-fix value and the trip-level relationship is close to
+nothing. Reweighting the terms towards ensemble agreement would improve the number but would be
+tuning on holdout labels, so it is declined and listed as an open follow-up.
+
+### 10.2 Three targets were miscalibrated at design time
+
+The a-priori targets were audited alongside the results, and three were set without reference to the
+data's own baselines: **long-tail precision 0.40** (the pool's positive rate among long-tail
+candidates is {{derived.longtail_lift_over_base_rate.base_rate|.3f}}, so the target implied a lift of about four times
+that was never justified; the served list achieves {{derived.longtail_lift_over_base_rate.final_after_mmr|.2f}}x);
+**candidate recall 0.85** (an absolute number with no chance baseline: a random set of the shipped size
+already recalls {{candidate_recall.by_stratum.overall.chance_recall|.3f}}); and the **chance-lift gate of +0.35**, which
+is what made the K rule infeasible (DR13): lift over chance is recall minus a chance baseline that
+grows with the set size, so "smallest K with validation recall >= 0.93" and "lift >= 0.35" pull in
+opposite directions as K grows and cannot both hold at this catalog size. Of the seven MISSED
+scorecard rows, **two trace to target miscalibration rather than system performance**: long-tail
+precision (above) and the within/cross-archetype ratio target of 2.0 (a *perfect* ranker reaches only
+{{scenario4_diagnosis.post_fix.holdout_personalization_reference.perfect_ranker_within_cross_ratio|.2f}} in this simulator, so the target is unattainable by construction).
+The targets were not relaxed to make rows pass; they are reported as miscalibrated and the measured
+values stand.
+
 ### Scorecard — every miss carries a diagnosis
 
 {{@scorecard}}
@@ -706,6 +866,43 @@ Every design choice not dictated by the assignment, the alternative, the experim
 measured result. Generated from `results/parts/dr/*.json`; an experiment that was not run says
 `NOT RUN`. The detail tables are in the sections above (DR1/DR6/DR10 section 7, DR2/DR3
 section 5, DR7 section 6, DR9/DR11 section 4) and DR4 below.
+
+### 12.1 Three decisions worth reading first (DR3, DR12, DR13)
+
+**DR3 — the objective (a strength, not a footnote).** LightGBM `lambdarank` is the shipped objective.
+The pointwise `binary` objective is better on both measurements: **+{{derived.ranker_sweep_margin.winner_minus_shipped|.4f}}
+NDCG@10 on validation** (the pre-registered adoption bar was +0.010, so it was not adopted) and
+**{{derived.dr3_binary_minus_lambdarank|+.4f}} on the holdout** ({{decision_register.rows.2.results.binary.mean|.4f}} against
+{{decision_register.rows.2.results.lambdarank.mean|.4f}}). It was **not adopted** because adopting on the
+holdout number would be selection leakage and the validation margin is under the bar; `lambdarank` is kept
+as the principled listwise default when NDCG@10 is the reported metric. The cost is stated in the open, and
+switching is a one-line change (`objective` in `configs/model.yaml`).
+
+**DR12 — retrieval design.** The learned full-catalog retriever is compared with the original
+six-channel union, each with a ranker retrained on it:
+
+| | Learned retriever | Six-channel union |
+|---|---|---|
+| Candidate recall, overall | {{decision_register.rows.11.results.candidate_sets.learned_retriever.recall_overall|.3f}} | {{decision_register.rows.11.results.candidate_sets.legacy_six_channel.recall_overall|.3f}} |
+| Candidate recall, long-tail | {{decision_register.rows.11.results.candidate_sets.learned_retriever.recall_long_tail|.3f}} | {{decision_register.rows.11.results.candidate_sets.legacy_six_channel.recall_long_tail|.3f}} |
+| Lift over chance, overall / long-tail | {{decision_register.rows.11.results.candidate_sets.learned_retriever.lift_overall|+.3f}} / {{decision_register.rows.11.results.candidate_sets.learned_retriever.lift_long_tail|+.3f}} | {{decision_register.rows.11.results.candidate_sets.legacy_six_channel.lift_overall|+.3f}} / {{decision_register.rows.11.results.candidate_sets.legacy_six_channel.lift_long_tail|+.3f}} |
+| Gate-B rows passed (of 4) | {{decision_register.rows.11.results.candidate_sets.learned_retriever.gate_b_rows_passed}} | {{decision_register.rows.11.results.candidate_sets.legacy_six_channel.gate_b_rows_passed}} |
+| End-to-end NDCG@10, ranker retrained on the set | {{decision_register.rows.11.results.ndcg10_end_to_end.learned_retriever_shipped_ranker|.4f}} | **{{decision_register.rows.11.results.ndcg10_end_to_end.legacy_six_channel_retrained_ranker|.4f}}** |
+
+The retriever wins recall and long-tail exposure and passes the Gate-B rows; the six-channel union wins
+end-to-end NDCG@10 (paired Wilcoxon p={{decision_register.rows.11.results.ndcg10_end_to_end.paired_wilcoxon_p|.3f}}). The
+retriever is shipped and the NDCG cost is stated in the open. Switching on a holdout comparison would be
+selection leakage, which is why it was not switched.
+
+**DR13 — K selection.** The pre-registered blind rule (smallest K with validation recall >= 0.93) gives
+K={{decision_register.rows.12.results.rule_k}}, which fails the Gate-B chance-lift row on validation
+({{decision_register.rows.12.results.at_rule_k.val_ips_weighted_selection.lift|.3f}} against 0.35). The two pre-registered
+rules are jointly infeasible ({{decision_register.rows.12.results.grid_ks_satisfying_both_criteria_on_validation}} is the set of
+grid K meeting both), because lift = recall - chance and chance grows with K. The validation-only
+tie-break (largest K with validation lift >= 0.36) gave K={{decision_register.rows.12.results.shipped_k}}; see the
+note on the recomputed grid in section 4. The full sweep:
+
+{{@k_sweep}}
 
 {{@decision_register}}
 
