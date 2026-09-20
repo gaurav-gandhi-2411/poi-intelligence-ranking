@@ -477,3 +477,129 @@ def render_seed_replication(metrics: dict[str, Any]) -> str:
         )
     lines.append("")
     return "\n".join(lines)
+
+
+# -----------------------------------------------------------------------------------
+# E1-E4 blocks
+# -----------------------------------------------------------------------------------
+
+_E1_ROWS = (
+    ("random", "Random"),
+    ("popularity", "Popularity"),
+    ("content_cosine", "Content cosine"),
+    ("lambdamart_ips_shipped", "LambdaMART + IPS (shipped booster)"),
+    ("lambdamart_ips_retrained_on_this_set", "LambdaMART + IPS (retrained on this set)"),
+    ("oracle", "Oracle (true utility)"),
+)
+
+
+def decomposition_table(metrics: dict[str, Any]) -> str:
+    d = metrics.get("retrieval_ranking_decomposition")
+    if d is None:
+        return "NOT RUN."
+    e2e, rel = d["ndcg10_end_to_end"], d["ndcg10_candidate_relative"]
+    old, new = e2e["legacy_6_channel"], e2e["learned_retriever"]
+    n_old, n_new = (
+        d["mean_candidates_per_trip"]["legacy_6_channel"],
+        d["mean_candidates_per_trip"]["learned_retriever"],
+    )
+    lines = [
+        f"| End-to-end NDCG@10 (fixed denominator) | 6-channel union ({n_old:.0f} cand/trip) | "
+        f"Learned retriever + long-tail + interest ({n_new:.0f} cand/trip) |",
+        "|---|---|---|",
+    ]
+    for key, name in _E1_ROWS:
+        if key not in old and key not in new:
+            continue
+        cells = [_ci(t[key]) if key in t else "—" for t in (old, new)]
+        lines.append(f"| {name} | {cells[0]} | {cells[1]} |")
+    lines += [
+        "",
+        "For reference, the usual candidate-relative NDCG@10 (each set normalised by its own "
+        "ideal):",
+        "",
+        "| System | 6-channel union | Learned retriever |",
+        "|---|---|---|",
+    ]
+    for key, name in _E1_ROWS:
+        a, b = rel["legacy_6_channel"].get(key), rel["learned_retriever"].get(key)
+        if a is None and b is None:
+            continue
+        lines.append(f"| {name} | {_ci(a) if a else '—'} | {_ci(b) if b else '—'} |")
+    return "\n".join(lines)
+
+
+def longtail_stage_table(metrics: dict[str, Any]) -> str:
+    d = metrics.get("longtail_stages")
+    if d is None:
+        return "NOT RUN."
+    lines = ["| Stage | Long-tail share | Long-tail precision |", "|---|---|---|"]
+    for name, v in d["stages"].items():
+        lines.append(
+            f"| {name} | {_f(v['long_tail_share'], 3)} | {_f(v['long_tail_precision'], 3)} |"
+        )
+    lines += [
+        "",
+        "MMR lambda (diagnostic, post-hoc on the holdout -- not a selection):",
+        "",
+        "| lambda | Long-tail share | Long-tail precision |",
+        "|---|---|---|",
+    ]
+    for lam, v in d["mmr_lambda_diagnostic_post_hoc_on_holdout"].items():
+        lines.append(
+            f"| {lam} | {_f(v['long_tail_share'], 3)} | {_f(v['long_tail_precision'], 3)} |"
+        )
+    return "\n".join(lines)
+
+
+def sweep_summary(metrics: dict[str, Any]) -> str:
+    d = metrics.get("ranker_sweep")
+    if d is None:
+        return "NOT RUN."
+    rows = d["rows"]
+
+    def mean(pred: Any) -> float:
+        xs = [r["stage1_val_ips_weighted_ndcg10"] for r in rows if pred(r)]
+        return float(sum(xs) / len(xs))
+
+    lines = ["| Axis | Value | Mean validation IPS-weighted NDCG@10 |", "|---|---|---|"]
+    for o in ("lambdarank", "binary", "rank_xendcg"):
+        lines.append(f"| objective | {o} | {_f(mean(lambda r, o=o: r['objective'] == o))} |")
+    for c in sorted(
+        {str(r["ips_clip_high"]) for r in rows},
+        key=lambda x: (x == "none", float(x) if x != "none" else 0),
+    ):
+        lines.append(
+            f"| IPS clip | {c} | {_f(mean(lambda r, c=c: str(r['ips_clip_high']) == c))} |"
+        )
+    for b in ("all_features", "no_raw_text_emb", "no_raw_taste", "no_raw_text_no_taste"):
+        lines.append(f"| feature blocks | {b} | {_f(mean(lambda r, b=b: r['blocks'] == b))} |")
+    w = d["winner"]
+    lines += [
+        "",
+        f"Winner (4-seed mean {_f(w['stage2_mean_val_ips_weighted_ndcg10'])}): "
+        f"objective {w['objective']}, IPS clip {w['ips_clip_high']}, blocks {w['blocks']}; "
+        f"the previously shipped config scores {_f(d['previous_shipped_config_4_seed']['mean'])}.",
+    ]
+    return "\n".join(lines)
+
+
+def k_sweep_table(metrics: dict[str, Any]) -> str:
+    d = metrics.get("e4_k_sweep")
+    if d is None:
+        return "NOT RUN."
+    lines = [
+        d["pre_registered_rule"] + ".",
+        "",
+        "| Learned K | Val recall (IPS) | Holdout recall (reporting-only) | Holdout long-tail "
+        "| Holdout lift | Candidates/trip |",
+        "|---|---|---|---|---|---|",
+    ]
+    for g in d["grid"]:
+        v, h = g["val_ips_weighted_selection"], g["holdout_reporting_only"]
+        mark = " **(rule)**" if g["learned_K"] == d["rule_k"] else ""
+        lines.append(
+            f"| {g['learned_K']}{mark} | {_f(v['recall'], 3)} | {_f(h['recall'], 3)} "
+            f"| {_f(h['lt'], 3)} | {h['lift']:+.3f} | {h['size']:.0f} |"
+        )
+    return "\n".join(lines)

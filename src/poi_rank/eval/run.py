@@ -537,8 +537,8 @@ def _ablations_payload(
 
     rows.append(
         abl.leave_one_channel_out_row(
-            "-CF_channel",
-            "channel_cf",
+            "-interest_channel",
+            "channel_interest",
             holdout_frame,
             candidates_df,
             lambdamart_ips_score,

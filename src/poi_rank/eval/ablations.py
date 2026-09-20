@@ -245,7 +245,7 @@ def mmr_row(
 def _candidate_keys_excluding_channel(
     candidates_df: pd.DataFrame, exclude_channel: str
 ) -> set[tuple[str, str]]:
-    """`(trip_id, poi_id)` pairs surviving the 6-channel union with `exclude_channel`
+    """`(trip_id, poi_id)` pairs surviving the candidate union with `exclude_channel`
     removed -- same leave-one-channel-out construction as
     `candidates.recall_metrics._candidate_set_by_trip`, reimplemented locally (that
     helper is private, single extra caller here does not justify promoting it to a
@@ -276,7 +276,7 @@ def leave_one_channel_out_row(
     ablated_score = lambdamart_ips_score.loc[ablated_frame.index]
     return _compare_ndcg10(
         ablation_label,
-        f"Leave-one-channel-out ('{channel_name}' removed from the 6-channel candidate "
+        f"Leave-one-channel-out ('{channel_name}' removed from the candidate "
         "union): re-evaluates the ALREADY-TRAINED lambdamart_ips score over the "
         "smaller candidate set, no retraining, no new candidate generation.",
         holdout_frame,

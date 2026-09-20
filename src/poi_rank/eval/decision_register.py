@@ -185,13 +185,15 @@ def fit_lgb(
     trip_fraction: float = 1.0,
     seed: int = SEED,
     train_frame: pd.DataFrame | None = None,
+    drop_prefixes: tuple[str, ...] = (),
 ) -> tuple[lgb.Booster, list[str], list[str], pd.DataFrame, pd.DataFrame]:
     """System-8 recipe (IPS + behavioural dropout, early stopping on a train-carved val split),
     with the DR-varied knob swapped in. Returns (booster, numeric, categorical, fit, val)."""
     cfg = lab.model_cfg.lambdamart
     base = lab.train_frame if train_frame is None else train_frame
     sub = sample_train_trips(base, trip_fraction, seed)
-    numeric, categorical = numeric_feature_columns(sub), categorical_feature_columns(sub)
+    numeric = [c for c in numeric_feature_columns(sub) if not c.startswith(drop_prefixes)]
+    categorical = categorical_feature_columns(sub)
     fit, val = lm.train_val_split_by_trip(sub, cfg.val_fraction, cfg.val_split_seed)
     weights = None
     if ips:

@@ -42,6 +42,10 @@ COMPOSED_PARTS: dict[str, str | None] = {
     "a3_step0": "a3_step0",
     "a3_pairfeat": "a3_pairfeat",
     "a3_retriever_grid": "a3_retriever_grid",
+    "retrieval_ranking_decomposition": "retrieval_ranking_decomposition",
+    "longtail_stages": "longtail_stages",
+    "e4_k_sweep": "e4_k_sweep",
+    "ranker_sweep": "ranker_sweep",
     "timings": "timings",
     "timings_full": "timings_full",
 }

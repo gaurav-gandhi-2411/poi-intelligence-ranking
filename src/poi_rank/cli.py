@@ -35,6 +35,7 @@ from poi_rank.eval.decision_register import (
     load_lab,
     run_dr_scoring,
 )
+from poi_rank.eval.decomposition import run_decomposition
 from poi_rank.eval.dgp_diagnostics import run_dgp_diagnostics
 from poi_rank.eval.dr_experiments import (
     run_dr2,
@@ -47,6 +48,8 @@ from poi_rank.eval.dr_experiments import (
 )
 from poi_rank.eval.gate_dgp import run_gate_dgp
 from poi_rank.eval.gate_representation import run_gate_representation
+from poi_rank.eval.longtail_stages import run_longtail_stages
+from poi_rank.eval.ranker_sweep import run_sweep
 from poi_rank.eval.representation import run_representation_report
 from poi_rank.eval.run import ALL_SYSTEM_NAMES, WILCOXON_METRIC, run_evaluate
 from poi_rank.eval.scenarios import run_scenarios
@@ -57,7 +60,7 @@ from poi_rank.models.config import ModelConfig
 from poi_rank.models.lambdamart import run_train_lambdamart
 from poi_rank.scoring.confidence import run_train_ensemble
 from poi_rank.scoring.config import ScoringConfig
-from poi_rank.scoring.output import run_recommend
+from poi_rank.scoring.output import run_recommend, run_scoring_pipeline
 
 app = typer.Typer(add_completion=False)
 
@@ -974,6 +977,120 @@ def dr(
     path = compose_register(results_dir)
     compose_metrics(results_dir)
     typer.echo(f"decision register: {path}")
+
+
+@app.command()
+def decompose(
+    features_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_FEATURES_CONFIG_PATH, help="Path to features.yaml"
+    ),
+    legacy_config_path: Path = typer.Option(  # noqa: B008
+        REPO_ROOT / "configs" / "features_legacy6.yaml", help="Pre-retriever 6-channel config"
+    ),
+    model_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_MODEL_CONFIG_PATH, help="Path to model.yaml"
+    ),
+    eval_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_EVAL_CONFIG_PATH, help="Path to eval.yaml"
+    ),
+    data_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, help="data/synthetic"),  # noqa: B008
+    artifacts_dir: Path = typer.Option(DEFAULT_ARTIFACTS_DIR, help="artifacts"),  # noqa: B008
+    results_dir: Path = typer.Option(DEFAULT_RESULTS_DIR, help="results"),  # noqa: B008
+) -> None:
+    """E1: retrieval-vs-ranking gain decomposition over both candidate sets."""
+    feature_cfg = FeatureBuildConfig.from_yaml(features_config_path)
+    lab = load_lab(
+        data_dir,
+        feature_cfg,
+        ModelConfig.from_yaml(model_config_path),
+        EvalConfig.from_yaml(eval_config_path),
+    )
+    payload = run_decomposition(
+        data_dir,
+        artifacts_dir,
+        results_dir,
+        feature_cfg,
+        CandidatesConfig.from_yaml(legacy_config_path),
+        lab,
+        lab.eval_cfg,
+    )
+    compose_metrics(results_dir)
+    typer.echo(
+        json.dumps(payload["decomposition_of_popularity_to_primary_gain_end_to_end"], indent=1)
+    )
+
+
+@app.command()
+def sweep(
+    features_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_FEATURES_CONFIG_PATH, help="Path to features.yaml"
+    ),
+    model_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_MODEL_CONFIG_PATH, help="Path to model.yaml"
+    ),
+    eval_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_EVAL_CONFIG_PATH, help="Path to eval.yaml"
+    ),
+    data_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, help="data/synthetic"),  # noqa: B008
+    results_dir: Path = typer.Option(DEFAULT_RESULTS_DIR, help="results"),  # noqa: B008
+) -> None:
+    """E2: validation-only joint sweep over ranker objective / IPS clip / feature blocks."""
+    feature_cfg = FeatureBuildConfig.from_yaml(features_config_path)
+    lab = load_lab(
+        data_dir,
+        feature_cfg,
+        ModelConfig.from_yaml(model_config_path),
+        EvalConfig.from_yaml(eval_config_path),
+    )
+    payload = run_sweep(lab, results_dir)
+    typer.echo(json.dumps(payload["winner"], indent=1))
+
+
+@app.command(name="longtail-stages")
+def longtail_stages(
+    features_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_FEATURES_CONFIG_PATH, help="Path to features.yaml"
+    ),
+    model_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_MODEL_CONFIG_PATH, help="Path to model.yaml"
+    ),
+    eval_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_EVAL_CONFIG_PATH, help="Path to eval.yaml"
+    ),
+    scoring_config_path: Path = typer.Option(  # noqa: B008
+        DEFAULT_SCORING_CONFIG_PATH, help="Path to scoring.yaml"
+    ),
+    data_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, help="data/synthetic"),  # noqa: B008
+    artifacts_dir: Path = typer.Option(DEFAULT_ARTIFACTS_DIR, help="artifacts"),  # noqa: B008
+    results_dir: Path = typer.Option(DEFAULT_RESULTS_DIR, help="results"),  # noqa: B008
+) -> None:
+    """E3: long-tail share/precision after each serving stage."""
+    feature_cfg = FeatureBuildConfig.from_yaml(features_config_path)
+    model_cfg = ModelConfig.from_yaml(model_config_path)
+    scoring_cfg = ScoringConfig.from_yaml(scoring_config_path)
+    cand_cfg = CandidatesConfig.from_yaml(features_config_path)
+    eval_cfg = EvalConfig.from_yaml(eval_config_path)
+    result = run_scoring_pipeline(
+        data_dir,
+        artifacts_dir,
+        feature_cfg,
+        model_cfg,
+        scoring_cfg,
+        cand_cfg.geo,
+        cand_cfg.longtail.pop_pct_cutoff,
+    )
+    pois = pd.read_parquet(data_dir / "pois_prepared.parquet")
+    payload = run_longtail_stages(
+        result,
+        pois,
+        eval_cfg.long_tail_pop_pct_cutoff,
+        scoring_cfg.diversity,
+        scoring_cfg.diversity.lambda_default,
+        scoring_cfg.output.top_k,
+        results_dir,
+    )
+    compose_metrics(results_dir)
+    typer.echo(json.dumps(payload["stages"], indent=1))
 
 
 if __name__ == "__main__":
