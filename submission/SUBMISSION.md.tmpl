@@ -16,8 +16,9 @@ for s in generate prepare features candidates gate-dgp train evaluate representa
 ```
 
 Verified on an empty cache: **{{fresh_clone_verification.total_seconds|.0f}} s** including a
-{{fresh_clone_verification.uv_sync_seconds|.0f}} s dependency install (busy machine, upper bound);
-the regenerated `results/metrics.json` is byte-identical to the committed one.
+{{fresh_clone_verification.uv_sync_seconds|.0f}} s dependency install ({{fresh_clone_verification.pipeline_seconds|.0f}} s for the ten stages;
+warm rerun {{timings.total_seconds|.0f}} s); the regenerated `results/metrics.json` is byte-identical to
+the committed one. Live demo (also verified from the clone): `make demo TRAVELER=U0005`.
 
 ## What a reviewer should see (`results/metrics.json`, seed 42)
 

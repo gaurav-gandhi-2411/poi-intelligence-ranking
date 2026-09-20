@@ -3,7 +3,7 @@
 > Generated from `submission/SUBMISSION.md.tmpl`; every number resolves from `results/metrics.json`.
 
 **Repo:** https://github.com/gaurav-gandhi-2411/poi-intelligence-ranking · **Tag:** `v1.0-konnect-submission`
-(cold fresh-clone reproduction verified at commit `60c399a`).
+(cold fresh-clone reproduction verified at commit `e34248a`).
 
 ## Clone and run (CPU only, no API keys, no network; these stages, in this order, were run from a cold clone)
 
@@ -15,9 +15,10 @@ for s in generate prepare features candidates gate-dgp train evaluate representa
          gate-representation compose; do uv run python -m poi_rank.cli $s; done   # = make reproduce
 ```
 
-Verified on an empty cache: **695 s** including a
-108 s dependency install (busy machine, upper bound);
-the regenerated `results/metrics.json` is byte-identical to the committed one.
+Verified on an empty cache: **656 s** including a
+65 s dependency install (544 s for the ten stages;
+warm rerun 335 s); the regenerated `results/metrics.json` is byte-identical to
+the committed one. Live demo (also verified from the clone): `make demo TRAVELER=U0005`.
 
 ## What a reviewer should see (`results/metrics.json`, seed 42)
 

@@ -2976,3 +2976,7 @@ Session-log numbers not backed by a committed artifact are marked (log).
   clone. It is not used by `make reproduce`, training or serving.
 - **DR5 (ANN benchmark) stays NOT RUN:** ANN only matters at catalog sizes far beyond this take-home
   three destinations; cut for time, so "brute force is fine here" is reasoning, not evidence.
+- **Cold fresh-clone verification (final):** commit `e34248a` (the code/data/parts commit; the
+  verification record and README/SUBMISSION text were committed after it): `uv sync --frozen` on an
+  empty cache, `demo` from the committed artifacts, then the ten `reproduce` stages -> byte-identical
+  `results/metrics.json`. Details: `results/parts/fresh_clone_verification.json`.

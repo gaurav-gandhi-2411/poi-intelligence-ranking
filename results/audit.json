@@ -9,12 +9,12 @@
       "passed": true
     },
     "docs_numbers": {
-      "evidence": "2 passed in 3.85s",
+      "evidence": "2 passed in 2.73s",
       "passed": true,
       "returncode": 0
     },
     "firewalls": {
-      "evidence": "29 passed in 2.54s",
+      "evidence": "29 passed in 0.92s",
       "passed": true,
       "returncode": 0
     },
@@ -41,13 +41,13 @@
     "single_metrics_writer": {
       "evidence": {
         "compose_twice_identical": true,
-        "metrics_sha256": "2c7b689d9194e1e3c68c2986ffca24cd41d8f9dc1b21802c23b9967e3ed2c1a0",
+        "metrics_sha256": "b480cb07ba06f146bf04f5a19edfea34d18af5ed287fea5e4b1de4705353fcb1",
         "other_writers": []
       },
       "passed": true
     },
     "thread_determinism": {
-      "evidence": "2 passed in 165.66s (0:02:45)",
+      "evidence": "2 passed in 130.19s (0:02:10)",
       "passed": true,
       "returncode": 0
     }

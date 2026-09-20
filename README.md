@@ -77,12 +77,18 @@ on a 16-logical-core laptop CPU (`scripts/time_reproduce.py`):
 **335 s (5.6 min) for `reproduce`**, **432 s for
 `reproduce-full`**. Per-stage timings are in `docs/RESULTS.md`. The measured `reproduce` value is above the original 5-minute target and was not chased further (the two largest stages are `train` and `evaluate`, i.e. LightGBM fits; the per-stage table is in `docs/RESULTS.md`).
 
-**Cold fresh-clone reproduction verified.** Commit `60c399a` was cloned
-into a clean directory, dependencies installed with `uv sync --frozen` on an empty cache
-(108 s), and the ten stages above run in order:
-**695 s in total** (measured on a busy machine, so an upper bound). The regenerated
-`results/metrics.json` is **byte-identical** to the one committed at that commit (SHA-256 recorded in
-`results/parts/fresh_clone_verification.json`); no key differs.
+**Cold fresh-clone reproduction verified.** Commit `e34248a` was cloned into a
+clean directory, dependencies installed with `uv sync --frozen` on an empty cache
+(65 s), the `demo` commands below run from the committed
+artifacts (first, cold run: 21 s and
+7 s; warm: about
+4-5 s),
+and the ten stages above run in order: **656 s in total**
+(544 s for the pipeline stages themselves on that cold
+clone; the warm figure above is 335 s). The regenerated `results/metrics.json`
+is **byte-identical** to the one committed at that commit (SHA-256 recorded in
+`results/parts/fresh_clone_verification.json`); no key differs, and the regenerated model files differ
+from the committed ones only in line endings.
 
 Integrity and tests:
 
