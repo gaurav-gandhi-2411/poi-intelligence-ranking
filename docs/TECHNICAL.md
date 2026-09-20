@@ -231,7 +231,7 @@ block: a taste vector in the POI embedding space,
 distribution and mean price/localness/popularity. Both blocks and their **pair features**
 (`interact_cos_taste_poi`, `interact_localness_gap`, `interact_interest_match`,
 `interact_price_gap`, `interact_category_affinity`) go to LambdaMART, which learns the blend
-conditioned on evidence volume. Each trip's implicit block is as-of the trip's own session start
+(the blend that was learned, and which side wins, is measured in section 3.1). Each trip's implicit block is as-of the trip's own session start
 (never `start_date`: section 5.1), and 20 explicit `xf_*` traveler x POI cross features
 (localness x touristiness, price gap, interest hits, compatibility sub-scores, repeat engagement,
 section 5.2) are added to the ranker's frame (never to the retriever's).
@@ -300,6 +300,96 @@ both come out *slightly positive* for NDCG@10: `-interest_channel`
 a plausible reading (not separately tested) is that a leaner set leaves the ranker fewer
 low-relevance items to misplace. These two channels are **not** justified by top-10 relevance; they are justified by
 recall and long-tail exposure (section 4), which NDCG@10 over the exposed labels does not reward.
+
+### 3.1 How explicit and implicit signals are combined (brief section 8) — measured; for trips with history the implicit side wins
+
+The brief asks how stated preferences and behavioural history are combined. The blend is **learned, not
+hand-set**, so we measured which side won. Script `scripts/diagnose_touristiness_axis.py`, artifact
+`results/parts/touristiness_axis.json`, shipped booster only, nothing re-tuned. The test case is the
+touristiness preference, because it is the one stated preference whose conflict with history is easy to
+read off the ranking (localness of the recommended POIs).
+
+*What the ranker leans on.* Grouped-SHAP share of the implicit-taste group is
+43.2% in the final model (the
+59.4% of the pre-fix model was carried by
+the leaked features and is not a current figure), against
+7.0% for the
+features that read `touristiness_pref` (cold-start scenario rows) and
+0.9% of total split gain.
+Attribution shares compare groups of very different width (100 implicit columns against 6 preference
+columns), so this is corroboration, not the proof. The proof is behavioural.
+
+*Is the preference learnable? Yes: the simulator encodes it.* The six preference-dependent columns
+(`explicit_touristiness_pref`, `interact_localness_gap`, and the `xf_loc_align`, `xf_loc_gap`,
+`xf_loc_x_pref`, `xf_pop_x_pref` crosses) are non-degenerate in the
+486441-row training frame (NaN rate
+0%, sd
+0.24 for the localness x touristiness cross,
+within-trip sd 0.19) and every
+one is in the booster (the cross splits 1 time(s)).
+The preference is spread around zero (sd 0.30 over
+1875 travelers; 50%
+have |pref| < 0.2, 10% have |pref| >= 0.5). And the
+data carries a large behavioural effect: across the
+605 holdout trips (random-exposure labels, observable localness
+index only), the per-trip rank correlation between a candidate's localness and its outcome falls with the
+stated preference at Spearman -0.51
+(slope -0.147 per unit of preference), equally for
+trips with history (-0.51) and without
+(-0.55). So this is **not** a
+simulator property: travelers who state a preference for local places do behave that way.
+
+*Does the shipped ranker reproduce it? Only when it has no history.* The same statistic on the raw
+ranker score, as a fraction of the label slope:
+
+| Trips | n | Label slope | Ranker slope | Ranker / label |
+|---|---|---|---|---|
+| Cold-start (no history) | 65 | -0.154 | -0.128 | 83% |
+| With history | 540 | -0.147 | +0.002 | -1% |
+
+The counterfactual flip agrees: raw top-10 Jaccard 0.68
+for cold-start trips in the top |pref| tercile (n=26) against
+0.85 for trips with history (n=198;
+same |pref| profile: mean 0.25 against
+0.24; after controlling for |pref| a cold-start trip's Jaccard is
+-0.10 against a warm trip's). When history
+exists, the ranker's localness ordering does not measurably move with the stated preference, even though the
+outcomes do. So **when the two signals conflict, implicit history dominates, and warm trips are *less*
+responsive to a stated-preference flip than cold-start trips** (Jaccard
+0.915 against
+0.813). The
+headline all-trip Jaccard of 0.904 understates the response where a
+preference is actually stated: it is diluted by trips with |pref| near zero, whose flip changes almost nothing
+(bottom |pref| tercile 0.973, top tercile
+0.834); the negated values are inside the
+observed range, so the flip is not an off-distribution probe.
+
+*Mechanism (measured where marked).* The switch is on *whether* history exists, not on how much of it
+there is: among trips with history the flip Jaccard is nearly flat in history volume (Spearman
+-0.08; history terciles
+0.924 /
+0.912 /
+0.909). That corrects the earlier wording that the
+ranker learns "the blend conditioned on evidence volume": it learned a two-regime blend. The implicit
+side is not earning that weight either: removing the raw implicit-taste block *improves* holdout NDCG@10
+by +0.0120 (p=7.94e-05, section 3 ablation table). Why the trees
+prefer history over a stated preference that the labels reward (collinearity of the two, or history's higher
+signal-to-noise in training) was **not** separately tested.
+
+*Consequence.* Taste- and history-based personalization is real: lists for different archetypes are almost
+disjoint (cross-archetype Jaccard@10
+0.075), but the
+archetype structure is only partly recovered: the within/cross ratio is
+1.20 against 1.00 for no archetype signal
+and 1.89 for a perfect ranker,
+i.e. 23% of the way. Responsiveness to a stated touristiness
+preference is weak for every traveler with history. What would fix it, **untested**, in increasing order of
+invasiveness: (i) an explicit preference-consistency term in the utility layer (section 7), tuned on
+train-carved validation; (ii) preference-conditioned features whose across-traveler variance forces the
+trees to split on them (for example the cross features re-expressed per traveler, or dropout applied to the
+implicit block the way it already is to the behavioural block); (iii) a hard filter on the stated preference.
+**For production:** on a platform whose differentiator is non-touristy local discovery, a stated preference
+must be a hard filter or an explicit utility term, not something the ranker is trusted to learn.
 
 ## 4. Candidate generation
 
@@ -965,7 +1055,12 @@ attribution on the (leak-trained) implicit-taste group and only 1.0% on
 preference features, yet the flip changed about three quarters of its raw top-10 — an off-distribution
 response of a model trained on features that always contained a rich (leaked) history, applied to
 travelers with none (interpretation; the measured facts are the numbers above). The row stays MISSED
-and is reported as a genuine cold-start limitation, not tuned away.
+and is reported, not tuned away. The follow-up diagnosis (section 3.1) sharpens what it is: the
+simulator does encode the preference in outcomes, the ranker reproduces
+83% of that gradient for trips
+without history and -1% for trips with
+history, so this is a model limitation (implicit history overrides the stated preference), not a
+simulator property.
 
 **Confidence-decile Spearman: 0.879 →
 0.358.** The scorecard statistic is a rank correlation over

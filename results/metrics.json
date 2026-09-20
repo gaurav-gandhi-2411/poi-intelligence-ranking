@@ -2539,7 +2539,8 @@
       "paired_t_p": 0.00023853467559223145,
       "sd_gap": 0.011171918848824762,
       "wilcoxon_p": 0.0625
-    }
+    },
+    "within_cross_fraction_of_achievable": 0.22566203122314601
   },
   "dgp_diagnostics": {
     "D10_description_conditioning": {
@@ -3981,6 +3982,7 @@
     "fresh_clone_verification",
     "h_experiments",
     "scenario4_diagnosis",
+    "touristiness_axis",
     "confidence_diagnosis",
     "timings",
     "timings_full"
@@ -5942,6 +5944,215 @@
     ],
     "target": "reproduce-full",
     "total_seconds": 432.5
+  },
+  "touristiness_axis": {
+    "a_preference_distribution": {
+      "hist_bin_edges": [
+        -1.0,
+        -0.8,
+        -0.6,
+        -0.4,
+        -0.2,
+        0.0,
+        0.2,
+        0.4,
+        0.6,
+        0.8,
+        1.0
+      ],
+      "hist_counts": [
+        7,
+        40,
+        121,
+        283,
+        432,
+        500,
+        312,
+        125,
+        41,
+        14
+      ],
+      "mean": 0.01237400213433408,
+      "n_travelers": 1875,
+      "quantiles": {
+        "q05": -0.4984339539608536,
+        "q25": -0.18945566957335144,
+        "q50": 0.018250248549419312,
+        "q75": 0.20923152984778962,
+        "q95": 0.5181009880364561
+      },
+      "sd": 0.30477664033682156,
+      "share_abs_pref_at_least_half": 0.10346666666666667,
+      "share_abs_pref_below_fifth": 0.49706666666666666
+    },
+    "b_training_frame_and_booster": {
+      "columns": {
+        "explicit_touristiness_pref": {
+          "gain_rank": 29,
+          "gain_share": 0.005007933172028176,
+          "in_booster": true,
+          "n_unique": 1528,
+          "nan_rate": 0.0,
+          "sd": 0.30490118321633947,
+          "splits": 20
+        },
+        "interact_localness_gap": {
+          "gain_rank": 51,
+          "gain_share": 0.001419897560656842,
+          "in_booster": true,
+          "n_unique": 464031,
+          "nan_rate": 0.0,
+          "sd": 0.5081574131867184,
+          "splits": 6
+        },
+        "xf_loc_align": {
+          "gain_rank": 75,
+          "gain_share": 0.0007651487033199859,
+          "in_booster": true,
+          "n_unique": 463696,
+          "nan_rate": 0.0,
+          "sd": 0.17983981600681215,
+          "splits": 3
+        },
+        "xf_loc_gap": {
+          "gain_rank": 114,
+          "gain_share": 0.0004752350447311937,
+          "in_booster": true,
+          "n_unique": 464031,
+          "nan_rate": 0.0,
+          "sd": 0.3527703437539304,
+          "splits": 1
+        },
+        "xf_loc_x_pref": {
+          "gain_rank": 129,
+          "gain_share": 0.0003682667154447686,
+          "in_booster": true,
+          "n_unique": 464031,
+          "nan_rate": 0.0,
+          "sd": 0.24037428064994576,
+          "splits": 1
+        },
+        "xf_pop_x_pref": {
+          "gain_rank": 59,
+          "gain_share": 0.0010180034633570922,
+          "in_booster": true,
+          "n_unique": 452233,
+          "nan_rate": 0.0,
+          "sd": 0.19032268709238262,
+          "splits": 4
+        }
+      },
+      "n_booster_features": 258,
+      "n_train_rows": 486441,
+      "pref_dependent_gain_share_total": 0.00905448465953806,
+      "xf_loc_x_pref_within_trip_sd_mean": 0.1871322178293909
+    },
+    "c_d_localness_gradient_by_stated_pref": {
+      "all": {
+        "label_pref_vs_rho_spearman": -0.5080133657322163,
+        "label_slope": -0.147178606629487,
+        "model_over_label_slope": 0.1344528530873545,
+        "model_pref_vs_rho_spearman": -0.08356569546369016,
+        "model_slope": -0.019788583574755953,
+        "n_trips": 605
+      },
+      "cold_start": {
+        "label_pref_vs_rho_spearman": -0.549197889060169,
+        "label_slope": -0.1537516951268936,
+        "model_over_label_slope": 0.8331118972949351,
+        "model_pref_vs_rho_spearman": -0.5341390962568238,
+        "model_slope": -0.12809236643947874,
+        "n_trips": 65
+      },
+      "note": "per trip: Spearman(observable localness index, outcome) over the candidate rows, then regressed on the trip's stated touristiness_pref; label = random-exposure holdout label, model = raw ranker score",
+      "warm": {
+        "label_pref_vs_rho_spearman": -0.5064028391708952,
+        "label_slope": -0.1468114820388563,
+        "model_over_label_slope": -0.010997830213482246,
+        "model_pref_vs_rho_spearman": -0.010534461853586221,
+        "model_slope": 0.00161460775285304,
+        "n_trips": 540
+      }
+    },
+    "e_flip_stratified": {
+      "jaccard_by_abs_pref_tercile": {
+        "high": {
+          "jaccard": 0.8335057799343514,
+          "mean_abs_pref": 0.45277399636935695,
+          "n": 224.0
+        },
+        "low": {
+          "jaccard": 0.9727946127946128,
+          "mean_abs_pref": 0.06426334847051755,
+          "n": 225.0
+        },
+        "mid": {
+          "jaccard": 0.9058569058569059,
+          "mean_abs_pref": 0.209101312887225,
+          "n": 222.0
+        }
+      },
+      "jaccard_by_abs_pref_tercile_and_history": {
+        "high_cold": {
+          "jaccard": 0.6771177540408309,
+          "n": 26
+        },
+        "high_warm": {
+          "jaccard": 0.8540415813143086,
+          "n": 198
+        },
+        "low_cold": {
+          "jaccard": 0.9636363636363636,
+          "n": 25
+        },
+        "low_warm": {
+          "jaccard": 0.9739393939393939,
+          "n": 200
+        },
+        "mid_cold": {
+          "jaccard": 0.8013098013098013,
+          "n": 21
+        },
+        "mid_warm": {
+          "jaccard": 0.9167797376752601,
+          "n": 201
+        }
+      },
+      "jaccard_by_history_tercile_warm": {
+        "high": {
+          "jaccard": 0.9093287664716235,
+          "mean_history": 60.515306122448976,
+          "n": 196.0
+        },
+        "low": {
+          "jaccard": 0.9235292071112967,
+          "mean_history": 14.870646766169154,
+          "n": 201.0
+        },
+        "mid": {
+          "jaccard": 0.9123912391239124,
+          "mean_history": 33.48019801980198,
+          "n": 202.0
+        }
+      },
+      "mean_abs_pref_cold": 0.24655485906377214,
+      "mean_abs_pref_warm": 0.24131747946740362,
+      "mean_jaccard": 0.9041495017650009,
+      "n_trips": 671,
+      "ols_all_jaccard_on_abs_pref_and_cold": {
+        "abs_pref": -0.3087729532671162,
+        "cold_start": -0.10068338562601323,
+        "intercept": 0.989638920427556
+      },
+      "ols_warm_jaccard_on_abs_pref_and_log1p_history": {
+        "abs_pref": -0.26494306653786803,
+        "intercept": 1.0164851516016369,
+        "log1p_history": -0.010911152299077742
+      },
+      "spearman_abs_pref_vs_jaccard": -0.4825840699446839,
+      "spearman_history_vs_jaccard_warm": -0.0786836903040879
+    },
+    "method": "scripts/diagnose_touristiness_axis.py: diagnosis of the shipped booster (lambdamart_ips) on the committed frames; no retraining, no selection"
   },
   "train": {
     "best_iteration_lambdamart": 115,

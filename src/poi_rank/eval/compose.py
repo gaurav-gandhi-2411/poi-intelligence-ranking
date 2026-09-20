@@ -49,6 +49,7 @@ COMPOSED_PARTS: dict[str, str | None] = {
     "fresh_clone_verification": "fresh_clone_verification",
     "h_experiments": "h_experiments",
     "scenario4_diagnosis": "scenario4_diagnosis",
+    "touristiness_axis": "touristiness_axis",
     "confidence_diagnosis": "confidence_diagnosis",
     "timings": "timings",
     "timings_full": "timings_full",
@@ -117,6 +118,17 @@ def derived_numbers(m: dict[str, Any]) -> dict[str, Any]:
             - sweep["previous_shipped_config_4_seed"]["mean"],
             "adoption_bar": 0.010,
         }
+    ref = (
+        m.get("scenario4_diagnosis", {})
+        .get("post_fix", {})
+        .get("holdout_personalization_reference")
+    )
+    if ref:
+        # (ratio - 1) / (perfect - 1): 1.0 is "no archetype signal", so this is the share of the
+        # achievable within/cross gap the ranker recovers (not ratio / perfect_ratio).
+        out["within_cross_fraction_of_achievable"] = (
+            ref["within_cross_ratio_true_labels"] - 1.0
+        ) / (ref["perfect_ranker_within_cross_ratio"] - 1.0)
     dr3 = next(
         (r for r in m.get("decision_register", {}).get("rows", []) if r["id"] == "DR3"), None
     )
