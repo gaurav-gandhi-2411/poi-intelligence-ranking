@@ -162,8 +162,10 @@ candidates:
     # IPS-weighted LightGBM on observable pair features, cross-fitted by trip for train trips.
     # E4 (results/parts/e4_k_sweep.json): PRE-REGISTERED blind rule -- smallest K whose IPS-weighted
     # VALIDATION recall >= 0.93, applied once. Replaces the earlier K=210, whose 0.90 margin had been
-    # set after seeing the validation-vs-holdout gap.
-    quota: 195
+    # set after seeing the validation-vs-holdout gap. RE-APPLIED after the as-of-cutoff fix
+    # (docs/experiments/H-ranker-cross-features.md, Amendment 1): the same blind rule on the
+    # corrected features gives K=270 (validation recall 0.937; K=255 is 0.928).
+    quota: 270
     n_estimators: 300
     learning_rate: 0.05
     num_leaves: 31
