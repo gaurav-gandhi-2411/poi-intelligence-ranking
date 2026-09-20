@@ -670,3 +670,19 @@ would leak the oracle); long-tail precision 0.4 target unmet (hypothesis unteste
   [ref]`); the final verified SHA lives in the annotated tag message because a commit cannot contain its
   own SHA. J2 diagnosed the two regressed rows with measured mechanisms; J3-J5 promoted DR3/DR12/DR13,
   the three miscalibrated targets and the skew headline into TECHNICAL.md / SUBMISSION.md.
+- K-series (2026-09-21), documentation and diagnosis only; NO model, data, K or selection change:
+  K1 (`scripts/diagnose_touristiness_axis.py` -> `results/parts/touristiness_axis.json`): the stated
+  touristiness preference is learnable (simulator outcomes carry it, trip-level Spearman -0.51; the six
+  preference columns are non-degenerate and in the booster) and the ranker reproduces 83% of the outcome
+  gradient for cold-start trips but ~0% for trips with history: implicit history overrides the stated
+  preference (a model limitation, not a simulator property). Written into `docs/TECHNICAL.md` section 3.1
+  (K2). Corrections to figures quoted in the K brief: implicit-taste attribution is 43.2% in the final
+  model (59.4% was the pre-fix leaked model); within/cross 1.20 is 23% of the way from 1.0 to 1.89 (not
+  63%); there are 1,875 travelers (600 was the pre-remediation dataset); long-tail precision is 0.196
+  against a 0.097 base rate (2.03x served, 3.54x raw ranker), not 0.154 / 1.56x. K4: `docs/DATA_CARD.md`
+  gets a top banner (build log, older sections historical) and the DR13 0.332 -> 0.327 pointer. K6/K7:
+  `docs/REQUIREMENTS.md` (generated from a template), "Anticipated questions" in SUBMISSION.md, and the
+  gaps the matrix exposed were closed in `docs/TECHNICAL.md`: cold-start strategy (10.3), learning
+  signal/training data/inference (5), model serving and data freshness (11).
+  Untested follow-ups for the stated-preference weakness: a preference-consistency utility term, implicit
+  block dropout, a hard filter. Open: the tag `v1.0-konnect-submission` points at 17d1834 and is not moved.

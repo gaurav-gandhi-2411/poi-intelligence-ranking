@@ -879,6 +879,7 @@ def run_report(
 
 NARRATIVE_TEMPLATES: dict[str, str] = {
     "docs/TECHNICAL.md.tmpl": "docs/TECHNICAL.md",
+    "docs/REQUIREMENTS.md.tmpl": "docs/REQUIREMENTS.md",
     "README.md.tmpl": "README.md",
     "submission/SUBMISSION.md.tmpl": "submission/SUBMISSION.md",
 }

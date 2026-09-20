@@ -2,7 +2,7 @@
 
 > Generated from `submission/SUBMISSION.md.tmpl`; every number resolves from `results/metrics.json`.
 
-**Repo:** https://github.com/gaurav-gandhi-2411/poi-intelligence-ranking · **Tag:** `v1.0-konnect-submission`
+**Repo:** https://github.com/gaurav-gandhi-2411/poi-intelligence-ranking · **Tag:** `v1.0-konnect-submission` · **Requirement-by-requirement coverage:** `docs/REQUIREMENTS.md`
 
 ## Headline: we found a train/serve skew in our own pipeline, and retracted our own conclusion
 
@@ -57,3 +57,39 @@ hard-constraint violations **0**; ECE 0.0300.
   baselines**: long-tail precision 0.40 (pool base rate 0.097) and the within/cross-archetype ratio 2.0 (a perfect ranker reaches
   1.89); the recall 0.85 and chance-lift +0.35 targets were also set a priori and made the K rule infeasible (DR13).
 - Decisions worth reading (DR3 objective, DR12 retrieval design, DR13 K selection): `docs/TECHNICAL.md` section 12.1. DR5 (ANN benchmark) not run; all data is synthetic.
+
+## Anticipated questions
+
+**Why does the ranking barely change when the touristiness preference flips?** It changes less than it should, and we
+measured why before writing it up (`docs/TECHNICAL.md` section 3.1; `results/parts/touristiness_axis.json`). Negating the stated
+preference on the 671 real holdout trips leaves the raw top-10 at Jaccard
+0.904, but that average is diluted by travelers whose preference is near zero
+(bottom |pref| tercile 0.973, top 0.834). It is not an
+artifact of the simulator: outcomes carry the preference (trip-level Spearman -0.51) and the ranker
+reproduces 83% of that gradient for cold-start trips but -1% for trips with history.
+That is our measured answer to the brief's explicit-versus-implicit question: the blend is learned, and when the two conflict implicit
+history wins (implicit-taste attribution 43.2% against
+7.0% for the features that read the preference; removing the raw implicit block even improves
+holdout NDCG@10 by +0.0120). Untested fixes: a preference-consistency term in the utility layer or a hard filter. For a platform whose
+differentiator is non-touristy discovery, a stated preference should not be left for the ranker to learn.
+
+**You shipped the retriever even though the legacy six-channel union scores higher end-to-end.** Correct, and it is reported
+(DR12): the legacy union reaches NDCG@10 0.1919 against
+0.1814 for the shipped retriever (paired p=0.0047), with the
+ranker retrained on each set. The two sets differ on the criteria that were fixed before the comparison: candidate recall
+0.926 against 0.596, long-tail recall
+0.898 against 0.540, and
+4 of 4 blocking Gate-B rows passed against
+0. NDCG@10 over exposed labels is bounded by what the candidate set contains and does not reward
+the long tail, which is the product's differentiator; the legacy set also holds fewer candidates per trip
+(190 against 266). Switching to the legacy union
+because it wins on the holdout would be selection on the holdout, so the row is reported and not acted on.
+
+**Long-tail precision is 0.196 against a 0.40 target.** The 0.40 was set a priori, without reference to the data: the
+candidate pool's own long-tail positive rate is 0.097, so the served list is a
+2.03x lift over the base rate and the raw ranker's top-10 a 3.54x lift (precision
+0.343). The MMR trade-off curve (a post-hoc holdout diagnostic, not a selection) runs from
+1.90x at lambda 0.5 to 2.70x at lambda 1 with no diversity term (precision
+0.262), so the target is out of reach even without diversity; the shipped lambda is
+0.8. What is real: precision falls after ranking (raw 0.343 to served 0.196) and which of the gate,
+utility and MMR steps causes it was not isolated. `docs/REQUIREMENTS.md` marks the long-tail row PARTIAL for that reason.

@@ -2,7 +2,7 @@
 
 > Generated from `submission/SUBMISSION.md.tmpl`; every number resolves from `results/metrics.json`.
 
-**Repo:** https://github.com/gaurav-gandhi-2411/poi-intelligence-ranking · **Tag:** `v1.0-konnect-submission`
+**Repo:** https://github.com/gaurav-gandhi-2411/poi-intelligence-ranking · **Tag:** `v1.0-konnect-submission` · **Requirement-by-requirement coverage:** `docs/REQUIREMENTS.md`
 
 ## Headline: we found a train/serve skew in our own pipeline, and retracted our own conclusion
 
@@ -57,3 +57,39 @@ hard-constraint violations **{{constraint_compatibility.n_hard_constraint_violat
   baselines**: long-tail precision 0.40 (pool base rate {{derived.longtail_lift_over_base_rate.base_rate|.3f}}) and the within/cross-archetype ratio 2.0 (a perfect ranker reaches
   {{scenario4_diagnosis.post_fix.holdout_personalization_reference.perfect_ranker_within_cross_ratio|.2f}}); the recall 0.85 and chance-lift +0.35 targets were also set a priori and made the K rule infeasible (DR13).
 - Decisions worth reading (DR3 objective, DR12 retrieval design, DR13 K selection): `docs/TECHNICAL.md` section 12.1. DR5 (ANN benchmark) not run; all data is synthetic.
+
+## Anticipated questions
+
+**Why does the ranking barely change when the touristiness preference flips?** It changes less than it should, and we
+measured why before writing it up (`docs/TECHNICAL.md` section 3.1; `results/parts/touristiness_axis.json`). Negating the stated
+preference on the {{scenario4_diagnosis.post_fix.holdout_counterfactual_flip.n_trips}} real holdout trips leaves the raw top-10 at Jaccard
+{{scenario4_diagnosis.post_fix.holdout_counterfactual_flip.flip_top10_jaccard_all_trips|.3f}}, but that average is diluted by travelers whose preference is near zero
+(bottom |pref| tercile {{touristiness_axis.e_flip_stratified.jaccard_by_abs_pref_tercile.low.jaccard|.3f}}, top {{touristiness_axis.e_flip_stratified.jaccard_by_abs_pref_tercile.high.jaccard|.3f}}). It is not an
+artifact of the simulator: outcomes carry the preference (trip-level Spearman {{touristiness_axis.c_d_localness_gradient_by_stated_pref.all.label_pref_vs_rho_spearman|+.2f}}) and the ranker
+reproduces {{touristiness_axis.c_d_localness_gradient_by_stated_pref.cold_start.model_over_label_slope|.0%}} of that gradient for cold-start trips but {{touristiness_axis.c_d_localness_gradient_by_stated_pref.warm.model_over_label_slope|.0%}} for trips with history.
+That is our measured answer to the brief's explicit-versus-implicit question: the blend is learned, and when the two conflict implicit
+history wins (implicit-taste attribution {{h_experiments.h0a_shap_shares_final_model.implicit_taste|.1%}} against
+{{scenario4_diagnosis.post_fix.scenario_rows.scenario1_share_carried_by_pref_dependent_features|.1%}} for the features that read the preference; removing the raw implicit block even improves
+holdout NDCG@10 by {{ablations.6.delta_ndcg@10|+.4f}}). Untested fixes: a preference-consistency term in the utility layer or a hard filter. For a platform whose
+differentiator is non-touristy discovery, a stated preference should not be left for the ranker to learn.
+
+**You shipped the retriever even though the legacy six-channel union scores higher end-to-end.** Correct, and it is reported
+(DR12): the legacy union reaches NDCG@10 {{decision_register.rows.11.results.ndcg10_end_to_end.legacy_six_channel_retrained_ranker|.4f}} against
+{{decision_register.rows.11.results.ndcg10_end_to_end.learned_retriever_shipped_ranker|.4f}} for the shipped retriever (paired p={{decision_register.rows.11.results.ndcg10_end_to_end.paired_wilcoxon_p|.4f}}), with the
+ranker retrained on each set. The two sets differ on the criteria that were fixed before the comparison: candidate recall
+{{decision_register.rows.11.results.candidate_sets.learned_retriever.recall_overall|.3f}} against {{decision_register.rows.11.results.candidate_sets.legacy_six_channel.recall_overall|.3f}}, long-tail recall
+{{decision_register.rows.11.results.candidate_sets.learned_retriever.recall_long_tail|.3f}} against {{decision_register.rows.11.results.candidate_sets.legacy_six_channel.recall_long_tail|.3f}}, and
+{{decision_register.rows.11.results.candidate_sets.learned_retriever.gate_b_rows_passed}} of 4 blocking Gate-B rows passed against
+{{decision_register.rows.11.results.candidate_sets.legacy_six_channel.gate_b_rows_passed}}. NDCG@10 over exposed labels is bounded by what the candidate set contains and does not reward
+the long tail, which is the product's differentiator; the legacy set also holds fewer candidates per trip
+({{decision_register.rows.11.results.candidate_sets.legacy_six_channel.mean_candidates_per_trip|.0f}} against {{decision_register.rows.11.results.candidate_sets.learned_retriever.mean_candidates_per_trip|.0f}}). Switching to the legacy union
+because it wins on the holdout would be selection on the holdout, so the row is reported and not acted on.
+
+**Long-tail precision is {{longtail.precision|.3f}} against a 0.40 target.** The 0.40 was set a priori, without reference to the data: the
+candidate pool's own long-tail positive rate is {{derived.longtail_lift_over_base_rate.base_rate|.3f}}, so the served list is a
+{{derived.longtail_lift_over_base_rate.final_after_mmr|.2f}}x lift over the base rate and the raw ranker's top-10 a {{derived.longtail_lift_over_base_rate.raw_ranker|.2f}}x lift (precision
+{{longtail_stages.stages.1_raw_ranker_top10.long_tail_precision|.3f}}). The MMR trade-off curve (a post-hoc holdout diagnostic, not a selection) runs from
+{{derived.mmr_lift_lambda_0_5|.2f}}x at lambda 0.5 to {{derived.mmr_lift_lambda_1_0|.2f}}x at lambda 1 with no diversity term (precision
+{{longtail_stages.mmr_lambda_diagnostic_post_hoc_on_holdout.1.long_tail_precision|.3f}}), so the target is out of reach even without diversity; the shipped lambda is
+{{longtail_stages.lambda_default}}. What is real: precision falls after ranking (raw {{longtail_stages.stages.1_raw_ranker_top10.long_tail_precision|.3f}} to served {{longtail.precision|.3f}}) and which of the gate,
+utility and MMR steps causes it was not isolated. `docs/REQUIREMENTS.md` marks the long-tail row PARTIAL for that reason.

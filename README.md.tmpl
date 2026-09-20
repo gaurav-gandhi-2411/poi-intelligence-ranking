@@ -10,6 +10,9 @@ recommender evaluated against an oracle ceiling, an exposure-bias-corrected prim
 measured ablations and a Decision Register in which every design choice carries a measured
 number or an explicit `NOT RUN`.
 
+**Coverage of the brief:** [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) maps every requirement of the assignment (sections 5-18) to its
+implementation, its evidence and a MET / PARTIAL / NOT DONE status, in one table.
+
 ## Headline — read this first
 
 Primary system (IPS-weighted LambdaMART + hard-gated utility) NDCG@10 on the unbiased random-exposure
@@ -178,7 +181,7 @@ src/poi_rank/    datagen (firewalled) data features candidates models scoring ex
 data/synthetic/  committed dataset; _oracle/ is readable only by eval/oracle.py
 artifacts/       models, retriever, confidence ensemble, poi_emb, calibrator
 results/         parts/<stage>.json -> metrics.json (compose), scenarios/, figures/
-docs/            TECHNICAL.md, RESULTS.md, DATA_CARD.md (+ TECHNICAL.md.tmpl)
+docs/            TECHNICAL.md, RESULTS.md, REQUIREMENTS.md, DATA_CARD.md (+ the .md.tmpl sources)
 scripts/         evidence scripts (A3/A4 experiments, timing)
 tests/           firewall, oracle isolation, leakage, determinism, doc provenance, ...
 ```
