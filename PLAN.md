@@ -652,3 +652,17 @@ would leak the oracle); long-tail precision 0.4 target unmet (hypothesis unteste
   replaced, oracle-ceiling explanation, 5-seed headline, honest reproduce timing, localness note.
 - Open (not blocking): a pointwise objective / less IPS clipping (DR3/DR7) remain unadopted; retuning
   the localness weights against the latent value declined on principle.
+
+## Block F (2026-09-20/21) — skew bug fixed, cross features (H), final pipeline, submission package
+
+- Found and fixed a train/serve feature skew (train features carried each trip own labelled session);
+  the first tag conclusion ("ranker ~ cosine") is retracted. Details and numbers: `docs/DATA_CARD.md`
+  Block F, `docs/TECHNICAL.md` sections 5.1-5.2, `docs/experiments/H-ranker-cross-features.md`.
+- Decisions taken autonomously that GG may want to override (each recorded with its number):
+  1. **Merged the skew fix although H protocol said "merge only if the bar is met"** — the fix is a
+     bug fix, not an H candidate; H itself was adopted because its pre-registered bar was met.
+  2. **K=240, not the E4 recall-rule K=270** (Amendment 2): the rule violates the blocking Gate-B lift row.
+  3. **E2 sweep winner (binary, clip 10) not adopted**: +0.0052 < the +0.010 bar.
+- Open: scorecard now has 7 MISSED rows (2 new from the fix: confidence-decile, scenario-4); H holdout
+  effect is +0.0026 only; localness weights still not re-tuned (would tune on the oracle).
+- `make demo`, `docs/results.html`, `submission/SUBMISSION.md` added.

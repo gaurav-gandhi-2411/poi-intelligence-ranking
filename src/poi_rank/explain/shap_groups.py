@@ -26,18 +26,12 @@ to the observable noisy-proxy columns `num_rating_shrunk`/`num_log_review_count`
 per the task's explicit instruction, NOT to any oracle-only latent value (this
 module never references the oracle export directory).
 
-**`novelty`**: docs/DATA_CARD.md's Phase 4a section already established, measuring
-directly against the DGP (`latent_quality` and `novelty` have no observable channel
-at all" -- distinct from `latent_quality`, which at least has the noisy rating/
-review_count proxy above). No column in this project's feature tables is a
-defensible observable proxy for the DGP's per-trip `novelty_t` term (it is a
-traveler-history-conditioned latent quantity the datagen pipeline computes from
-oracle-only state, never exported). Rather than fabricate a plausible-sounding
-contribution for a signal this system does not have, `novelty` is shipped as a
-GENUINELY EMPTY group -- zero feature columns assigned, so its contribution is
-exactly 0.0 for every prediction (not "near zero" from noise, structurally exactly
-zero by construction of `compute_grouped_shap` summing an empty column set).
-Documented in docs/DATA_CARD.md, not hidden.
+**`novelty`**: until the cross-feature work (experiment H) no column in this project's feature
+tables was a defensible observable proxy for the DGP's per-trip `novelty_t` term, so the group
+shipped GENUINELY EMPTY (contribution exactly 0.0). It now holds `xf_prior_poi_engaged`, the
+time-decayed count of the traveler's OWN earlier engagements with this POI, strictly before the
+trip's own session (an observable repeat-visit signal, not the latent `novelty_t`). The group is
+still excluded from `top_signals`/explanations (`explain/templates.py`): no renderer exists for it.
 
 See docs/DATA_CARD.md's Phase 7 section for the full column -> group table.
 """
@@ -104,6 +98,27 @@ _EXACT_GROUP: dict[str, str] = {
     # `implicit_days_since_last_interaction` in this implementation; grouping them
     # together keeps two columns carrying identical information in one group rather
     # than double-representing one true signal across two groups.
+    # Explicit traveler x POI cross features (features/cross_features.py, models/cross_ranking.py).
+    "xf_loc_align": LOCALNESS_FIT,
+    "xf_loc_gap": LOCALNESS_FIT,
+    "xf_loc_x_pref": LOCALNESS_FIT,
+    "xf_pop_x_pref": LOCALNESS_FIT,
+    "xf_price_signed": PRICE_FIT,
+    "xf_price_over": PRICE_FIT,
+    "xf_price_under": PRICE_FIT,
+    "xf_budget_fit": PRICE_FIT,
+    "xf_interest_tag_hits": INTEREST_MATCH,
+    "xf_interest_cat_hit": INTEREST_MATCH,
+    "xf_interest_cover": INTEREST_MATCH,
+    "xf_interest_tag_ratio": INTEREST_MATCH,
+    "xf_mobility_fit": GEO,
+    "xf_travel_min": GEO,
+    "xf_travel_ratio": GEO,
+    "xf_hours_fit": HOURS,
+    "xf_duration_fit": HOURS,
+    "xf_party_fit": PARTY_FIT,
+    "xf_prior_poi_engaged": NOVELTY,
+    "xf_cos_dismissed": IMPLICIT_TASTE,
     "interact_cos_taste_poi": IMPLICIT_TASTE,
     "implicit_interaction_count": IMPLICIT_TASTE,
     "implicit_days_since_last_interaction": IMPLICIT_TASTE,

@@ -237,17 +237,41 @@ def diagnoses(metrics: dict[str, Any], scenarios: dict[str, Any] | None = None) 
     if scenarios is not None:
         ov = scenarios["overlap_matrix"]
         cj = ov.get("diagnostic_vs_base_candidate_pool_jaccard")
+        h = metrics.get("h_experiments")
+        extra = ""
+        if h:
+            pre = h["pre_fix_headline"]["scenario4_overlap"]
+            share = h["h0a_shap_shares_final_model"]["localness_fit"]
+            extra = (
+                f" Before the feature-skew fix (TECHNICAL.md section 5.1) this row was "
+                f"{_f(pre, 3)}; the fix changed how much the ranker relies on which signals, and "
+                "the flip now moves the top-10 less. The localness_fit group carries only "
+                f"{_f(share, 3)} of the final model grouped-SHAP attribution (section 5.2), so "
+                "touristiness_pref has limited leverage on the ranking. UNVERIFIED hypothesis: "
+                "the label-carrying implicit features used to interact with the preference terms "
+                "in a way the corrected features do not (untested; diagnostic scenario, not a "
+                "product requirement)."
+            )
         out["scenario4"] = (
             f"Top-10 overlap {_f(ov['diagnostic_vs_base_jaccard'], 3)} with candidate-pool "
             f"Jaccard {_f(cj, 3)} between the two profiles (measured from the candidate "
-            "generator's own output)."
+            "generator's own output)." + extra
         )
     dv = metrics["confidence_decile_validation"]
+    h = metrics.get("h_experiments", {}).get("pre_fix_headline", {})
+    pre_conf = h.get("confidence_decile_spearman")
+    pre_txt = (
+        f" Before the feature-skew fix (TECHNICAL.md section 5.1) this row was {_f(pre_conf, 3)}: "
+        "the confidence ensemble and the ranker were retrained on the corrected features and the "
+        "decile ordering changed with them (the holdout features themselves are unchanged)."
+        if pre_conf is not None
+        else ""
+    )
     out["confidence_decile"] = (
-        f"Confidence-decile Spearman is {_f(dv['spearman_rho'], 3)}. UNVERIFIED hypothesis: the "
-        "evidence-volume terms dominate the ensemble-sd term, so deciles separate by evidence "
-        "volume rather than correctness; test = per-component Spearman vs decile NDCG "
-        "(untested)."
+        f"Confidence-decile Spearman is {_f(dv['spearman_rho'], 3)}." + pre_txt + " UNVERIFIED "
+        "hypothesis: the evidence-volume terms dominate the ensemble-sd term, so deciles separate "
+        "by evidence volume rather than correctness; test = per-component Spearman vs decile "
+        "NDCG (untested)."
     )
     return out
 
@@ -612,15 +636,20 @@ def k_sweep_table(metrics: dict[str, Any]) -> str:
     lines = [
         d["pre_registered_rule"] + ".",
         "",
-        "| Learned K | Val recall (IPS) | Holdout recall (reporting-only) | Holdout long-tail "
-        "| Holdout lift | Candidates/trip |",
-        "|---|---|---|---|---|---|",
+        "| Learned K | Val recall (IPS) | Val lift | Holdout recall (reporting-only) "
+        "| Holdout long-tail | Holdout lift | Candidates/trip |",
+        "|---|---|---|---|---|---|---|",
     ]
     for g in d["grid"]:
         v, h = g["val_ips_weighted_selection"], g["holdout_reporting_only"]
-        mark = " **(rule)**" if g["learned_K"] == d["rule_k"] else ""
+        marks = []
+        if g["learned_K"] == d["rule_k"]:
+            marks.append("recall rule")
+        if g["learned_K"] == d.get("shipped_k"):
+            marks.append("shipped")
+        mark = f" **({', '.join(marks)})**" if marks else ""
         lines.append(
-            f"| {g['learned_K']}{mark} | {_f(v['recall'], 3)} | {_f(h['recall'], 3)} "
-            f"| {_f(h['lt'], 3)} | {h['lift']:+.3f} | {h['size']:.0f} |"
+            f"| {g['learned_K']}{mark} | {_f(v['recall'], 3)} | {v['lift']:+.3f} "
+            f"| {_f(h['recall'], 3)} | {_f(h['lt'], 3)} | {h['lift']:+.3f} | {h['size']:.0f} |"
         )
     return "\n".join(lines)

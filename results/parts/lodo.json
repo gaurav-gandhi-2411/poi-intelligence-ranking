@@ -4,79 +4,79 @@
   "per_destination": [
     {
       "destination": "barcelona",
-      "n_fit_rows": 240750,
+      "n_fit_rows": 278889,
       "n_fit_trips": 1049,
       "n_holdout_trips": 228,
       "ndcg@10_full_training": {
-        "ci_high": 0.1569312424324576,
-        "ci_low": 0.11940080706687088,
-        "mean": 0.13738613334609395,
+        "ci_high": 0.19658574611814447,
+        "ci_low": 0.1596191074786198,
+        "mean": 0.1780230007746601,
         "n_excluded": 24,
         "n_included": 204
       },
       "ndcg@10_lodo": {
-        "ci_high": 0.15237366892916618,
-        "ci_low": 0.11589272361586274,
-        "mean": 0.13374976913429534,
+        "ci_high": 0.204428364613005,
+        "ci_low": 0.16432703822884834,
+        "mean": 0.18396472836558067,
         "n_excluded": 24,
         "n_included": 204
       },
       "wilcoxon_lodo_vs_full_training": {
         "n_pairs": 204,
-        "p_value": 0.756503136889409,
-        "statistic": 8195.5
+        "p_value": 0.4827032459515094,
+        "statistic": 8631.0
       }
     },
     {
       "destination": "kyoto",
-      "n_fit_rows": 237621,
+      "n_fit_rows": 274621,
       "n_fit_trips": 1033,
       "n_holdout_trips": 229,
       "ndcg@10_full_training": {
-        "ci_high": 0.17458546442315157,
-        "ci_low": 0.1357925298649997,
-        "mean": 0.1553016994626994,
+        "ci_high": 0.2062204667926237,
+        "ci_low": 0.1722921473989746,
+        "mean": 0.1897188793700263,
         "n_excluded": 21,
         "n_included": 208
       },
       "ndcg@10_lodo": {
-        "ci_high": 0.16723920667081843,
-        "ci_low": 0.13229750339841245,
-        "mean": 0.14972473934269498,
+        "ci_high": 0.19387907218753206,
+        "ci_low": 0.15976372215212778,
+        "mean": 0.1769930935466155,
         "n_excluded": 21,
         "n_included": 208
       },
       "wilcoxon_lodo_vs_full_training": {
         "n_pairs": 208,
-        "p_value": 0.45770879871094305,
-        "statistic": 8969.0
+        "p_value": 0.01763323178426901,
+        "statistic": 8105.0
       }
     },
     {
       "destination": "seoul",
-      "n_fit_rows": 236105,
+      "n_fit_rows": 273714,
       "n_fit_trips": 1028,
       "n_holdout_trips": 214,
       "ndcg@10_full_training": {
-        "ci_high": 0.17058230800031793,
-        "ci_low": 0.13541183902877807,
-        "mean": 0.15286904718676098,
+        "ci_high": 0.20377179929081943,
+        "ci_low": 0.16628924748858298,
+        "mean": 0.1847973485058059,
         "n_excluded": 21,
         "n_included": 193
       },
       "ndcg@10_lodo": {
-        "ci_high": 0.17305722290724349,
-        "ci_low": 0.13524084638884562,
-        "mean": 0.15366949924991083,
+        "ci_high": 0.20268886415731804,
+        "ci_low": 0.16513349943986697,
+        "mean": 0.18384340383328637,
         "n_excluded": 21,
         "n_included": 193
       },
       "wilcoxon_lodo_vs_full_training": {
         "n_pairs": 193,
-        "p_value": 0.6976314006937121,
-        "statistic": 6935.0
+        "p_value": 0.8377333250655454,
+        "statistic": 8730.0
       }
     }
   ],
-  "wall_clock_seconds": 41.913759199997
+  "wall_clock_seconds": 40.6716379999998
 }

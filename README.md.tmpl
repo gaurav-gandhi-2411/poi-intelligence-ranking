@@ -14,13 +14,19 @@ number or an explicit `NOT RUN`.
 
 Primary system (IPS-weighted LambdaMART + hard-gated utility) NDCG@10 on the unbiased random-exposure
 holdout: **{{~seed_headline}}**. It is a **significant** improvement over the popularity ranker the
-incumbents already run (Wilcoxon p={{wilcoxon.lambdamart_ips_vs_popularity.p_value|.3g}}, seed 42) and a
-**not significant** improvement over a plain content-cosine baseline (p={{wilcoxon.lambdamart_ips_vs_content_cosine.p_value|.3g}}
-at seed 42; the primary is above content cosine in {{~seed_vs_cosine}}). A measured decomposition
-(TECHNICAL.md section 4.1) shows the gain over popularity comes from *ranking*, not from the learned
-retriever: the retriever raised candidate recall without moving end-to-end NDCG@10 significantly.
-The relative-lift number against popularity is real but is not the right headline on its own,
-because it compares against the weakest reasonable baseline.
+incumbents already run (Wilcoxon p={{wilcoxon.lambdamart_ips_vs_popularity.p_value|.3g}}, seed 42) **and over a
+plain content-cosine baseline** (p={{wilcoxon.lambdamart_ips_vs_content_cosine.p_value|.3g}} at seed 42; above cosine in
+{{~seed_vs_cosine}}; 5-seed paired t-test p={{derived.seed_paired_primary_vs_content_cosine.paired_t_p|.3g}}).
+
+**A late-found bug, and what it changed.** As first tagged, this submission reported the ranker
+*indistinguishable* from cosine (NDCG@10 {{h_experiments.pre_fix_headline.ndcg10_primary|.4f}} vs
+{{h_experiments.pre_fix_headline.ndcg10_content_cosine|.4f}}, p={{h_experiments.pre_fix_headline.wilcoxon_primary_vs_content_cosine_p|.3g}}) and explained that as
+"a well-constructed baseline is hard to beat". That explanation was wrong: train-time traveler features
+contained each trip's own labelled browsing session, which holdout features cannot. Fixing the as-of
+cutoff (`docs/TECHNICAL.md` section 5.1; the conclusion in the first tag is retracted) is what moved the
+ranker above cosine; the pre-registered follow-up experiment on explicit cross features (section 5.2)
+added essentially nothing on the holdout. The relative lift over popularity remains real but compares
+against the weakest reasonable baseline, so cosine is the right yardstick.
 
 ## The result that matters commercially
 
@@ -69,7 +75,7 @@ That is `make reproduce` (data → gates → train → evaluate → compose). `m
 `recommend` (a seeded 300-trip inspection sample), `scenarios`, `lodo` and the docs. Wall-clock
 on a 16-logical-core laptop CPU (`scripts/time_reproduce.py`):
 **{{timings.total_seconds|.0f}} s ({{~reproduce_minutes}}) for `reproduce`**, **{{timings_full.total_seconds|.0f}} s for
-`reproduce-full`**. Per-stage timings are in `docs/RESULTS.md`. The original target was 5 minutes; the measured value is above it and was not chased further (the two largest stages are `train` and `evaluate`, i.e. LightGBM fits; the per-stage table is in `docs/RESULTS.md`).
+`reproduce-full`**. Per-stage timings are in `docs/RESULTS.md`. The measured `reproduce` value {{~reproduce_vs_target}} (the two largest stages are `train` and `evaluate`, i.e. LightGBM fits; the per-stage table is in `docs/RESULTS.md`).
 
 **Cold fresh-clone reproduction verified.** Commit `{{fresh_clone_verification.commit}}` was cloned
 into a clean directory, dependencies installed with `uv sync --frozen` on an empty cache
@@ -87,6 +93,34 @@ uv run pytest -m "not slow" -n 12            # light tier, parallel
 uv run pytest -m slow                        # heavy pipeline tests, serial lane
 uv run ruff check src tests && uv run mypy
 ```
+
+## Results
+
+**[`docs/results.html`](docs/results.html)** is a single self-contained results explorer (no build step,
+no CDN, no server — open it by double-click): the four scenarios with their top-10 tables and
+compatibility breakdowns, the scenario overlap matrix, the full MET/MISSED scorecard with each miss's
+diagnosis, the baseline table with confidence intervals and the bias-gap table. It is generated from
+`results/metrics.json` and `results/scenarios/*.json` by `scripts/render_results_html.py` (part of
+`make docs`). It is a reviewer aid, not a product UI — frontend is out of scope per the assignment brief.
+
+### Live demo (uses the committed model artifacts)
+
+```bash
+# a real traveler's last trip, through the real pipeline
+make demo TRAVELER=U0005
+# a stated profile (a new traveler, cold-start path)
+make demo INTERESTS=local_food,neighborhoods BUDGET=medium MOBILITY=public_transport \
+          TOURISTINESS=-0.8 PARTY=solo DEST=seoul
+# without make:
+uv run python -m poi_rank.cli demo --traveler U0005
+uv run python -m poi_rank.cli demo --interests local_food,neighborhoods --budget medium \
+    --mobility public_transport --touristiness -0.8 --party solo --dest seoul
+```
+
+Each prints the top-10 with utility, preference, compatibility and confidence scores, the top SHAP
+signals and the explanation lines, in a few seconds (the calibrator persisted by `recommend` is
+loaded rather than re-fitted). `TOURISTINESS` is in [-1, 1]; `INTERESTS` accepts the dataset's
+interest labels or the aliases `local_food`, `neighborhoods`, `museums`, `nightlife`.
 
 ## Headline numbers (all generated from `results/metrics.json`)
 

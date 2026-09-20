@@ -1,0 +1,24 @@
+{
+  "description": "Sandbox run of the whole pipeline at seed 42 with the as-of-cutoff fix ONLY (K=195, hyperparameters unchanged, no cross features); the holdout was read once for this diagnostic and nothing was selected on it. Pre-fix comparison: results at commit ec8ac4a.",
+  "headline": {
+    "bias_gap_popularity": 0.08530428179780258,
+    "bias_gap_primary": -0.018115280779236076,
+    "candidate_recall_long_tail": 0.84191688059501,
+    "candidate_recall_overall": 0.88120293879902,
+    "coverage_at_10": 0.4806362378976487,
+    "ece_after": 0.03393945544309407,
+    "longtail_precision": 0.19310344827586207,
+    "longtail_share": 0.15390447308567096,
+    "ndcg10_content_cosine": 0.13627208751360992,
+    "ndcg10_lambdamart_ips": 0.18559045941619456,
+    "ndcg10_logistic_regression": 0.10643701015905098,
+    "ndcg10_popularity": 0.05784115056994312,
+    "pct_of_oracle_ceiling": 0.4987999877563846,
+    "within_cross_ratio_true_labels": 1.155749816627886
+  },
+  "ndcg10_primary_ci": [
+    0.1744165725497242,
+    0.1970202021157037
+  ],
+  "wilcoxon_primary_vs_content_cosine_p": 2.7464142878912056e-13
+}

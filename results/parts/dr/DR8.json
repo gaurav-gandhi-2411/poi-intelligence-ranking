@@ -13,9 +13,9 @@
         "n_trips_undefined_constant_scores": 72
       },
       "ndcg10": {
-        "ci_high": 0.1589668121452518,
-        "ci_low": 0.13845756050379607,
-        "mean": 0.14848471206262726,
+        "ci_high": 0.18934579601040427,
+        "ci_low": 0.16799973820917938,
+        "mean": 0.17863325263494562,
         "n": 605
       }
     },
@@ -27,9 +27,9 @@
         "n_trips_undefined_constant_scores": 72
       },
       "ndcg10": {
-        "ci_high": 0.17187712811136122,
-        "ci_low": 0.15146736335571628,
-        "mean": 0.161382284330503,
+        "ci_high": 0.1894388759502779,
+        "ci_low": 0.16860878500724022,
+        "mean": 0.1787336648232222,
         "n": 605
       }
     },
@@ -41,9 +41,9 @@
         "n_trips_undefined_constant_scores": 72
       },
       "ndcg10": {
-        "ci_high": 0.15966416152276383,
-        "ci_low": 0.13968318873924324,
-        "mean": 0.1496016839628522,
+        "ci_high": 0.1898361836138108,
+        "ci_low": 0.16835220879237836,
+        "mean": 0.1785759723108815,
         "n": 605
       }
     },
@@ -55,13 +55,13 @@
         "n_trips_undefined_constant_scores": 72
       },
       "ndcg10": {
-        "ci_high": 0.17361758198228197,
-        "ci_low": 0.15164527854587342,
-        "mean": 0.16237390152227874,
+        "ci_high": 0.19221958848976262,
+        "ci_low": 0.1708221698743351,
+        "mean": 0.18102250887896043,
         "n": 605
       }
     }
   },
   "status": "MEASURED",
-  "verdict": "halflife_180d (shipped): NDCG@10 0.1485, D9 0.473; halflife_90d: NDCG@10 0.1496, D9 0.470; halflife_360d: NDCG@10 0.1614, D9 0.474; uniform_weights: NDCG@10 0.1624, D9 0.052"
+  "verdict": "halflife_180d (shipped): NDCG@10 0.1786, D9 0.473; halflife_90d: NDCG@10 0.1786, D9 0.470; halflife_360d: NDCG@10 0.1787, D9 0.474; uniform_weights: NDCG@10 0.1810, D9 0.052"
 }

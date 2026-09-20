@@ -1,0 +1,24 @@
+{
+  "description": "seed 42, K as committed, corrected features, WITHOUT experiment H (no xf_ columns, num_leaves 31, label_gain [0,1,3,7]); holdout headline",
+  "headline": {
+    "bias_gap_popularity": 0.08040486881364459,
+    "bias_gap_primary": -0.024726288828936627,
+    "candidate_recall_long_tail": 0.8975155374255375,
+    "candidate_recall_overall": 0.9262135366807853,
+    "coverage_at_10": 0.4702627939142462,
+    "ece_after": 0.028720711502752072,
+    "longtail_precision": 0.19898477157360406,
+    "longtail_share": 0.14854471422108279,
+    "ndcg10_content_cosine": 0.1336481415015319,
+    "ndcg10_lambdamart_ips": 0.18157680634276804,
+    "ndcg10_logistic_regression": 0.10905103494636337,
+    "ndcg10_popularity": 0.05233742647342687,
+    "pct_of_oracle_ceiling": 0.4931609289231382,
+    "within_cross_ratio_true_labels": 1.162113040591202
+  },
+  "ndcg10_primary_ci": [
+    0.1711822803908007,
+    0.1929758440594996
+  ],
+  "wilcoxon_primary_vs_content_cosine_p": 7.908472620297826e-13
+}

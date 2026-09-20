@@ -468,3 +468,100 @@ def test_price_gap_uses_independent_config_not_datagen_targets() -> None:
     targets = BudgetTargetPriceLevel(low=1.5, medium=2.5, high=3.5)
     gap = price_gap(["low", "high"], np.array([1.0, 4.0]), targets)
     np.testing.assert_allclose(gap, [0.5, 0.5])
+
+
+def test_assemble_traveler_features_excludes_own_session_of_train_trips() -> None:
+    """Regression (experiment H, Amendment 1): a trip browsing session runs BEFORE `start_date`
+    and its interactions are the labels. The trip implicit block must therefore be as-of the trip
+    FIRST impression, not `start_date` -- otherwise train/validation features carry the labelled
+    session while holdout features (no session rows in the pool) cannot. Pre-trip history and
+    earlier trips must still be visible; a trip without logged impressions keeps `start_date`."""
+    from poi_rank.features.traveler_features import assemble_traveler_features
+
+    travelers_df = pd.DataFrame(
+        {
+            "traveler_id": ["U1"],
+            "interests": [["foodie"]],
+            "budget": ["medium"],
+            "party_type": ["solo"],
+            "mobility": ["walk"],
+            "touristiness_pref": [0.0],
+            "pace": ["moderate"],
+            "accessibility_needs": [[]],
+        }
+    )
+    trips_df = pd.DataFrame(
+        {
+            "trip_id": ["T1", "T2"],
+            "traveler_id": ["U1", "U1"],
+            "start_date": [pd.Timestamp("2025-06-01"), pd.Timestamp("2025-12-01")],
+            "trip_duration_days": [5, 5],
+        }
+    )
+    pois_df = pd.DataFrame(
+        {
+            "poi_id": ["P1", "P2"],
+            "category": ["restaurant", "cafe"],
+            "price_level_imputed": [2.0, 2.0],
+            "localness": [0.5, 0.5],
+            "pop_pct": [0.5, 0.5],
+            "merged_poi_ids": [["P1"], ["P2"]],
+        }
+    )
+    poi_embeddings = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
+    cols = ["traveler_id", "trip_id", "poi_id", "interaction_type", "label", "timestamp"]
+    # T1 session: 3 engaged impressions dated 10/8/5 days BEFORE T1 start (all < start_date).
+    interactions_train = pd.DataFrame(
+        [
+            ["U1", "T1", "P1", "click", 1, pd.Timestamp("2025-05-22")],
+            ["U1", "T1", "P2", "save", 2, pd.Timestamp("2025-05-24")],
+            ["U1", "T1", "P1", "visit", 3, pd.Timestamp("2025-05-27")],
+        ],
+        columns=cols,
+    )
+    interactions_pretrip = pd.DataFrame(
+        [["U1", "T1", "P1", "visit", 3, pd.Timestamp("2025-02-01")]], columns=cols
+    )
+    cfg = FeatureBuildConfig(
+        seed=42,
+        text_embedding=TextEmbeddingConfig(
+            method="tfidf",
+            svd_dim=2,
+            tfidf_max_features=100,
+            tfidf_ngram_max=1,
+            sentence_transformer_model="x",
+            cache_path="x",
+        ),
+        poi_features=PoiFeaturesConfig(
+            ctr_smoothing_alpha=1.0, density_radius_km=1.0, traveler_segment_clusters=2
+        ),
+        traveler_features=TravelerFeaturesConfig(
+            taste_halflife_days=180.0,
+            taste_weights=TasteWeights(
+                booking=1.0,
+                visit=1.0,
+                navigate=0.7,
+                save=0.6,
+                share=0.5,
+                click=0.2,
+                view=0.05,
+                dismiss=-0.8,
+            ),
+            confidence_shrinkage_k=5.0,
+            budget_target_price_level=BudgetTargetPriceLevel(low=1.3, medium=2.5, high=3.7),
+        ),
+    )
+    result = assemble_traveler_features(
+        travelers_df,
+        trips_df,
+        interactions_train,
+        pois_df,
+        poi_embeddings,
+        cfg,
+        interactions_pretrip,
+    ).set_index("trip_id")
+    count = f"{IMPLICIT_PREFIX}interaction_count"
+    # T1: only the pre-trip row (1); its own 3 session rows are NOT visible.
+    assert result.loc["T1", count] == 1.0
+    # T2 (no logged impressions): pre-trip + T1 session are all earlier than its start_date (4).
+    assert result.loc["T2", count] == 4.0

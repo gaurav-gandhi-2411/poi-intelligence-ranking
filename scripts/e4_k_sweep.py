@@ -13,6 +13,7 @@ from pathlib import Path
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
+import yaml
 
 from poi_rank.candidates.recall_metrics import _canonical_holdout
 from poi_rank.features.config import FeatureBuildConfig
@@ -180,7 +181,27 @@ for K in range(90, 361, 15):
     grid.append({"learned_K": K, "val_ips_weighted_selection": val, "holdout_reporting_only": hold})
     print(K, val, hold, flush=True)
 rule_k = min(g["learned_K"] for g in grid if g["val_ips_weighted_selection"]["recall"] >= RULE)
+# Amendment 2 (docs/experiments/H-ranker-cross-features.md): on the corrected features the recall
+# rule K breaks the BLOCKING Gate-B lift row (>= 0.35) already on validation; the shipped K is the
+# largest grid K whose VALIDATION lift is >= gate + margin.
+GATE_LIFT, LIFT_MARGIN = 0.35, 0.01
+feasible = [
+    g["learned_K"] for g in grid if g["val_ips_weighted_selection"]["lift"] >= GATE_LIFT + LIFT_MARGIN
+]
+gate_feasible_k = max(feasible)
+shipped_k = int(
+    yaml.safe_load((ROOT / "configs" / "features.yaml").read_text(encoding="utf-8"))["candidates"][
+        "learned"
+    ]["quota"]
+)
+by_k = {g["learned_K"]: g for g in grid}
 out = {
+    "gate_b_lift_row_target": GATE_LIFT,
+    "gate_feasible_rule": f"largest K whose validation lift >= {GATE_LIFT} + {LIFT_MARGIN} margin",
+    "gate_feasible_k": gate_feasible_k,
+    "shipped_k": shipped_k,
+    "at_rule_k": by_k[rule_k],
+    "at_shipped_k": by_k[shipped_k],
     "pre_registered_rule": f"smallest K with IPS-weighted validation overall recall >= {RULE} "
     "(val = 20% of train trips vs logged positives, weighted 1/clip(p_expose)); applied once, "
     "blind to the holdout column, which is reporting-only",

@@ -9,12 +9,12 @@
       "passed": true
     },
     "docs_numbers": {
-      "evidence": "2 passed in 2.22s",
+      "evidence": "2 passed in 3.85s",
       "passed": true,
       "returncode": 0
     },
     "firewalls": {
-      "evidence": "29 passed in 0.72s",
+      "evidence": "29 passed in 2.54s",
       "passed": true,
       "returncode": 0
     },
@@ -34,20 +34,20 @@
     "hard_constraint_violations": {
       "evidence": {
         "n_hard_constraint_violations": 0,
-        "n_recommended": 6598
+        "n_recommended": 6631
       },
       "passed": true
     },
     "single_metrics_writer": {
       "evidence": {
         "compose_twice_identical": true,
-        "metrics_sha256": "997b783988a81d50b5d723667961808269bf9e757b29c13bb449e6ca3f0a67cd",
+        "metrics_sha256": "2c7b689d9194e1e3c68c2986ffca24cd41d8f9dc1b21802c23b9967e3ed2c1a0",
         "other_writers": []
       },
       "passed": true
     },
     "thread_determinism": {
-      "evidence": "2 passed in 115.63s (0:01:55)",
+      "evidence": "2 passed in 165.66s (0:02:45)",
       "passed": true,
       "returncode": 0
     }

@@ -25,6 +25,18 @@ correctly excluded by strict `<`) pass the pure timestamp filter, while any
 CURRENT-OR-LATER impression (including this same trip's own `as_of`-time slate, or a
 later trip) is correctly excluded by `timestamp < as_of` alone.
 
+**Correction (experiment H, Amendment 1) -- the PER-TRIP row is as-of the trip FIRST own impression,
+not `start_date`.** The rule above is right for `traveler_history_before(as_of=...)`, but this
+module emits ONE row per trip, and calling it with `as_of = start_date` folded the trip whole
+browsing session (dated 0-45 days BEFORE `start_date`, and the source of the graded labels) into the
+features of every row of that trip: train/validation features carried label information that
+holdout features (whose session is not in the history pool) cannot.
+`assemble_traveler_features` now uses `as_of = min(start_date, first own logged impression)`; the
+"earlier impressions of the same trip are visible" clause applies only to a per-impression consumer,
+not to this per-trip table
+(`tests/test_traveler_features.py::test_assemble_traveler_features_excludes_own_session_of_train_trips`,
+docs/TECHNICAL.md section 5.1).
+
 **Why this replaces the pre-remediation per-TRIP cutoff:** the old implementation
 additionally excluded `trip_id == <this trip>` rows even when their timestamp was
 already `< as_of` -- treating a trip's own earlier browsing sessions as forbidden
@@ -478,6 +490,7 @@ def assemble_traveler_features(
     poi_embeddings: npt.NDArray[np.float32],
     cfg: FeatureBuildConfig,
     interactions_pretrip: pd.DataFrame | None = None,
+    only_trip_ids: set[str] | None = None,
 ) -> pd.DataFrame:
     """Assemble the full traveler feature table (spec.md section 6), keyed by
     `(traveler_id, trip_id)` -- one row per trip, since trip-conditional fields
@@ -525,6 +538,17 @@ def assemble_traveler_features(
         str(t): min(start, session_start.get(t, start))
         for t, start in zip(merged["trip_id"], merged["start_date"], strict=True)
     }
+
+    # `only_trip_ids` (serving path, `poi_rank.cli demo`): the vocabulary and explicit block above
+    # still come from ALL travelers (same column set as training); only the expensive per-trip
+    # history loop is restricted to the requested trips.
+    selected = (
+        merged["trip_id"].isin(only_trip_ids).to_numpy()
+        if only_trip_ids is not None
+        else np.ones(len(merged), dtype=bool)
+    )
+    merged = merged.loc[selected]
+    explicit_static = explicit_static.loc[selected]
 
     history_rows: list[dict[str, Any]] = []
     for row in merged.itertuples(index=False):

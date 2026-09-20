@@ -21,33 +21,37 @@ the regenerated `results/metrics.json` is byte-identical to the committed one.
 
 ## What a reviewer should see (`results/metrics.json`, seed 42)
 
-- Primary NDCG@10 **0.1485** vs popularity
-  0.0629 (p=4.34e-41) and content cosine
-  0.1411 (p=0.445, not significant);
-  5-seed: 0.1540 ± 0.0071 (mean ± sd over 5 independently regenerated seeds; the committed seed 42, 0.1485, is number 2 of 5 counting from the lowest).
-- Candidate recall 0.857 overall / 0.826 long-tail;
+- Primary NDCG@10 **0.1842** vs popularity
+  0.0523 (p=3.54e-75) and content cosine
+  0.1336 (p=1.27e-14);
+  5-seed: 0.1967 ± 0.0083 (mean ± sd over 5 independently regenerated seeds; the committed seed 42, 0.1842, is the LOWEST of the five); above cosine in 5 of 5 seeds (mean gap +0.0623 NDCG@10).
+- Candidate recall 0.926 overall / 0.898 long-tail;
   Gate-A pass **True**, Gate-B pass **True**;
-  hard-constraint violations **0**; ECE 0.0466.
+  hard-constraint violations **0**; ECE 0.0300.
 
 ## Three strongest results
 
-1. **Hard constraints (DR1).** The brief's additive formula puts 901
+1. **Hard constraints (DR1).** The brief's additive formula puts 974
    hard-constraint violations in the top-10s of 671 holdout trips
-   (229 trips affected); the shipped multiplicative, hard-gated
+   (230 trips affected); the shipped multiplicative, hard-gated
    utility has 0.
 2. **Exposure bias is measured, not assumed.** The NDCG@10 gap between the biased log and the
-   random-exposure holdout is +0.083 for popularity but only
-   +0.009 for the IPS-trained primary; the headline is computed on the unbiased holdout.
+   random-exposure holdout is +0.080 for popularity but only
+   -0.005 for the IPS-trained primary; the headline is computed on the unbiased holdout.
 3. **Oracle-free selection.** Every choice (retriever K by a pre-registered rule, features, LR
    regularisation, ranker sweep) was made on train-carved validation; the true-utility oracle scored
    results but never chose anything (firewall tests + `poi_rank.cli audit --deep`).
 
 ## What was missed, and why (full scorecard: `docs/RESULTS.md`)
 
-- Ranker vs content cosine: +0.0074 NDCG@10, not significant on one seed
-  (above cosine in 4 of 5 seeds (mean gap +0.0110 NDCG@10)); the popularity-to-cosine step is +0.0782.
-- % of oracle ceiling 39.6% (target 70%); within/cross-archetype ratio
-  1.32 (target 2.0); localness index rho 0.582 (target 0.6).
-- Long-tail share 0.225 (target 0.25); precision 0.154 is a
-  1.556x lift over the pool base rate — the 0.40 target was set without reference to that rate.
-- `make reproduce` is above the 5-minute goal; DR5 (ANN benchmark) not run. All data is synthetic.
+- **Late-found bug, fixed** (`docs/TECHNICAL.md` section 5.1): train-time traveler features contained each
+  trip's own labelled browsing session. As first tagged the ranker looked no better than cosine
+  (0.1485 vs 0.1411); after the fix it is well above
+  it. The fix also moved scorecard rows the other way: confidence-decile Spearman
+  0.879 → 0.358 and scenario-4 flip overlap
+  0.176 → 0.538; both now MISSED.
+- % of oracle ceiling 50.0% (target 70%); within/cross-archetype ratio
+  1.20 (target 2.0); localness index rho 0.582 (target 0.6).
+- Long-tail share 0.144 (target 0.25); precision 0.196 is a
+  2.026x lift over the pool base rate — the 0.40 target was set without reference to that rate.
+- `make reproduce` is above the original 5-minute target and was not chased further; DR5 (ANN benchmark) not run. All data is synthetic.

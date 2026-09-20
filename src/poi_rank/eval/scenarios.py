@@ -77,6 +77,7 @@ from poi_rank.features.traveler_features import (
     assign_traveler_segments_out_of_sample,
 )
 from poi_rank.models.config import ModelConfig
+from poi_rank.models.cross_ranking import attach_cross_features
 from poi_rank.models.ranking_data import build_ranking_frame
 from poi_rank.scoring.config import ScoringConfig
 from poi_rank.scoring.output import run_scoring_pipeline
@@ -337,6 +338,7 @@ def compute_scenario_traveler_features(
         pois_df,
         text_embeddings,
         feature_cfg,
+        only_trip_ids=set(synthetic_trips_df["trip_id"]),
     )
     synthetic_trip_ids = set(synthetic_trips_df["trip_id"])
     return all_features.loc[all_features["trip_id"].isin(synthetic_trip_ids)].reset_index(drop=True)
@@ -385,6 +387,7 @@ def build_scenario_holdout_frame(
     poi_features_df: pd.DataFrame,
     synthetic_traveler_features_df: pd.DataFrame,
     budget_target_price_level: BudgetTargetPriceLevel,
+    data_dir: Path,
 ) -> pd.DataFrame:
     """The synthetic `(trip_id, poi_id)` ranking frame -- `models.ranking_data
     .build_ranking_frame`, unchanged, with an EMPTY interactions frame (these are
@@ -394,7 +397,7 @@ def build_scenario_holdout_frame(
     preference/compatibility/confidence all come from the model, not `label`)."""
     trip_ids = set(synthetic_trips_df["trip_id"])
     empty_interactions = pd.DataFrame(columns=list(_EMPTY_INTERACTIONS_COLUMNS))
-    return build_ranking_frame(
+    frame = build_ranking_frame(
         candidates_df,
         trip_ids,
         empty_interactions,
@@ -404,6 +407,15 @@ def build_scenario_holdout_frame(
         poi_features_df,
         synthetic_traveler_features_df,
         budget_target_price_level,
+    )
+    # The ranker was trained with the xf_ cross features; synthetic profiles have no logged
+    # history, so only their history features are 0.
+    return attach_cross_features(
+        frame,
+        data_dir,
+        budget_target_price_level,
+        extra_trips_df=synthetic_trips_df,
+        extra_travelers_df=synthetic_travelers_df,
     )
 
 
@@ -584,6 +596,7 @@ def run_scenarios(
         poi_features_df,
         synthetic_traveler_features_df,
         budget_target_price_level,
+        data_dir,
     )
 
     result = run_scoring_pipeline(

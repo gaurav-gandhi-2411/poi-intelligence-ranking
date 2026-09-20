@@ -23,8 +23,8 @@ the regenerated `results/metrics.json` is byte-identical to the committed one.
 
 - Primary NDCG@10 **{{systems.lambdamart_ips.metrics.ndcg@10.mean|.4f}}** vs popularity
   {{systems.popularity.metrics.ndcg@10.mean|.4f}} (p={{wilcoxon.lambdamart_ips_vs_popularity.p_value|.3g}}) and content cosine
-  {{systems.content_cosine.metrics.ndcg@10.mean|.4f}} (p={{wilcoxon.lambdamart_ips_vs_content_cosine.p_value|.3g}}, not significant);
-  5-seed: {{~seed_headline}}.
+  {{systems.content_cosine.metrics.ndcg@10.mean|.4f}} (p={{wilcoxon.lambdamart_ips_vs_content_cosine.p_value|.3g}});
+  5-seed: {{~seed_headline}}; above cosine in {{~seed_vs_cosine}}.
 - Candidate recall {{candidate_recall.overall.recall_mean|.3f}} overall / {{candidate_recall.long_tail.recall_mean|.3f}} long-tail;
   Gate-A pass **{{gate_dgp.overall_pass}}**, Gate-B pass **{{gate_representation.overall_pass}}**;
   hard-constraint violations **{{constraint_compatibility.n_hard_constraint_violations}}**; ECE {{calibration.ece_after|.4f}}.
@@ -44,10 +44,14 @@ the regenerated `results/metrics.json` is byte-identical to the committed one.
 
 ## What was missed, and why (full scorecard: `docs/RESULTS.md`)
 
-- Ranker vs content cosine: {{derived.ndcg10_gain_content_cosine_to_primary|+.4f}} NDCG@10, not significant on one seed
-  (above cosine in {{~seed_vs_cosine}}); the popularity-to-cosine step is {{derived.ndcg10_gain_popularity_to_content_cosine|+.4f}}.
+- **Late-found bug, fixed** (`docs/TECHNICAL.md` section 5.1): train-time traveler features contained each
+  trip's own labelled browsing session. As first tagged the ranker looked no better than cosine
+  ({{h_experiments.pre_fix_headline.ndcg10_primary|.4f}} vs {{h_experiments.pre_fix_headline.ndcg10_content_cosine|.4f}}); after the fix it is well above
+  it. The fix also moved scorecard rows the other way: confidence-decile Spearman
+  {{h_experiments.pre_fix_headline.confidence_decile_spearman|.3f}} → {{confidence_decile_validation.spearman_rho|.3f}} and scenario-4 flip overlap
+  {{h_experiments.pre_fix_headline.scenario4_overlap|.3f}} → {{scenarios.overlap_matrix.diagnostic_vs_base_jaccard|.3f}}; both now MISSED.
 - % of oracle ceiling {{systems.lambdamart_ips.pct_of_ceiling_ndcg10|.1%}} (target 70%); within/cross-archetype ratio
   {{personalization.archetype.within_cross_ratio|.2f}} (target 2.0); localness index rho {{localness_validation.spearman_rho|.3f}} (target 0.6).
 - Long-tail share {{longtail.share|.3f}} (target 0.25); precision {{longtail.precision|.3f}} is a
   {{derived.longtail_lift_over_base_rate.final_after_mmr|.3f}}x lift over the pool base rate — the 0.40 target was set without reference to that rate.
-- `make reproduce` is above the 5-minute goal; DR5 (ANN benchmark) not run. All data is synthetic.
+- `make reproduce` {{~reproduce_vs_target}}; DR5 (ANN benchmark) not run. All data is synthetic.

@@ -1,0 +1,39 @@
+{
+  "attribution_val": {
+    "cross_features_with_leaves15_minus_shipped_features_with_leaves15": 0.01061152125273307,
+    "gain_linear_on_top": 0.0036398786230810443,
+    "shipped_features_leaves15": 0.0021738113888160604
+  },
+  "bar": 0.1827837780824289,
+  "bar_met": true,
+  "baseline_shipped_on_corrected_frames": 0.1727837780824289,
+  "config": {
+    "features": "shipped + 20 xf_ cross features (xf_reservation_fit excluded: constant 1.0)",
+    "init_score": null,
+    "label_gain": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "num_leaves": 15
+  },
+  "frozen_before_holdout_read": true,
+  "h1_full_plus_cross_alone_missed_bar_by": 5.1401875658413365e-05,
+  "h1_full_plus_cross_alone_val": 0.1827323762067705,
+  "h2_init_score": "not adopted: cosine init worse than no init on validation (see h2_init_score.json)",
+  "margin_over_bar": 0.006425211264630165,
+  "note": "ADOPTION_BAR=0.3267 in earlier JSON files was defined on contaminated validation; superseded by baseline_corrected.json",
+  "selected": "cross_leaves15_gainlinear",
+  "selected_is_argmax_of_h3b": "cross_leaves15_gainlinear",
+  "validation_ips_ndcg10_4seed": {
+    "mean": 0.18920898934705907,
+    "per_seed": [
+      0.19063288784792756,
+      0.18957127052350733,
+      0.18882744858971331,
+      0.1878043504270881
+    ],
+    "sd": 0.001194057290166246
+  }
+}

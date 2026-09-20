@@ -18,8 +18,8 @@ either way, just sourced from a different (POI-level, not traveler-level) signal
 **`top_signals`**: top-N groups by RAW (signed) contribution, descending -- i.e. the
 most positively-contributing groups lead, matching spec.md section 9.5's own example
 (3 positive contributions, largest first). Ties broken by group name ascending for
-full determinism. `novelty` (`shap_groups.py`: structurally always exactly 0.0) is
-excluded from consideration -- it can never be an informative top signal.
+full determinism. `novelty` (`shap_groups.py`: the repeat-engagement cross feature only) is
+excluded from consideration -- there is no renderer for it.
 
 **`explanation`**: up to 3 SHAP-group lines (only for groups with a genuinely
 positive contribution AND a renderable template -- e.g. `interest_match` renders

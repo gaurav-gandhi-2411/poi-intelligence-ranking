@@ -143,7 +143,10 @@ block: a taste vector in the POI embedding space,
 distribution and mean price/localness/popularity. Both blocks and their **pair features**
 (`interact_cos_taste_poi`, `interact_localness_gap`, `interact_interest_match`,
 `interact_price_gap`, `interact_category_affinity`) go to LambdaMART, which learns the blend
-conditioned on evidence volume.
+conditioned on evidence volume. Each trip's implicit block is as-of the trip's own session start
+(never `start_date`: section 5.1), and 20 explicit `xf_*` traveler x POI cross features
+(localness x touristiness, price gap, interest hits, compatibility sub-scores, repeat engagement,
+section 5.2) are added to the ranker's frame (never to the retriever's).
 
 **What was measured about the representation** (oracle-free selection, oracle-based reporting):
 
@@ -161,7 +164,8 @@ conditioned on evidence volume.
   did not hold at this text fidelity, and the item side was already not the limiting link
   (`results/parts/a3_step0.json`).
 - *Pair features, oracle-free validation NDCG@10, two seeds* (`results/parts/a3_pairfeat.json`,
-  re-measured under the final training config): category-affinity mean delta
+  re-measured under the training config of that time, on the PRE-FIX frames of section 5.1 and kept as
+  historical evidence): category-affinity mean delta
   {{a3_pairfeat.summary.+category_affinity.mean_delta_val_ndcg@10|+.4f}} (both seeds positive) —
   **adopted**; centred taste cosine mean delta
   {{a3_pairfeat.summary.+cos_taste_centered.mean_delta_val_ndcg@10|+.4f}} — **not adopted**: an
@@ -175,17 +179,18 @@ cheaper ablations; deltas are against the full model on the unbiased holdout):
 {{@ablation_table}}
 
 Sign convention: delta = ablated minus full, so a POSITIVE delta means removing the block
-*improved* NDCG@10. Several block rows are positive, and one is significant: dropping the raw
-text-embedding block changes NDCG@10 by {{ablations.5.delta_ndcg@10|+.4f}}
-(p={{ablations.5.wilcoxon_p_value|.3g}}), the raw implicit-taste block by
-{{ablations.6.delta_ndcg@10|+.4f}} (p={{ablations.6.wilcoxon_p_value|.3g}}). Reading: the raw
-embedding and taste-vector columns add noise the trees fit; their information still reaches the
-model through the engineered `interact_cos_taste_poi` (which is not dropped with the raw block),
-so the ablation says the *raw blocks* are not earning their columns, not that taste is useless.
-
-Dropping them is a candidate improvement that was deliberately **not** applied: choosing it on
-this holdout number would be selecting on the holdout. Explicit interests and the behavioural
-block are within noise.
+*improved* NDCG@10. On the final model: raw text-embedding block {{ablations.5.delta_ndcg@10|+.4f}}
+(p={{ablations.5.wilcoxon_p_value|.3g}}), raw implicit-taste block {{ablations.6.delta_ndcg@10|+.4f}}
+(p={{ablations.6.wilcoxon_p_value|.3g}}), explicit interests {{ablations.7.delta_ndcg@10|+.4f}}
+(p={{ablations.7.wilcoxon_p_value|.3g}}), behavioural block {{ablations.8.delta_ndcg@10|+.4f}}
+(p={{ablations.8.wilcoxon_p_value|.3g}}). Only the raw implicit-taste block's removal is statistically
+significant, and its size is small next to the primary score: the raw taste-vector columns add a little
+noise the trees fit, while their information still reaches the model through the engineered
+`interact_cos_taste_poi` and the implicit summary columns. Dropping the block is a candidate
+improvement that was deliberately **not** applied: choosing it on this holdout number would be
+selecting on the holdout (the validation-only sweep of section 5 measured the text block the other way
+round; neither result is decisive). `-MMR` is positive and significant by design: the diversity
+re-rank trades NDCG@10 for list diversity (section 4.2 and the lambda table in `docs/RESULTS.md`).
 
 **Channel ablations.** The earlier `-CF_channel` row was a **no-op by construction** (the CF quota
 is 0 in the shipped candidate generator, so removing it changed nothing and the row carried no
@@ -193,7 +198,7 @@ information); it is replaced by `-interest_channel`, a channel that is actually 
 union. Both channel ablations re-score the already-trained ranker over a smaller candidate set, and
 both come out *slightly positive* for NDCG@10: `-interest_channel`
 {{ablations.3.delta_ndcg@10|+.4f}} (p={{ablations.3.wilcoxon_p_value|.3g}}), `-long_tail_quota` {{ablations.4.delta_ndcg@10|+.4f}}
-(p={{ablations.4.wilcoxon_p_value|.3g}}). The effects are ~1% of NDCG@10 and small in absolute terms:
+(p={{ablations.4.wilcoxon_p_value|.3g}}). The effects are far below 1% of NDCG@10 and small in absolute terms:
 a plausible reading (not separately tested) is that a leaner set leaves the ranker fewer
 low-relevance items to misplace. These two channels are **not** justified by top-10 relevance; they are justified by
 recall and long-tail exposure (section 4), which NDCG@10 over the exposed labels does not reward.
@@ -218,7 +223,8 @@ and thread-count invariance.
 **learned** retriever (the workhorse), the **long-tail hard floor** and the **interest** channel.
 Geo, semantic, CF and archetype quotas are 0. This applies the brief's own rule (spec section 7:
 "a channel that adds no marginal recall gets deleted") to the measured grid (Decision Register
-DR11, frozen A3 grid at learned K=210): adding geo, semantic, CF and archetype on top of
+DR11, frozen A3 grid at learned K=210, computed on the pre-fix features of section 5.1 and kept
+as historical evidence): adding geo, semantic, CF and archetype on top of
 long-tail + interest raises overall holdout recall from
 {{decision_register.rows.10.results.K210_rows.2.holdout_recall|.3f}} to
 {{decision_register.rows.10.results.K210_rows.5.holdout_recall|.3f}} while inflating the
@@ -237,23 +243,32 @@ row, `recall_strata` below). The quota does not raise the shipped long-tail *sha
 shows the share is set by the ranker and re-ranker, not by the quota — but it is what guarantees
 the ranker is *offered* long-tail POIs, and stage-by-stage precision is diagnosed in section 4.2.
 
-**K rule (E4, pre-registered, blind, applied once).** The learned K is the *smallest K whose
-IPS-weighted validation recall is at least 0.93* (validation = 20% of the train trips against
-logged positives weighted 1/clip(p_expose); the holdout is reporting-only and was never consulted).
-That rule gives **K={{e4_k_sweep.rule_k}}**. It replaces the previous K=210, which had been
-chosen with a 0.90 rule whose margin was adjusted after seeing the holdout gap (a contaminated
-choice; the audit is kept in `results/parts/a3_retriever_grid.json`). The full sweep, holdout
-column included:
+**How K was chosen (E4, and why it changed).** The learned K went through three stages, each
+disclosed: K=210 (a 0.90 validation-recall rule whose margin had been adjusted after seeing the
+holdout gap: contaminated), then K=195 from the *pre-registered blind rule* "smallest K whose
+IPS-weighted validation recall is at least 0.93" (validation = 20% of the train trips against logged
+positives weighted 1/clip(p_expose); the holdout is reporting-only), then — after the feature-skew fix
+of section 5.1 removed label information from the retriever's training features — the same rule
+re-applied to the corrected features. The corrected retriever is honestly weaker on validation, and
+the recall rule now gives **K={{e4_k_sweep.rule_k}}**, whose validation lift over chance is
+{{e4_k_sweep.at_rule_k.val_ips_weighted_selection.lift|.3f}}: below the BLOCKING Gate-B row
+(lift >= {{e4_k_sweep.gate_b_lift_row_target|.2f}}), so `make reproduce` would stop at Gate-B. No grid K satisfies both
+criteria on validation. Gate-B is the binding ruling, so **the shipped K is
+{{e4_k_sweep.shipped_k}}**: the largest grid K whose validation lift is at least the gate plus a 0.01
+margin (validation recall {{e4_k_sweep.at_shipped_k.val_ips_weighted_selection.recall|.3f}}, validation
+lift {{e4_k_sweep.at_shipped_k.val_ips_weighted_selection.lift|.3f}}). This is a **deviation from the
+requester's E4 recall rule**, made from validation columns only (the holdout column is printed in the
+same table, which is disclosed) and recorded as Amendment 2 in
+`docs/experiments/H-ranker-cross-features.md`. The full sweep, holdout column included:
 
 {{@k_sweep}}
 
-At the rule K the holdout gives overall recall
-{{e4_k_sweep.holdout_at_rule_k_reporting_only.recall|.3f}}, long-tail recall
-{{e4_k_sweep.holdout_at_rule_k_reporting_only.lt|.3f}}, and chance-corrected lift
-{{e4_k_sweep.holdout_at_rule_k_reporting_only.lift|+.3f}} (candidate set
-{{e4_k_sweep.holdout_at_rule_k_reporting_only.size|.0f}} POIs per trip in the sweep's
-simplified non-cross-fitted setup; the shipped pipeline's own recall rows are in the gates and the
-scorecard). K was not adjusted after the holdout was read; whatever the gate rows show is the result.
+At the shipped K the sweep's holdout column gives overall recall
+{{e4_k_sweep.at_shipped_k.holdout_reporting_only.recall|.3f}}, long-tail recall
+{{e4_k_sweep.at_shipped_k.holdout_reporting_only.lt|.3f}}, and chance-corrected lift
+{{e4_k_sweep.at_shipped_k.holdout_reporting_only.lift|+.3f}} (candidate set
+{{e4_k_sweep.at_shipped_k.holdout_reporting_only.size|.0f}} POIs per trip, in the sweep's simplified
+non-cross-fitted setup; the shipped pipeline's own recall rows are in the gates and the scorecard).
 
 {{@recall_strata}}
 
@@ -266,60 +281,57 @@ the share is set by the ranker, not the quota:
 
 {{@dr9}}
 
-### 4.1 Retrieval vs ranking: where does the gain over popularity come from? (E1)
+### 4.1 Where does the gain over popularity come from? (E1, re-run after the skew fix)
 
-The learned retriever raised candidate recall from
-{{decision_register.rows.10.results.legacy_six_channel_union.recall|.3f}} (the six-channel union it
-replaced) to the recall in the gates, yet the ranker's NDCG@10 edge over content cosine stayed
-small. Candidate-relative NDCG@10 normalises each candidate set by its *own* ideal ranking, so it
-cannot compare two candidate sets — a better retriever surfaces more positives, raising the ideal
-and lowering the ratio for the same ranker. The decomposition therefore uses an **end-to-end
-NDCG@10 with a fixed denominator** (the ideal over every logged label of the trip, identical for
-every candidate set and system), scoring every system on both candidate sets on the same holdout
-trips (the "retrained" row refits the ranker on the old set's own training candidates):
+**Ranking vs retrieval.** Candidate-relative NDCG@10 normalises each candidate set by its *own* ideal
+ranking, so it cannot compare two candidate sets: a better retriever surfaces more positives, raising
+the ideal and lowering the ratio for the same ranker. The decomposition therefore uses an **end-to-end
+NDCG@10 with a fixed denominator** (the ideal over every logged label of the trip, identical for every
+candidate set and system), scoring every system on both the shipped learned-retriever set and the
+original six-channel set (regenerated from the pre-retriever configuration on the corrected features)
+on the same holdout trips. The "retrained" row refits the ranker on the old set own training
+candidates:
 
 {{@decomposition}}
 
-**Decomposition of the headline gain (candidate-relative NDCG@10, learned candidate set, seed 42).**
-Popularity {{systems.popularity.metrics.ndcg@10.mean|.4f}} → content cosine
+Reading. (1) **The gain over popularity is a ranking gain.** On the shipped set the primary system is
+{{retrieval_ranking_decomposition.decomposition_of_popularity_to_primary_gain_end_to_end.from_ranker_on_learned_set|+.4f}} above popularity end-to-end; cosine alone already gets most
+of the way and the learned ranker adds the rest. (2) **The learned retriever buys recall and
+long-tail coverage, not top-10 NDCG.** With a ranker retrained on each set, the six-channel set scores
+*higher* end-to-end than the learned set ({{retrieval_ranking_decomposition.ndcg10_end_to_end.legacy_6_channel.lambdamart_ips_retrained_on_this_set.mean|.4f}}
+vs {{retrieval_ranking_decomposition.ndcg10_end_to_end.learned_retriever.lambdamart_ips_shipped.mean|.4f}}; paired Wilcoxon
+p = {{retrieval_ranking_decomposition.paired_tests_end_to_end.retrieval_effect_primary_learned_vs_legacy_retrained.p_value|.3f}}), even though its
+candidate recall is far lower: a smaller, taste-aligned pool is an easier ranking problem. The
+learned retriever is kept because the brief's recall and long-tail requirements are gate rows
+(section 4 and the scorecard) and the six-channel set fails them, and the choice is a
+recall/coverage-vs-precision trade that this measurement quantifies rather than hides.
+
+**Decomposition of the headline gain** (candidate-relative NDCG@10, shipped set, seed 42):
+popularity {{systems.popularity.metrics.ndcg@10.mean|.4f}} → content cosine
 {{systems.content_cosine.metrics.ndcg@10.mean|.4f}}
 (**{{derived.ndcg10_gain_popularity_to_content_cosine|+.4f}}**, *content matching*; Wilcoxon
 p={{wilcoxon.content_cosine_vs_popularity.p_value|.3g}}) → LambdaMART + IPS
 {{systems.lambdamart_ips.metrics.ndcg@10.mean|.4f}}
 (**{{derived.ndcg10_gain_content_cosine_to_primary|+.4f}}**, *learned ranking*;
-p={{wilcoxon.lambdamart_ips_vs_content_cosine.p_value|.3g}}; 5-seed mean gap over cosine
-{{~seed_vs_cosine}}). Almost all of the lift over the popularity ranker the incumbents run is
-achieved by matching a traveler's taste to a POI's content; the learned ranker adds a small,
-not-significant increment on top.
+Wilcoxon p={{wilcoxon.lambdamart_ips_vs_content_cosine.p_value|.3g}}).
 
-**Conclusion.** At this data scale the learned ranker's marginal value over a well-constructed
-content-similarity baseline is small, and we measured it rather than assuming it. That is
-evidence-based model selection, not a shortfall to apologise for: the assignment's own guidance
-(as stated in the brief; the brief text itself is not reproduced in this repository) is that a
-simpler model with thoughtful features and strong evaluation beats unnecessary complexity. Three
-independent measurements point the same way: (1) the validation-only ranker sweep (section 5)
-selected the shipped configuration without using the holdout; (2) the DR2 learning curve shows a
-two-tower ranker at {{decision_register.rows.1.results.curve.3.two_tower.mean|.4f}} against
-LambdaMART at {{decision_register.rows.1.results.curve.3.lambdamart_ips.mean|.4f}} even on the full
-training set (and {{decision_register.rows.1.results.curve.0.two_tower.mean|.4f}} against
-{{decision_register.rows.1.results.curve.0.lambdamart_ips.mean|.4f}} at a tenth of it), i.e.
-neural complexity buys nothing here; (3) the ranker is well above popularity in every replicated seed, and above cosine in most (not
-all) seeds. The ranker stays because the assignment asks for a learning-to-rank model and it is
-above cosine on average — not because it earns a large margin.
+**Five-seed paired comparison against content cosine** (the whole pipeline regenerated per seed; H4):
+the primary system is above cosine in {{derived.seed_paired_primary_vs_content_cosine.n_primary_above}} of
+{{derived.seed_paired_primary_vs_content_cosine.n_seeds}} seeds, mean gap
+{{derived.seed_paired_primary_vs_content_cosine.mean_gap|+.4f}} NDCG@10 (sd of the per-seed gap
+{{derived.seed_paired_primary_vs_content_cosine.sd_gap|.4f}}), paired t-test p =
+{{derived.seed_paired_primary_vs_content_cosine.paired_t_p|.3g}}, Wilcoxon signed-rank p =
+{{derived.seed_paired_primary_vs_content_cosine.wilcoxon_p|.3g}} (with only 5 seeds the smallest attainable
+Wilcoxon p is 0.0625, so the paired t-test and the per-trip test above carry the significance).
 
-Reading: on the fixed denominator, popularity moves by
-{{retrieval_ranking_decomposition.decomposition_of_popularity_to_primary_gain_end_to_end.from_retrieval_alone_popularity_learned_minus_legacy|+.4f}}
-when only the retriever changes; the primary system's gain over popularity is
-{{retrieval_ranking_decomposition.decomposition_of_popularity_to_primary_gain_end_to_end.from_ranker_on_legacy_set|+.4f}} on the legacy set and
-{{retrieval_ranking_decomposition.decomposition_of_popularity_to_primary_gain_end_to_end.from_ranker_on_learned_set|+.4f}} on the learned set.
-**The gain over popularity is a ranking gain, not a retrieval gain.** Primary vs content cosine on
-the same (learned) set: paired Wilcoxon p =
-{{retrieval_ranking_decomposition.paired_tests_end_to_end.learned_primary_vs_content_cosine.p_value|.3f}};
-retrieval effect on the primary system (learned vs legacy-retrained): p =
-{{retrieval_ranking_decomposition.paired_tests_end_to_end.retrieval_effect_primary_learned_vs_legacy_retrained.p_value|.3f}}.
-The honest headline is therefore: a **significant** improvement over the popularity ranker the
-incumbents run, and a **not significant** edge over a plain content-cosine baseline — on this
-simulator the taste signal a cosine captures is most of what a learned ranker extracts.
+**Conclusion.** The learned ranker beats a well-constructed content-similarity baseline by a
+substantial, significant margin once the feature skew of section 5.1 is removed; the earlier
+version of this section concluded the opposite, from skewed features, and is retracted. Popularity to
+cosine (content matching) is still the larger single step, and the DR2 learning curve shows the
+neural alternative is not competitive at this data scale
+({{decision_register.rows.1.results.curve.3.two_tower.mean|.4f}} for a two-tower ranker against
+{{decision_register.rows.1.results.curve.3.lambdamart_ips.mean|.4f}} for LambdaMART on the full
+training set).
 
 ### 4.2 Long-tail precision at every stage (E3)
 
@@ -337,9 +349,9 @@ The same audit applies to the **0.85 overall candidate-recall target**: it was a
 an absolute number, with no reference to the chance baseline, which depends on the candidate-set
 size. At the shipped set size a random candidate set would already recall
 {{candidate_recall.by_stratum.overall.chance_recall|.3f}}, so 0.85 means a lift of
-{{candidate_recall.by_stratum.overall.lift_abs|+.3f}} over chance. The target is met, but the margin
-is thin (the lowest of the five replicated seeds is
-{{seed_replication.metrics.candidate_recall_overall.min|.4f}}) and should not be read as headroom.
+{{candidate_recall.by_stratum.overall.lift_abs|+.3f}} over chance. The target is met in every one of
+the five replicated seeds (lowest {{seed_replication.metrics.candidate_recall_overall.min|.4f}}), but
+an absolute recall number still says little without the chance baseline.
 
 Measured at each serving stage on the same holdout trips (share = fraction of returned slots that
 are long-tail; precision = fraction of those that are positives):
@@ -373,10 +385,16 @@ features cannot enter a dot product, which is part of what is being compared.
 There is no crossover anywhere on the measured range. The extrapolation is a four-point
 log-linear fit and is an illustration of scale, not a forecast.
 
-**Honest result on the objective (DR3).** The listwise choice is *not* supported by
-measurement here: pointwise objectives tie or beat `lambdarank` on this data (CIs overlap
-widely). `lambdarank` stays because the assignment asks for a learning-to-rank model and the
-differences are within noise, not because it won.
+**Honest result on the objective (DR3).** The listwise choice is *not* supported by measurement:
+on the holdout the pointwise `binary` objective scores
+{{decision_register.rows.2.results.binary.mean|.4f}} against
+{{decision_register.rows.2.results.lambdarank.mean|.4f}} for `lambdarank` (the confidence intervals
+just touch), and the validation-only sweep below also ranks `binary` first. `lambdarank` stays because
+the assignment asks for a learning-to-rank model, and because selecting the objective on the holdout
+would leak it into a decision (the validation margin, below, is under the pre-registered bar). That
+choice **costs roughly two hundredths of NDCG@10** on this data; switching `objective` to `binary` in
+`configs/model.yaml` is a one-line change, flagged as the first thing to revisit if the brief allows a
+pointwise model.
 
 {{@dr3}}
 
@@ -405,17 +423,132 @@ configurations at seed 42, then the top five re-fit over three more seeds; the w
 
 {{@sweep}}
 
-The validation winner is the configuration that already ships: no change was made to the ranker,
-so the single holdout result in this document is the shipped ranker's. The spread across the three
-objectives is small (a few thousandths of validation NDCG); the large effects are the IPS clip
-(no clipping is clearly worst) and keeping the raw text-embedding block. That last point disagrees
-with the holdout feature-block ablation above, where dropping the raw text block moved holdout
-NDCG@10 by {{ablations.5.delta_ndcg@10|+.4f}} (p={{ablations.5.wilcoxon_p_value|.3g}}, not
-significant). The two measure different things (IPS-weighted validation on the logged, biased
-population vs unweighted random-exposure holdout) and neither is decisive; the config was chosen
-by the validation-only rule fixed in advance, and the sweep never scored content cosine, so it
-says nothing about closing the gap to it — only that no ranker knob in this grid beats the
-shipped one on validation.
+Re-run on the final pipeline (corrected features, cross features, tuned tree parameters), the
+validation winner is objective **{{ranker_sweep.winner.objective}}**, IPS clip
+{{ranker_sweep.winner.ips_clip_high}}, blocks {{ranker_sweep.winner.blocks}}
+({{ranker_sweep.winner.stage2_mean_val_ips_weighted_ndcg10|.4f}}), against
+{{ranker_sweep.previous_shipped_config_4_seed.mean|.4f}} for the shipped configuration (lambdarank,
+clip 20, all features): a margin of {{derived.ranker_sweep_margin.winner_minus_shipped|+.4f}}, **below
+the +0.010 adoption bar** fixed for experiment H, so it was **not adopted**. The first plain-rule
+reading of E2 ("adopt the validation winner") would adopt it; the bar was applied instead because
+adopting would need a second holdout read after H, and the five finalists sit within a few
+thousandths of each other (the top rows are ties across the raw-block choice). The large effects are
+the IPS clip (no clipping is clearly worst) and the pointwise `binary` objective edging listwise
+ones, which agrees with DR3 below; `lambdarank` stays because the assignment asks for a
+learning-to-rank model, not because it won. The sweep never scored content cosine.
+
+### 5.1 A feature-skew bug found late, and its fix
+
+**What was wrong.** The implicit traveler block (taste vector, category distribution, interaction
+counts, ...) is one row per trip and was computed as-of the trip's `start_date`. A trip's browsing
+session runs 0-45 days *before* `start_date`, and its interactions are the graded labels. For
+**train and validation trips** the implicit features therefore contained the very session being
+predicted; for **holdout trips** they cannot (their session is not in the history pool), which is
+what serving looks like. The skew is directly measurable in the committed data:
+
+| Implicit-block statistic | Train trips (before fix) | Holdout trips (before fix) | Train trips (after fix) | Holdout trips (after fix) |
+|---|---|---|---|---|
+| Days since last interaction (median) | {{h_experiments.feature_skew_pre_fix.train_trips.days_since_last_interaction_median|.0f}} | {{h_experiments.feature_skew_pre_fix.holdout_trips.days_since_last_interaction_median|.0f}} | {{h_experiments.feature_skew_post_fix.train_trips.days_since_last_interaction_median|.0f}} | {{h_experiments.feature_skew_post_fix.holdout_trips.days_since_last_interaction_median|.0f}} |
+| Interaction count (mean) | {{h_experiments.feature_skew_pre_fix.train_trips.interaction_count_mean|.1f}} | {{h_experiments.feature_skew_pre_fix.holdout_trips.interaction_count_mean|.1f}} | {{h_experiments.feature_skew_post_fix.train_trips.interaction_count_mean|.1f}} | {{h_experiments.feature_skew_post_fix.holdout_trips.interaction_count_mean|.1f}} |
+
+**The fix.** The per-trip as-of cutoff is now `min(start_date, first logged impression of that trip)`
+(`features/traveler_features.py`); holdout trips are unchanged. A regression test
+(`tests/test_traveler_features.py::test_assemble_traveler_features_excludes_own_session_of_train_trips`)
+pins it. The retriever trains on the same features, so it became honestly weaker on validation (see
+the K discussion in section 4).
+
+**Effect, measured once, on the shipped hyperparameters** (a sandbox run of the whole pipeline at seed
+42 with only the fix applied and K held at the previous value; nothing was selected on the holdout; the
+committed submission before the fix is commit `{{h_experiments.pre_fix_commit}}`):
+
+| NDCG@10, unbiased holdout | Before fix | Fix only (sandbox) |
+|---|---|---|
+| Primary LambdaMART + IPS | {{h_experiments.pre_fix_headline.ndcg10_primary|.4f}} | {{h_experiments.leakfix_sandbox_seed42_k195.headline.ndcg10_lambdamart_ips|.4f}} |
+| Content cosine | {{h_experiments.pre_fix_headline.ndcg10_content_cosine|.4f}} | {{h_experiments.leakfix_sandbox_seed42_k195.headline.ndcg10_content_cosine|.4f}} |
+| Popularity | {{h_experiments.pre_fix_headline.ndcg10_popularity|.4f}} | {{h_experiments.leakfix_sandbox_seed42_k195.headline.ndcg10_popularity|.4f}} |
+| Wilcoxon p, primary vs content cosine | {{h_experiments.pre_fix_headline.wilcoxon_primary_vs_content_cosine_p|.3g}} | {{h_experiments.leakfix_sandbox_seed42_k195.wilcoxon_primary_vs_content_cosine_p|.3g}} |
+| % of candidate-level oracle ceiling | {{h_experiments.pre_fix_headline.pct_of_oracle_ceiling|.1%}} | {{h_experiments.leakfix_sandbox_seed42_k195.headline.pct_of_oracle_ceiling|.1%}} |
+
+**This retracts the earlier conclusion.** Earlier versions of this document (and the submission as first
+tagged) said the learned ranker added little over content cosine and framed that as evidence-based model
+selection. That was an artifact of the skew: the ranker was fitting label-bearing features that do not
+exist at serving time, so it generalised worse than it should have. With the skew removed the ranker
+beats content cosine by a wide, significant margin (section 4.1).
+
+**Why no control caught it.** Train-carved validation shared the skew (validation trips are train
+trips), so validation looked *better* than holdout rather than worse; the ~2x gap between
+IPS-weighted validation NDCG and holdout NDCG was attributed to the different metrics. The taste
+temporal-safety test only exercised `traveler_history_before` on a hand-built fixture, not the per-trip
+cutoff `assemble_traveler_features` actually applied. Both are now covered.
+
+### 5.2 Explicit cross features and ranker tuning (experiment H)
+
+Pre-registered in `docs/experiments/H-ranker-cross-features.md` before any run (with two amendments,
+both dated and both recorded before the runs they affect). Hypothesis (from the requester): the
+ranker cannot see the traveler x POI interaction terms cosine misses. All selection below is on
+train-carved validation (IPS-weighted NDCG@10, 4 seeds), with the holdout read once after freezing.
+
+**H0 diagnostics.** Grouped-SHAP share by feature group, on the model before the fix and on the final model:
+
+| Group | Before fix | Final model |
+|---|---|---|
+| implicit_taste | {{h_experiments.h0a_shap_shares_pre_fix_model.implicit_taste|.1%}} | {{h_experiments.h0a_shap_shares_final_model.implicit_taste|.1%}} |
+| interest_match | {{h_experiments.h0a_shap_shares_pre_fix_model.interest_match|.1%}} | {{h_experiments.h0a_shap_shares_final_model.interest_match|.1%}} |
+| popularity | {{h_experiments.h0a_shap_shares_pre_fix_model.popularity|.1%}} | {{h_experiments.h0a_shap_shares_final_model.popularity|.1%}} |
+| price_fit | {{h_experiments.h0a_shap_shares_pre_fix_model.price_fit|.1%}} | {{h_experiments.h0a_shap_shares_final_model.price_fit|.1%}} |
+| localness_fit | {{h_experiments.h0a_shap_shares_pre_fix_model.localness_fit|.1%}} | {{h_experiments.h0a_shap_shares_final_model.localness_fit|.1%}} |
+| geo | {{h_experiments.h0a_shap_shares_pre_fix_model.geo|.1%}} | {{h_experiments.h0a_shap_shares_final_model.geo|.1%}} |
+| quality | {{h_experiments.h0a_shap_shares_pre_fix_model.quality|.1%}} | {{h_experiments.h0a_shap_shares_final_model.quality|.1%}} |
+| party_fit | {{h_experiments.h0a_shap_shares_pre_fix_model.party_fit|.1%}} | {{h_experiments.h0a_shap_shares_final_model.party_fit|.1%}} |
+| hours | {{h_experiments.h0a_shap_shares_pre_fix_model.hours|.1%}} | {{h_experiments.h0a_shap_shares_final_model.hours|.1%}} |
+| novelty | {{h_experiments.h0a_shap_shares_pre_fix_model.novelty|.1%}} | {{h_experiments.h0a_shap_shares_final_model.novelty|.1%}} |
+
+The requester's hypothesis is only partly supported: localness, party, price and novelty are a
+minority of attribution (they were ~12% before the fix), but the dominant group before the fix
+(`implicit_taste`, the group carrying the skew) was the artifact, not an unexploited signal. The
+10-cross-feature-only probe scored {{h_experiments.h0b_pre_fix_frames.probe_cross_only.mean|.4f}} against
+{{h_experiments.h0b_pre_fix_frames.shipped_237.mean|.4f}} for the full model on the contaminated
+validation (it did not match), and {{h_experiments.h0b_corrected_frames.probe_cross_only.mean|.4f}} against
+{{h_experiments.h0b_corrected_frames.shipped_237.mean|.4f}} on the corrected validation (a small model gets most of the way).
+
+**Protocol consequence (Amendment 1).** The pre-registered bar (+0.010 over the shipped config) was
+defined on contaminated validation, so H1-H3 were re-run on corrected frames with the bar re-baselined
+*before* any candidate was scored: shipped-config corrected-validation baseline
+{{h_experiments.baseline_corrected.baseline_shipped_config_on_corrected_frames_4seed_val_ips_ndcg10.mean|.4f}},
+bar {{h_experiments.baseline_corrected.bar|.4f}}.
+
+| Candidate (validation, 4-seed mean) | Val IPS-NDCG@10 | vs bar |
+|---|---|---|
+| H1: all 20 cross features added | {{h_experiments.h1.full_plus_cross.mean|.4f}} | missed by {{h_experiments.decision.h1_full_plus_cross_alone_missed_bar_by|.5f}} |
+| H1 ablation: +localness crosses only | {{h_experiments.h1.plus_loc_only.mean|.4f}} | below |
+| H1 ablation: +price crosses only | {{h_experiments.h1.plus_price_only.mean|.4f}} | below |
+| H1 ablation: +interest crosses only | {{h_experiments.h1.plus_interest_only.mean|.4f}} | below |
+| H1 ablation: +compatibility sub-scores only | {{h_experiments.h1.plus_compat_only.mean|.4f}} | below |
+| H1 ablation: +history (repeat, dismissed) only | {{h_experiments.h1.plus_history_only.mean|.4f}} | below |
+| H2: cosine `init_score`, shipped features (scale 1 / 2) | {{h_experiments.h2.shipped_features_init1.mean|.4f}} / {{h_experiments.h2.shipped_features_init2.mean|.4f}} | worse than baseline |
+| H2: cosine `init_score`, + cross features (scale 1 / 2) | {{h_experiments.h2.full_plus_cross_init1.mean|.4f}} / {{h_experiments.h2.full_plus_cross_init2.mean|.4f}} | worse |
+| H3: + cross, num_leaves 15 | {{h_experiments.h3b.runs.cross_leaves15.mean|.4f}} | met |
+| H3: + cross, leaves 15, linear label gain | **{{h_experiments.h3b.runs.cross_leaves15_gainlinear.mean|.4f}}** | **met (margin {{h_experiments.decision.margin_over_bar|.4f}})** |
+| H3: + cross, leaves 15, truncation 40 | {{h_experiments.h3b.runs.cross_leaves15_trunc40.mean|.4f}} | met |
+| H3: shipped features + leaves 15 (attribution) | {{h_experiments.h3b.runs.shipped_features_leaves15.mean|.4f}} | below |
+
+The H1 result alone missed the bar by a hair; `init_score` residual learning did **not** help (the
+"at least as good as cosine by construction" idea hurt validation), and the adopted configuration is
+the argmax of the declared joint runs: cross features + 15 leaves + linear label gain (the linear
+gain deliberately decouples the training gain from the reported metric gain). Attribution on
+validation: leaves alone {{h_experiments.decision.attribution_val.shipped_features_leaves15|+.4f}}, cross features
+on top of leaves {{h_experiments.decision.attribution_val.cross_features_with_leaves15_minus_shipped_features_with_leaves15|+.4f}},
+linear gain on top {{h_experiments.decision.attribution_val.gain_linear_on_top|+.4f}}.
+
+**Holdout, read once.** Adopted configuration: primary NDCG@10
+{{systems.lambdamart_ips.metrics.ndcg@10.mean|.4f}}. The same pipeline without H (same K, corrected features,
+seed 42): {{h_experiments.holdout_ablation_no_h_seed42.headline.ndcg10_lambdamart_ips|.4f}} — a holdout
+difference of {{derived.h_holdout_effect.gain|+.4f}} NDCG@10, far smaller than the validation gain and inside
+the bootstrap CI: the validation improvement did **not** transfer at anything like its validation size
+(winner's-curse selection among ~14 validation candidates, plus IPS-weighted validation vs unweighted
+holdout, are the likely reasons; not separately tested). H was adopted because the pre-registered rule
+said to; the honest reading is that essentially all of the ranker's gain over cosine comes from the
+skew fix, not from H.
 
 ## 6. IPS correction
 
@@ -423,9 +556,12 @@ Training weight `clip(1/p_expose, 1, clip_high)` renormalised per trip, unexpose
 neutral weight 1.0 (dropping them would remove most negatives). Exposure rate of fit rows:
 {{train.ips_exposure_rate|.1%}}. Ablating IPS changes NDCG@10 by the `-IPS_weighting` row above.
 
-**The clip is not NDCG-optimal on the holdout (DR7).** Less clipping is monotonically better
-here, and no-clip is highest. Selecting the clip on the holdout would leak it into a decision,
-so the shipped value stays and this is reported as an open improvement:
+**The clip is not NDCG-optimal on the holdout (DR7).** Holdout NDCG@10 rises with the clip up to 50
+({{decision_register.rows.6.results.50.mean|.4f}} against {{decision_register.rows.6.results.20.mean|.4f}}
+at the shipped 20) and is lower again with no clipping ({{decision_register.rows.6.results.none.mean|.4f}});
+the validation-only sweep prefers clips of 10-20, i.e. validation and holdout disagree on where the
+optimum is. Selecting the clip on the holdout would leak it into a decision, so the shipped value stays
+and this is reported as an open improvement:
 
 {{@dr7}}
 
@@ -512,13 +648,15 @@ same statistic for lists ranked by the true utility.
   {{personalization.archetype_ideal_ranker_reference.within_cross_ratio|.2f}}
 - K-Means proxy ratio: {{personalization.archetype_kmeans_proxy.within_cross_ratio|.2f}}
 
-**Confidence.** The confidence-decile Spearman is now {{confidence_decile_validation.spearman_rho|.3f}}
-(previously negative on the broken simulator), passing the ≥0.6 target.
+**Confidence.** The confidence-decile Spearman is {{confidence_decile_validation.spearman_rho|.3f}}, below
+the ≥0.6 target (a MISSED scorecard row, diagnosed there; it was
+{{h_experiments.pre_fix_headline.confidence_decile_spearman|.3f}} before the feature-skew fix of section 5.1).
 
 **Cold start / new POIs / LODO.** New-POI cohort with vs without behavioural dropout: NDCG@10
 {{new_poi_cohort.ndcg@10_lambdamart_ips_with_dropout.mean|.4f}} vs {{new_poi_cohort.ndcg@10_lambdamart_ips_no_dropout.mean|.4f}}
-(paired Wilcoxon p={{new_poi_cohort.wilcoxon_with_vs_without_dropout.p_value|.3f}}: directionally
-consistent with the intent, not statistically significant at this cohort size).
+(paired Wilcoxon p={{new_poi_cohort.wilcoxon_with_vs_without_dropout.p_value|.3f}}: not statistically
+significant at this cohort size; the point estimate is {{~dropout_direction}} with dropout, so the new-POI
+benefit the dropout was designed for is not demonstrated here).
 Leave-one-destination-out (three retrains): see the cold-start section of `docs/RESULTS.md`.
 
 **Scenarios** (Seoul; spec.md section 15's three required profiles plus the touristiness-flip
@@ -591,10 +729,10 @@ capped at a seeded 300-trip sample; `scenarios`), leave-one-destination-out, and
 {{@timings}}
 
 **Honest wall-clock:** `make reproduce` measured {{~reproduce_minutes}} on the dev laptop (other
-processes were running, so timings carry roughly 30-40% noise). The original 5-minute target is
-**not met** and was deliberately not chased further: the two largest stages are `train` and
-`evaluate` (LightGBM fits), and shaving them would cost fidelity (fewer seeds/rounds) rather than
-remove waste.
+processes may have been running, so timings carry roughly 30-40% noise), which
+{{~reproduce_vs_target}}. The two largest stages are `train` and `evaluate` (LightGBM fits, now
+also computing the cross features of section 5.2); shaving them would cost fidelity (fewer
+seeds/rounds) rather than remove waste.
 
 Where the time went (measured): the confidence ensemble was being retrained inside every
 `evaluate` / `recommend` / `scenarios` call — it is now fit once in `train` and loaded; TreeSHAP
@@ -618,5 +756,4 @@ within-seed, this is between-seed):
 
 Headline: primary NDCG@10 = {{~seed_headline}}. The primary system is above content cosine in
 {{~seed_vs_cosine}}. The overall candidate-recall gate (0.85) is passed in every seed, with the
-lowest seed at {{seed_replication.metrics.candidate_recall_overall.min|.4f}} — the margin over the
-gate is thin, which is the honest reading of a pre-registered K that was fixed on validation.
+lowest seed at {{seed_replication.metrics.candidate_recall_overall.min|.4f}}.

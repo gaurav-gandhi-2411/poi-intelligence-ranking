@@ -1,0 +1,15 @@
+{
+  "bar": 0.1827837780824289,
+  "baseline_shipped_config_on_corrected_frames_4seed_val_ips_ndcg10": {
+    "mean": 0.1727837780824289,
+    "per_seed": [
+      0.17636490111861144,
+      0.16987251203054418,
+      0.17374650095177463,
+      0.17115119822878538
+    ],
+    "sd": 0.002880512947770338
+  },
+  "leaky_frames_reference_0p3167_not_comparable": true,
+  "rule": "adopt an H1-H3 candidate only if 4-seed validation IPS-weighted NDCG@10 >= baseline + 0.010 (Amendment 1 point 3)"
+}

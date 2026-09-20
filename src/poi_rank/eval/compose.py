@@ -47,6 +47,7 @@ COMPOSED_PARTS: dict[str, str | None] = {
     "e4_k_sweep": "e4_k_sweep",
     "ranker_sweep": "ranker_sweep",
     "fresh_clone_verification": "fresh_clone_verification",
+    "h_experiments": "h_experiments",
     "timings": "timings",
     "timings_full": "timings_full",
 }
@@ -81,6 +82,38 @@ def derived_numbers(m: dict[str, Any]) -> dict[str, Any]:
         sweep = m["longtail_stages"].get("mmr_lambda_diagnostic_post_hoc_on_holdout", {})
         out["mmr_lambda_lift_over_base_rate"] = {
             lam: v["long_tail_precision"] / base for lam, v in sweep.items()
+        }
+    seeds = m.get("seed_replication", {}).get("metrics", {})
+    if "ndcg10_lambdamart_ips" in seeds and "ndcg10_content_cosine" in seeds:
+        from scipy import stats
+
+        prim = seeds["ndcg10_lambdamart_ips"]["per_seed"]
+        cos = seeds["ndcg10_content_cosine"]["per_seed"]
+        keys = sorted(prim)
+        a = [prim[k] for k in keys]
+        b = [cos[k] for k in keys]
+        gaps = [x - y for x, y in zip(a, b, strict=True)]
+        mean_gap = sum(gaps) / len(gaps)
+        sd_gap = (sum((g - mean_gap) ** 2 for g in gaps) / (len(gaps) - 1)) ** 0.5
+        out["seed_paired_primary_vs_content_cosine"] = {
+            "n_seeds": len(gaps),
+            "n_primary_above": sum(g > 0 for g in gaps),
+            "mean_gap": mean_gap,
+            "sd_gap": sd_gap,
+            "paired_t_p": float(stats.ttest_rel(a, b).pvalue),
+            "wilcoxon_p": float(stats.wilcoxon(a, b).pvalue),
+        }
+    abl = m.get("h_experiments", {}).get("holdout_ablation_no_h_seed42")
+    if abl and "systems" in m:
+        final = m["systems"]["lambdamart_ips"]["metrics"]["ndcg@10"]["mean"]
+        no_h = abl["headline"]["ndcg10_lambdamart_ips"]
+        out["h_holdout_effect"] = {"final": final, "no_h": no_h, "gain": final - no_h}
+    sweep = m.get("ranker_sweep")
+    if sweep:
+        out["ranker_sweep_margin"] = {
+            "winner_minus_shipped": sweep["winner"]["stage2_mean_val_ips_weighted_ndcg10"]
+            - sweep["previous_shipped_config_4_seed"]["mean"],
+            "adoption_bar": 0.010,
         }
     dr1 = next(
         (r for r in m.get("decision_register", {}).get("rows", []) if r["id"] == "DR1"), None

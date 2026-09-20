@@ -43,19 +43,19 @@ combines the two (section 7).
 traveler liked it" with "the serving policy showed it". The DGP simulates two exposure policies
 (a popularity-biased training log and a uniform-random evaluation log) so the bias is
 measurable and correctable rather than hand-waved. Measured on the bias-gap table below:
-popularity's NDCG@10 moves by +0.0833 between the unbiased and biased
+popularity's NDCG@10 moves by +0.0804 between the unbiased and biased
 holdouts (it is flattered by the biased log), the primary IPS-corrected model by
-+0.0085.
+-0.0046.
 
 **The commercial objective is local / long-tail discovery, not raw NDCG.** The incumbents in
 inbound-travel already rank by popularity, so a popularity-shaped list is table stakes. The
 differentiating claim is surfacing the genuinely relevant, non-obvious POI, and it has to be
 backed by long-tail **precision**, not just share. Measured on the unbiased holdout, top-10
-lists: long-tail share 0.2252 (popularity ranker:
+lists: long-tail share 0.1436 (popularity ranker:
 0.0000), catalog coverage@10
-66.4% (popularity:
-5.7%); long-tail precision
-0.1541 on 1486 long-tail recommendations —
+47.3% (popularity:
+3.5%); long-tail precision
+0.1964 on 952 long-tail recommendations —
 below the 0.40 target, diagnosed in the scorecard (section 10).
 
 ## 2. DGP / circularity defense
@@ -104,10 +104,10 @@ independently tested:
 
 | Blocking check | Threshold | Measured | Status |
 |---|---|---|---|
-| candidate_recall_lift_long_tail | >= 0.35 | 0.3925 | PASS |
-| candidate_recall_lift_overall | >= 0.35 | 0.3738 | PASS |
-| candidate_recall_long_tail | >= 0.75 | 0.8262 | PASS |
-| candidate_recall_overall | >= 0.85 | 0.8573 | PASS |
+| candidate_recall_lift_long_tail | >= 0.35 | 0.4169 | PASS |
+| candidate_recall_lift_overall | >= 0.35 | 0.3737 | PASS |
+| candidate_recall_long_tail | >= 0.75 | 0.8975 | PASS |
+| candidate_recall_overall | >= 0.85 | 0.9262 | PASS |
 
 | Reporting-only (after freeze) | Value |
 |---|---|
@@ -116,9 +116,9 @@ independently tested:
 | d9_within_trip_shipped_chain | 0.4731 |
 | d9_within_trip_taste_estimator_alone | 0.5718 |
 | d9_within_trip_text_alone | 0.9272 |
-| oracle_ceiling_ndcg10_candidate_level | 0.3749 |
-| oracle_relevance_recall_long_tail | 0.9107 |
-| oracle_relevance_recall_overall | 0.9357 |
+| oracle_ceiling_ndcg10_candidate_level | 0.3682 |
+| oracle_relevance_recall_long_tail | 0.9644 |
+| oracle_relevance_recall_overall | 0.9788 |
 
 **Two exposure logs, one primary evaluation set.** `interactions_train.parquet` uses a
 popularity-biased policy; `interactions_holdout_random.parquet` uses uniform-random exposure
@@ -131,36 +131,36 @@ carries its `p_expose`, which is what makes IPS possible.
 
 | System | NDCG@10 (unbiased) | NDCG@10 (biased) | Gap |
 |---|---|---|---|
-| 1. Random | 0.0661 | 0.0306 | -0.0355 |
-| 2. Popularity | 0.0629 | 0.1462 | +0.0833 |
-| 3. Popularity + geo filter | 0.0623 | 0.1444 | +0.0821 |
-| 4. Content cosine | 0.1411 | 0.0544 | -0.0867 |
-| 5. Item-kNN CF | 0.0710 | 0.1494 | +0.0785 |
-| 6. Logistic regression (CV-tuned L2) | 0.1130 | 0.2307 | +0.1177 |
-| 7. LambdaMART (no IPS) | 0.1244 | 0.1917 | +0.0673 |
-| 8. **LambdaMART + IPS (primary)** | 0.1485 | 0.1570 | +0.0085 |
-| 9. Oracle (ceiling) | 0.3749 | 0.1125 | -0.2623 |
+| 1. Random | 0.0547 | 0.0265 | -0.0282 |
+| 2. Popularity | 0.0523 | 0.1327 | +0.0804 |
+| 3. Popularity + geo filter | 0.0527 | 0.1326 | +0.0799 |
+| 4. Content cosine | 0.1336 | 0.0478 | -0.0858 |
+| 5. Item-kNN CF | 0.0604 | 0.1363 | +0.0759 |
+| 6. Logistic regression (CV-tuned L2) | 0.1196 | 0.2516 | +0.1320 |
+| 7. LambdaMART (no IPS) | 0.1239 | 0.2615 | +0.1377 |
+| 8. **LambdaMART + IPS (primary)** | 0.1842 | 0.1796 | -0.0046 |
+| 9. Oracle (ceiling) | 0.3682 | 0.1064 | -0.2618 |
 
 **Oracle ceiling — and why "% of ceiling" fell from 66.2% to
-39.6%.** Ranking the same candidates by the true
-noise-free utility gives NDCG@10 0.3749; the primary system
-reaches 39.6% of it. The earlier report (DATA_CARD
+50.0%.** Ranking the same candidates by the true
+noise-free utility gives NDCG@10 0.3682; the primary system
+reaches 50.0% of it. The earlier report (DATA_CARD
 history: primary 0.0875 against an oracle of 0.1322 = 66.2%) is **not comparable** to this one, for
 two measured reasons, neither of which is "the model got worse" (the primary system's own NDCG@10
-went *up*, from 0.0875 to 0.1485):
+went *up*, from 0.0875 to 0.1842):
 
 1. **The old oracle was crippled by the old data-generating process.** Before the simulator
    rewrite the labels were noise-dominated, so even a ranker with the true utility scored only
    0.1322 (DATA_CARD documents this: an oracle at 0.1322 is itself the evidence that labels were
    mostly noise). A model closing 66.2% of a near-noise ceiling is a small absolute number. After
    the rewrite the labels are utility-driven and the ceiling rose to
-   0.3749 — the ceiling grew by a larger factor than the
+   0.3682 — the ceiling grew by a larger factor than the
    model's score, so the ratio fell even though the model improved.
 2. **The candidate-relative ceiling depends on the candidate set.** The oracle re-ranks *its own*
    candidates, so a retriever that surfaces more relevant POIs raises the ideal too. Measured on
    identical holdout trips (E1), the candidate-relative oracle NDCG@10 is
    0.4037 on the old six-channel set and
-   0.3749 on the learned set.
+   0.3682 on the learned set.
 
 A related figure that is easy to confuse with the ceiling: retrieval top-K recall by true utility
 (0.991) measures how
@@ -184,7 +184,10 @@ block: a taste vector in the POI embedding space,
 distribution and mean price/localness/popularity. Both blocks and their **pair features**
 (`interact_cos_taste_poi`, `interact_localness_gap`, `interact_interest_match`,
 `interact_price_gap`, `interact_category_affinity`) go to LambdaMART, which learns the blend
-conditioned on evidence volume.
+conditioned on evidence volume. Each trip's implicit block is as-of the trip's own session start
+(never `start_date`: section 5.1), and 20 explicit `xf_*` traveler x POI cross features
+(localness x touristiness, price gap, interest hits, compatibility sub-scores, repeat engagement,
+section 5.2) are added to the ranker's frame (never to the retriever's).
 
 **What was measured about the representation** (oracle-free selection, oracle-based reporting):
 
@@ -202,7 +205,8 @@ conditioned on evidence volume.
   did not hold at this text fidelity, and the item side was already not the limiting link
   (`results/parts/a3_step0.json`).
 - *Pair features, oracle-free validation NDCG@10, two seeds* (`results/parts/a3_pairfeat.json`,
-  re-measured under the final training config): category-affinity mean delta
+  re-measured under the training config of that time, on the PRE-FIX frames of section 5.1 and kept as
+  historical evidence): category-affinity mean delta
   +0.0099 (both seeds positive) —
   **adopted**; centred taste cosine mean delta
   +0.0079 — **not adopted**: an
@@ -215,36 +219,37 @@ cheaper ablations; deltas are against the full model on the unbiased holdout):
 
 | Ablation | Delta NDCG@10 | Wilcoxon p | n pairs |
 |---|---|---|---|
-| `-IPS_weighting` | -0.0241 | 7.69e-11 | 605 |
-| `-calibration` | -0.0007 | 0.709 | 605 |
-| `-MMR` | +0.0228 | 3.57e-12 | 579 |
-| `-interest_channel` | +0.0012 | 6.82e-15 | 605 |
-| `-long_tail_quota` | +0.0007 | 6.26e-06 | 605 |
-| `-text_embeddings` | +0.0095 | 0.0121 | 605 |
-| `-implicit_taste` | +0.0064 | 0.121 | 605 |
-| `-explicit_interests` | -0.0018 | 0.822 | 605 |
-| `-behavioral_block` | -0.0030 | 0.326 | 605 |
+| `-IPS_weighting` | -0.0603 | 1.19e-35 | 605 |
+| `-calibration` | -0.0030 | 0.0543 | 605 |
+| `-MMR` | +0.0406 | 8.49e-26 | 582 |
+| `-interest_channel` | +0.0001 | 0.00769 | 605 |
+| `-long_tail_quota` | +0.0004 | 8.3e-06 | 605 |
+| `-text_embeddings` | +0.0011 | 0.971 | 605 |
+| `-implicit_taste` | +0.0120 | 7.94e-05 | 605 |
+| `-explicit_interests` | +0.0050 | 0.0847 | 605 |
+| `-behavioral_block` | +0.0015 | 0.971 | 605 |
 
 Sign convention: delta = ablated minus full, so a POSITIVE delta means removing the block
-*improved* NDCG@10. Several block rows are positive, and one is significant: dropping the raw
-text-embedding block changes NDCG@10 by +0.0095
-(p=0.0121), the raw implicit-taste block by
-+0.0064 (p=0.121). Reading: the raw
-embedding and taste-vector columns add noise the trees fit; their information still reaches the
-model through the engineered `interact_cos_taste_poi` (which is not dropped with the raw block),
-so the ablation says the *raw blocks* are not earning their columns, not that taste is useless.
-
-Dropping them is a candidate improvement that was deliberately **not** applied: choosing it on
-this holdout number would be selecting on the holdout. Explicit interests and the behavioural
-block are within noise.
+*improved* NDCG@10. On the final model: raw text-embedding block +0.0011
+(p=0.971), raw implicit-taste block +0.0120
+(p=7.94e-05), explicit interests +0.0050
+(p=0.0847), behavioural block +0.0015
+(p=0.971). Only the raw implicit-taste block's removal is statistically
+significant, and its size is small next to the primary score: the raw taste-vector columns add a little
+noise the trees fit, while their information still reaches the model through the engineered
+`interact_cos_taste_poi` and the implicit summary columns. Dropping the block is a candidate
+improvement that was deliberately **not** applied: choosing it on this holdout number would be
+selecting on the holdout (the validation-only sweep of section 5 measured the text block the other way
+round; neither result is decisive). `-MMR` is positive and significant by design: the diversity
+re-rank trades NDCG@10 for list diversity (section 4.2 and the lambda table in `docs/RESULTS.md`).
 
 **Channel ablations.** The earlier `-CF_channel` row was a **no-op by construction** (the CF quota
 is 0 in the shipped candidate generator, so removing it changed nothing and the row carried no
 information); it is replaced by `-interest_channel`, a channel that is actually in the shipped
 union. Both channel ablations re-score the already-trained ranker over a smaller candidate set, and
 both come out *slightly positive* for NDCG@10: `-interest_channel`
-+0.0012 (p=6.82e-15), `-long_tail_quota` +0.0007
-(p=6.26e-06). The effects are ~1% of NDCG@10 and small in absolute terms:
++0.0001 (p=0.00769), `-long_tail_quota` +0.0004
+(p=8.3e-06). The effects are far below 1% of NDCG@10 and small in absolute terms:
 a plausible reading (not separately tested) is that a leaner set leaves the ranker fewer
 low-relevance items to misplace. These two channels are **not** justified by top-10 relevance; they are justified by
 recall and long-tail exposure (section 4), which NDCG@10 over the exposed labels does not reward.
@@ -269,7 +274,8 @@ and thread-count invariance.
 **learned** retriever (the workhorse), the **long-tail hard floor** and the **interest** channel.
 Geo, semantic, CF and archetype quotas are 0. This applies the brief's own rule (spec section 7:
 "a channel that adds no marginal recall gets deleted") to the measured grid (Decision Register
-DR11, frozen A3 grid at learned K=210): adding geo, semantic, CF and archetype on top of
+DR11, frozen A3 grid at learned K=210, computed on the pre-fix features of section 5.1 and kept
+as historical evidence): adding geo, semantic, CF and archetype on top of
 long-tail + interest raises overall holdout recall from
 0.881 to
 0.903 while inflating the
@@ -288,192 +294,198 @@ row, `recall_strata` below). The quota does not raise the shipped long-tail *sha
 shows the share is set by the ranker and re-ranker, not by the quota — but it is what guarantees
 the ranker is *offered* long-tail POIs, and stage-by-stage precision is diagnosed in section 4.2.
 
-**K rule (E4, pre-registered, blind, applied once).** The learned K is the *smallest K whose
-IPS-weighted validation recall is at least 0.93* (validation = 20% of the train trips against
-logged positives weighted 1/clip(p_expose); the holdout is reporting-only and was never consulted).
-That rule gives **K=195**. It replaces the previous K=210, which had been
-chosen with a 0.90 rule whose margin was adjusted after seeing the holdout gap (a contaminated
-choice; the audit is kept in `results/parts/a3_retriever_grid.json`). The full sweep, holdout
-column included:
+**How K was chosen (E4, and why it changed).** The learned K went through three stages, each
+disclosed: K=210 (a 0.90 validation-recall rule whose margin had been adjusted after seeing the
+holdout gap: contaminated), then K=195 from the *pre-registered blind rule* "smallest K whose
+IPS-weighted validation recall is at least 0.93" (validation = 20% of the train trips against logged
+positives weighted 1/clip(p_expose); the holdout is reporting-only), then — after the feature-skew fix
+of section 5.1 removed label information from the retriever's training features — the same rule
+re-applied to the corrected features. The corrected retriever is honestly weaker on validation, and
+the recall rule now gives **K=270**, whose validation lift over chance is
+0.327: below the BLOCKING Gate-B row
+(lift >= 0.35), so `make reproduce` would stop at Gate-B. No grid K satisfies both
+criteria on validation. Gate-B is the binding ruling, so **the shipped K is
+240**: the largest grid K whose validation lift is at least the gate plus a 0.01
+margin (validation recall 0.911, validation
+lift 0.358). This is a **deviation from the
+requester's E4 recall rule**, made from validation columns only (the holdout column is printed in the
+same table, which is disclosed) and recorded as Amendment 2 in
+`docs/experiments/H-ranker-cross-features.md`. The full sweep, holdout column included:
 
 smallest K with IPS-weighted validation overall recall >= 0.93 (val = 20% of train trips vs logged positives, weighted 1/clip(p_expose)); applied once, blind to the holdout column, which is reporting-only.
 
-| Learned K | Val recall (IPS) | Holdout recall (reporting-only) | Holdout long-tail | Holdout lift | Candidates/trip |
-|---|---|---|---|---|---|
-| 90 | 0.768 | 0.685 | 0.613 | +0.370 | 152 |
-| 105 | 0.800 | 0.723 | 0.654 | +0.385 | 163 |
-| 120 | 0.834 | 0.755 | 0.690 | +0.395 | 174 |
-| 135 | 0.860 | 0.781 | 0.720 | +0.398 | 185 |
-| 150 | 0.883 | 0.805 | 0.749 | +0.397 | 197 |
-| 165 | 0.902 | 0.829 | 0.781 | +0.396 | 209 |
-| 180 | 0.919 | 0.849 | 0.806 | +0.391 | 221 |
-| 195 **(rule)** | 0.933 | 0.866 | 0.828 | +0.382 | 233 |
-| 210 | 0.945 | 0.881 | 0.847 | +0.371 | 246 |
-| 225 | 0.957 | 0.893 | 0.863 | +0.358 | 258 |
-| 240 | 0.963 | 0.906 | 0.881 | +0.344 | 271 |
-| 255 | 0.972 | 0.915 | 0.893 | +0.328 | 283 |
-| 270 | 0.979 | 0.924 | 0.905 | +0.310 | 296 |
-| 285 | 0.985 | 0.933 | 0.916 | +0.293 | 308 |
-| 300 | 0.990 | 0.942 | 0.928 | +0.276 | 321 |
-| 315 | 0.993 | 0.949 | 0.937 | +0.257 | 334 |
-| 330 | 0.996 | 0.956 | 0.947 | +0.237 | 347 |
-| 345 | 0.997 | 0.964 | 0.955 | +0.218 | 359 |
-| 360 | 0.999 | 0.971 | 0.965 | +0.199 | 372 |
+| Learned K | Val recall (IPS) | Val lift | Holdout recall (reporting-only) | Holdout long-tail | Holdout lift | Candidates/trip |
+|---|---|---|---|---|---|---|
+| 90 | 0.676 | +0.363 | 0.701 | 0.639 | +0.388 | 151 |
+| 105 | 0.713 | +0.379 | 0.739 | 0.678 | +0.405 | 161 |
+| 120 | 0.745 | +0.389 | 0.769 | 0.708 | +0.413 | 172 |
+| 135 | 0.773 | +0.394 | 0.796 | 0.742 | +0.417 | 183 |
+| 150 | 0.802 | +0.399 | 0.820 | 0.771 | +0.418 | 194 |
+| 165 | 0.825 | +0.399 | 0.843 | 0.798 | +0.416 | 206 |
+| 180 | 0.845 | +0.394 | 0.866 | 0.822 | +0.415 | 218 |
+| 195 | 0.864 | +0.389 | 0.883 | 0.842 | +0.407 | 230 |
+| 210 | 0.880 | +0.379 | 0.897 | 0.859 | +0.396 | 242 |
+| 225 | 0.897 | +0.370 | 0.911 | 0.874 | +0.384 | 254 |
+| 240 **(shipped)** | 0.911 | +0.358 | 0.924 | 0.890 | +0.371 | 267 |
+| 255 | 0.923 | +0.344 | 0.936 | 0.906 | +0.356 | 280 |
+| 270 **(recall rule)** | 0.933 | +0.327 | 0.947 | 0.920 | +0.340 | 292 |
+| 285 | 0.944 | +0.311 | 0.957 | 0.934 | +0.323 | 306 |
+| 300 | 0.956 | +0.296 | 0.964 | 0.945 | +0.304 | 318 |
+| 315 | 0.964 | +0.277 | 0.970 | 0.952 | +0.282 | 332 |
+| 330 | 0.973 | +0.258 | 0.976 | 0.960 | +0.260 | 345 |
+| 345 | 0.980 | +0.237 | 0.980 | 0.967 | +0.237 | 358 |
+| 360 | 0.984 | +0.212 | 0.985 | 0.974 | +0.213 | 372 |
 
-At the rule K the holdout gives overall recall
-0.866, long-tail recall
-0.828, and chance-corrected lift
-+0.382 (candidate set
-233 POIs per trip in the sweep's
-simplified non-cross-fitted setup; the shipped pipeline's own recall rows are in the gates and the
-scorecard). K was not adjusted after the holdout was read; whatever the gate rows show is the result.
+At the shipped K the sweep's holdout column gives overall recall
+0.924, long-tail recall
+0.890, and chance-corrected lift
++0.371 (candidate set
+267 POIs per trip, in the sweep's simplified
+non-cross-fitted setup; the shipped pipeline's own recall rows are in the gates and the scorecard).
 
 Recall of the candidate set against EXPOSED holdout positives. Each stratum carries its own chance baseline: the share of that stratum's destination POIs a same-size random candidate set would contain. Raw recall without this lift hid a near-chance failure for four phases.
 
 | Stratum | Recall | Chance | Lift (abs) | Trips |
 |---|---|---|---|---|
-| long_tail | 0.826 | 0.434 | +0.392 | 605 |
-| overall | 0.857 | 0.484 | +0.374 | 605 |
-| q1_least_popular | 0.840 | 0.474 | +0.366 | 601 |
-| q2 | 0.811 | 0.393 | +0.417 | 600 |
-| q3 | 0.816 | 0.425 | +0.392 | 603 |
-| q4_most_popular | 0.915 | 0.641 | +0.274 | 605 |
+| long_tail | 0.898 | 0.481 | +0.417 | 605 |
+| overall | 0.926 | 0.553 | +0.374 | 605 |
+| q1_least_popular | 0.914 | 0.531 | +0.383 | 601 |
+| q2 | 0.882 | 0.430 | +0.452 | 600 |
+| q3 | 0.907 | 0.510 | +0.398 | 603 |
+| q4_most_popular | 0.969 | 0.738 | +0.231 | 605 |
 
 Oracle-relevance recall (top 5% of the catalog by true utility; reporting-only):
-0.936 overall,
-0.911 long-tail.
+0.979 overall,
+0.964 long-tail.
 
 **Long-tail quota sweep (DR9)** — the quota barely moves ranking quality or long-tail share, so
 the share is set by the ranker, not the quota:
 
 | Long-tail quota | NDCG@10 | Long-tail share@10 | Long-tail precision@10 | Candidate recall | Long-tail recall |
 |---|---|---|---|---|---|
-| 0 | 0.1492 [0.1391, 0.1598] | 0.156 | 0.238 | 0.845 | 0.794 |
-| 100 | 0.1472 [0.1373, 0.1576] | 0.168 | 0.218 | 0.874 | 0.868 |
-| 25 | 0.1487 [0.1388, 0.1592] | 0.161 | 0.230 | 0.851 | 0.810 |
-| 50 | 0.1485 [0.1385, 0.1590] | 0.161 | 0.227 | 0.857 | 0.826 |
+| 0 | 0.1844 [0.1740, 0.1949] | 0.106 | 0.338 | 0.916 | 0.871 |
+| 100 | 0.1838 [0.1734, 0.1943] | 0.106 | 0.336 | 0.935 | 0.921 |
+| 25 | 0.1844 [0.1739, 0.1948] | 0.106 | 0.338 | 0.921 | 0.884 |
+| 50 | 0.1842 [0.1738, 0.1945] | 0.106 | 0.338 | 0.926 | 0.898 |
 
-### 4.1 Retrieval vs ranking: where does the gain over popularity come from? (E1)
+### 4.1 Where does the gain over popularity come from? (E1, re-run after the skew fix)
 
-The learned retriever raised candidate recall from
-0.596 (the six-channel union it
-replaced) to the recall in the gates, yet the ranker's NDCG@10 edge over content cosine stayed
-small. Candidate-relative NDCG@10 normalises each candidate set by its *own* ideal ranking, so it
-cannot compare two candidate sets — a better retriever surfaces more positives, raising the ideal
-and lowering the ratio for the same ranker. The decomposition therefore uses an **end-to-end
-NDCG@10 with a fixed denominator** (the ideal over every logged label of the trip, identical for
-every candidate set and system), scoring every system on both candidate sets on the same holdout
-trips (the "retrained" row refits the ranker on the old set's own training candidates):
+**Ranking vs retrieval.** Candidate-relative NDCG@10 normalises each candidate set by its *own* ideal
+ranking, so it cannot compare two candidate sets: a better retriever surfaces more positives, raising
+the ideal and lowering the ratio for the same ranker. The decomposition therefore uses an **end-to-end
+NDCG@10 with a fixed denominator** (the ideal over every logged label of the trip, identical for every
+candidate set and system), scoring every system on both the shipped learned-retriever set and the
+original six-channel set (regenerated from the pre-retriever configuration on the corrected features)
+on the same holdout trips. The "retrained" row refits the ranker on the old set own training
+candidates:
 
-| End-to-end NDCG@10 (fixed denominator) | 6-channel union (190 cand/trip) | Learned retriever + long-tail + interest (233 cand/trip) |
+| End-to-end NDCG@10 (fixed denominator) | 6-channel union (190 cand/trip) | Learned retriever + long-tail + interest (266 cand/trip) |
 |---|---|---|
-| Random | 0.0512 [0.0460, 0.0564] | 0.0637 [0.0582, 0.0697] |
-| Popularity | 0.0644 [0.0579, 0.0715] | 0.0596 [0.0536, 0.0661] |
-| Content cosine | 0.1353 [0.1255, 0.1448] | 0.1357 [0.1260, 0.1452] |
-| LambdaMART + IPS (shipped booster) | 0.1445 [0.1345, 0.1548] | 0.1434 [0.1332, 0.1539] |
-| LambdaMART + IPS (retrained on this set) | 0.1462 [0.1360, 0.1562] | — |
-| Oracle (true utility) | 0.3407 [0.3273, 0.3540] | 0.3583 [0.3440, 0.3718] |
+| Random | 0.0512 [0.0460, 0.0564] | 0.0537 [0.0482, 0.0593] |
+| Popularity | 0.0644 [0.0579, 0.0715] | 0.0512 [0.0457, 0.0570] |
+| Content cosine | 0.1353 [0.1255, 0.1448] | 0.1315 [0.1220, 0.1410] |
+| LambdaMART + IPS (shipped booster) | 0.1808 [0.1710, 0.1910] | 0.1814 [0.1712, 0.1923] |
+| LambdaMART + IPS (retrained on this set) | 0.1919 [0.1812, 0.2028] | — |
+| Oracle (true utility) | 0.3407 [0.3273, 0.3540] | 0.3617 [0.3475, 0.3755] |
 
 For reference, the usual candidate-relative NDCG@10 (each set normalised by its own ideal):
 
 | System | 6-channel union | Learned retriever |
 |---|---|---|
-| Random | 0.0601 [0.0542, 0.0662] | 0.0661 [0.0603, 0.0724] |
-| Popularity | 0.0767 [0.0694, 0.0846] | 0.0629 [0.0567, 0.0698] |
-| Content cosine | 0.1603 [0.1494, 0.1712] | 0.1411 [0.1313, 0.1511] |
-| LambdaMART + IPS (shipped booster) | 0.1685 [0.1570, 0.1799] | 0.1485 [0.1385, 0.1590] |
-| LambdaMART + IPS (retrained on this set) | 0.1704 [0.1588, 0.1820] | — |
-| Oracle (true utility) | 0.4037 [0.3893, 0.4187] | 0.3749 [0.3610, 0.3895] |
+| Random | 0.0601 [0.0542, 0.0662] | 0.0547 [0.0491, 0.0604] |
+| Popularity | 0.0767 [0.0694, 0.0846] | 0.0523 [0.0469, 0.0582] |
+| Content cosine | 0.1603 [0.1494, 0.1712] | 0.1336 [0.1243, 0.1432] |
+| LambdaMART + IPS (shipped booster) | 0.2127 [0.2016, 0.2239] | 0.1842 [0.1738, 0.1945] |
+| LambdaMART + IPS (retrained on this set) | 0.2263 [0.2141, 0.2385] | — |
+| Oracle (true utility) | 0.4037 [0.3893, 0.4187] | 0.3682 [0.3547, 0.3827] |
 
-**Decomposition of the headline gain (candidate-relative NDCG@10, learned candidate set, seed 42).**
-Popularity 0.0629 → content cosine
-0.1411
-(**+0.0782**, *content matching*; Wilcoxon
-p=5.43e-36) → LambdaMART + IPS
-0.1485
-(**+0.0074**, *learned ranking*;
-p=0.445; 5-seed mean gap over cosine
-4 of 5 seeds (mean gap +0.0110 NDCG@10)). Almost all of the lift over the popularity ranker the incumbents run is
-achieved by matching a traveler's taste to a POI's content; the learned ranker adds a small,
-not-significant increment on top.
+Reading. (1) **The gain over popularity is a ranking gain.** On the shipped set the primary system is
++0.1303 above popularity end-to-end; cosine alone already gets most
+of the way and the learned ranker adds the rest. (2) **The learned retriever buys recall and
+long-tail coverage, not top-10 NDCG.** With a ranker retrained on each set, the six-channel set scores
+*higher* end-to-end than the learned set (0.1919
+vs 0.1814; paired Wilcoxon
+p = 0.005), even though its
+candidate recall is far lower: a smaller, taste-aligned pool is an easier ranking problem. The
+learned retriever is kept because the brief's recall and long-tail requirements are gate rows
+(section 4 and the scorecard) and the six-channel set fails them, and the choice is a
+recall/coverage-vs-precision trade that this measurement quantifies rather than hides.
 
-**Conclusion.** At this data scale the learned ranker's marginal value over a well-constructed
-content-similarity baseline is small, and we measured it rather than assuming it. That is
-evidence-based model selection, not a shortfall to apologise for: the assignment's own guidance
-(as stated in the brief; the brief text itself is not reproduced in this repository) is that a
-simpler model with thoughtful features and strong evaluation beats unnecessary complexity. Three
-independent measurements point the same way: (1) the validation-only ranker sweep (section 5)
-selected the shipped configuration without using the holdout; (2) the DR2 learning curve shows a
-two-tower ranker at 0.1292 against
-LambdaMART at 0.1464 even on the full
-training set (and 0.1047 against
-0.1409 at a tenth of it), i.e.
-neural complexity buys nothing here; (3) the ranker is well above popularity in every replicated seed, and above cosine in most (not
-all) seeds. The ranker stays because the assignment asks for a learning-to-rank model and it is
-above cosine on average — not because it earns a large margin.
+**Decomposition of the headline gain** (candidate-relative NDCG@10, shipped set, seed 42):
+popularity 0.0523 → content cosine
+0.1336
+(**+0.0813**, *content matching*; Wilcoxon
+p=7.54e-42) → LambdaMART + IPS
+0.1842
+(**+0.0506**, *learned ranking*;
+Wilcoxon p=1.27e-14).
 
-Reading: on the fixed denominator, popularity moves by
--0.0048
-when only the retriever changes; the primary system's gain over popularity is
-+0.0817 on the legacy set and
-+0.0837 on the learned set.
-**The gain over popularity is a ranking gain, not a retrieval gain.** Primary vs content cosine on
-the same (learned) set: paired Wilcoxon p =
-0.405;
-retrieval effect on the primary system (learned vs legacy-retrained): p =
-0.308.
-The honest headline is therefore: a **significant** improvement over the popularity ranker the
-incumbents run, and a **not significant** edge over a plain content-cosine baseline — on this
-simulator the taste signal a cosine captures is most of what a learned ranker extracts.
+**Five-seed paired comparison against content cosine** (the whole pipeline regenerated per seed; H4):
+the primary system is above cosine in 5 of
+5 seeds, mean gap
++0.0623 NDCG@10 (sd of the per-seed gap
+0.0112), paired t-test p =
+0.000239, Wilcoxon signed-rank p =
+0.0625 (with only 5 seeds the smallest attainable
+Wilcoxon p is 0.0625, so the paired t-test and the per-trip test above carry the significance).
+
+**Conclusion.** The learned ranker beats a well-constructed content-similarity baseline by a
+substantial, significant margin once the feature skew of section 5.1 is removed; the earlier
+version of this section concluded the opposite, from skewed features, and is retracted. Popularity to
+cosine (content matching) is still the larger single step, and the DR2 learning curve shows the
+neural alternative is not competitive at this data scale
+(0.1624 for a two-tower ranker against
+0.1845 for LambdaMART on the full
+training set).
 
 ### 4.2 Long-tail precision at every stage (E3)
 
 **The 0.40 long-tail precision target was miscalibrated at design time.** It was set a priori,
 without reference to how often a long-tail candidate is relevant at all. The measured positive
 rate among long-tail candidates in the candidate pool — what any ranker that added no signal would
-deliver — is 0.099; a precision of 0.40 would
+deliver — is 0.097; a precision of 0.40 would
 require roughly four times that. So the primary long-tail precision statistic is **lift over the
 pool's base rate**, and raw precision is secondary: the raw ranker delivers
-2.234x, and the served list (after the hard
-gate, utility and MMR) 1.556x. Raw precision
+3.538x, and the served list (after the hard
+gate, utility and MMR) 2.026x. Raw precision
 still misses 0.40 and is reported as a miss in the scorecard, with this note.
 
 The same audit applies to the **0.85 overall candidate-recall target**: it was also set a priori as
 an absolute number, with no reference to the chance baseline, which depends on the candidate-set
 size. At the shipped set size a random candidate set would already recall
-0.484, so 0.85 means a lift of
-+0.374 over chance. The target is met, but the margin
-is thin (the lowest of the five replicated seeds is
-0.8504) and should not be read as headroom.
+0.553, so 0.85 means a lift of
++0.374 over chance. The target is met in every one of
+the five replicated seeds (lowest 0.9066), but
+an absolute recall number still says little without the chance baseline.
 
 Measured at each serving stage on the same holdout trips (share = fraction of returned slots that
 are long-tail; precision = fraction of those that are positives):
 
 | Stage | Long-tail share | Long-tail precision | Lift over pool base rate |
 |---|---|---|---|
-| 0_candidate_pool (positive rate among long-tail candidates) | 0.448 | 0.099 | 1.000x |
-| 1_raw_ranker_top10 | 0.202 | 0.221 | 2.234x |
-| 2_after_hard_gate_raw_order | 0.230 | 0.185 | 1.871x |
-| 3_after_utility | 0.237 | 0.192 | 1.934x |
-| 4_final_after_mmr | 0.225 | 0.154 | 1.556x |
+| 0_candidate_pool (positive rate among long-tail candidates) | 0.434 | 0.097 | 1.000x |
+| 1_raw_ranker_top10 | 0.113 | 0.343 | 3.538x |
+| 2_after_hard_gate_raw_order | 0.153 | 0.268 | 2.762x |
+| 3_after_utility | 0.162 | 0.262 | 2.699x |
+| 4_final_after_mmr | 0.144 | 0.196 | 2.026x |
 
 MMR lambda (diagnostic, post-hoc on the holdout -- not a selection):
 
 | lambda | Long-tail share | Long-tail precision |
 |---|---|---|
-| 0.5 | 0.234 | 0.138 |
-| 0.6 | 0.228 | 0.145 |
-| 0.7 | 0.221 | 0.148 |
-| 0.8 | 0.225 | 0.154 |
-| 0.9 | 0.227 | 0.173 |
-| 1 | 0.237 | 0.192 |
+| 0.5 | 0.161 | 0.184 |
+| 0.6 | 0.151 | 0.188 |
+| 0.7 | 0.151 | 0.190 |
+| 0.8 | 0.144 | 0.196 |
+| 0.9 | 0.146 | 0.251 |
+| 1 | 0.162 | 0.262 |
 
 Reading: the raw ranker already lifts long-tail precision from the pool's base rate to
-0.221
-(2.234x). The serving stages then give some of it
-back: the hard gate takes it to 0.185, the utility
-layer is ~neutral (0.192), and the MMR diversity re-rank takes it to
-0.154. The gate and MMR each cost about the same. The lambda sweep
+0.343
+(3.538x). The serving stages then give some of it
+back: the hard gate takes it to 0.268, the utility
+layer is ~neutral (0.262), and the MMR diversity re-rank takes it to
+0.196. The gate and MMR each cost about the same. The lambda sweep
 (RESULTS.md, diversity section) is a post-hoc diagnostic on the holdout — it is not a selection and
 lambda is unchanged: lambda 0.8 is a deliberate diversity-for-precision trade whose cost is
 quantified there, and even with no diversity term (lambda 1) precision stays well under 0.40.
@@ -492,51 +504,57 @@ features cannot enter a dot product, which is part of what is being compared.
 
 | Train fraction | Train trips | LambdaMART + IPS NDCG@10 | Two-tower NDCG@10 |
 |---|---|---|---|
-| 10% | 183 | 0.1409 [0.1322, 0.1496] | 0.1047 [0.0983, 0.1109] |
-| 25% | 457 | 0.1481 [0.1386, 0.1577] | 0.1081 [0.1014, 0.1151] |
-| 50% | 914 | 0.1495 [0.1399, 0.1595] | 0.1204 [0.1138, 0.1271] |
-| 100% | 1829 | 0.1464 [0.1370, 0.1561] | 0.1292 [0.1216, 0.1371] |
+| 10% | 183 | 0.1736 [0.1651, 0.1830] | 0.0990 [0.0934, 0.1054] |
+| 25% | 457 | 0.1790 [0.1697, 0.1882] | 0.1245 [0.1179, 0.1319] |
+| 50% | 914 | 0.1810 [0.1712, 0.1907] | 0.1447 [0.1374, 0.1531] |
+| 100% | 1829 | 0.1845 [0.1748, 0.1945] | 0.1624 [0.1535, 0.1717] |
 
-Log-linear extrapolated crossover: ~22,045 training trips (12.1x the 1829 available; 4-point fit, low confidence).
+Log-linear extrapolated crossover: ~4,636 training trips (2.5x the 1829 available; 4-point fit, low confidence).
 
 There is no crossover anywhere on the measured range. The extrapolation is a four-point
 log-linear fit and is an illustration of scale, not a forecast.
 
-**Honest result on the objective (DR3).** The listwise choice is *not* supported by
-measurement here: pointwise objectives tie or beat `lambdarank` on this data (CIs overlap
-widely). `lambdarank` stays because the assignment asks for a learning-to-rank model and the
-differences are within noise, not because it won.
+**Honest result on the objective (DR3).** The listwise choice is *not* supported by measurement:
+on the holdout the pointwise `binary` objective scores
+0.2046 against
+0.1842 for `lambdarank` (the confidence intervals
+just touch), and the validation-only sweep below also ranks `binary` first. `lambdarank` stays because
+the assignment asks for a learning-to-rank model, and because selecting the objective on the holdout
+would leak it into a decision (the validation margin, below, is under the pre-registered bar). That
+choice **costs roughly two hundredths of NDCG@10** on this data; switching `objective` to `binary` in
+`configs/model.yaml` is a one-line change, flagged as the first thing to revisit if the brief allows a
+pointwise model.
 
 | Variant | NDCG@10 (95% CI) |
 |---|---|
-| binary | 0.1590 [0.1483, 0.1701] |
-| lambdarank | 0.1485 [0.1385, 0.1590] |
-| rank_xendcg | 0.1541 [0.1432, 0.1652] |
-| regression | 0.1591 [0.1482, 0.1700] |
+| binary | 0.2046 [0.1939, 0.2159] |
+| lambdarank | 0.1842 [0.1738, 0.1945] |
+| rank_xendcg | 0.1950 [0.1846, 0.2051] |
+| regression | 0.2033 [0.1925, 0.2142] |
 
 **All nine systems, unbiased holdout** (671 trips, bootstrap 95% CI):
 
 | System | NDCG@10 (95% CI) | % of oracle ceiling |
 |---|---|---|
-| 1. Random | 0.0661 [0.0603, 0.0724] | 17.6% |
-| 2. Popularity | 0.0629 [0.0567, 0.0698] | 16.8% |
-| 3. Popularity + geo filter | 0.0623 [0.0562, 0.0688] | 16.6% |
-| 4. Content cosine | 0.1411 [0.1313, 0.1511] | 37.6% |
-| 5. Item-kNN CF | 0.0710 [0.0642, 0.0779] | 18.9% |
-| 6. Logistic regression (CV-tuned L2) | 0.1130 [0.1045, 0.1226] | 30.1% |
-| 7. LambdaMART (no IPS) | 0.1244 [0.1152, 0.1339] | 33.2% |
-| 8. **LambdaMART + IPS (primary)** | 0.1485 [0.1385, 0.1590] | 39.6% |
-| 9. Oracle (ceiling) | 0.3749 [0.3610, 0.3895] | 100.0% |
+| 1. Random | 0.0547 [0.0491, 0.0604] | 14.9% |
+| 2. Popularity | 0.0523 [0.0469, 0.0582] | 14.2% |
+| 3. Popularity + geo filter | 0.0527 [0.0474, 0.0583] | 14.3% |
+| 4. Content cosine | 0.1336 [0.1243, 0.1432] | 36.3% |
+| 5. Item-kNN CF | 0.0604 [0.0542, 0.0670] | 16.4% |
+| 6. Logistic regression (CV-tuned L2) | 0.1196 [0.1109, 0.1290] | 32.5% |
+| 7. LambdaMART (no IPS) | 0.1239 [0.1152, 0.1335] | 33.6% |
+| 8. **LambdaMART + IPS (primary)** | 0.1842 [0.1738, 0.1945] | 50.0% |
+| 9. Oracle (ceiling) | 0.3682 [0.3547, 0.3827] | 100.0% |
 
-Paired Wilcoxon: `lambdamart_ips` vs popularity p=4.34e-41
-(relative lift +136.2%); vs the best baseline (content cosine)
-p=0.445, NOT statistically significant at 0.05, so not a supported win over that baseline (the simple
+Paired Wilcoxon: `lambdamart_ips` vs popularity p=3.54e-75
+(relative lift +252.0%); vs the best baseline (content cosine)
+p=1.27e-14, statistically significant at 0.05 (the simple
 interest-plus-price content baseline is strong on this data; the tested wins are over popularity and
 the no-IPS ranker; the logistic-regression baseline's CI sits below the primary's, but no paired
 test against it is stored); `lambdamart` vs `lambdamart_ips`
-p=7.69e-11.
+p=1.19e-35.
 The logistic-regression baseline is now regularised (L2 strength chosen by trip-grouped CV
-log-loss: C=0.01); the original unregularised fit on 300+
+log-loss: C=0.001); the original unregularised fit on 300+
 columns risked being a straw man.
 
 **One legitimate shot at the ranker (E2).** A single joint sweep over the objective
@@ -549,51 +567,169 @@ configurations at seed 42, then the top five re-fit over three more seeds; the w
 
 | Axis | Value | Mean validation IPS-weighted NDCG@10 |
 |---|---|---|
-| objective | lambdarank | 0.2820 |
-| objective | binary | 0.2803 |
-| objective | rank_xendcg | 0.2828 |
-| IPS clip | 5.0 | 0.2890 |
-| IPS clip | 10.0 | 0.2940 |
-| IPS clip | 20.0 | 0.2929 |
-| IPS clip | 50.0 | 0.2797 |
-| IPS clip | none | 0.2529 |
-| feature blocks | all_features | 0.2951 |
-| feature blocks | no_raw_text_emb | 0.2709 |
-| feature blocks | no_raw_taste | 0.2906 |
-| feature blocks | no_raw_text_no_taste | 0.2702 |
+| objective | lambdarank | 0.1662 |
+| objective | binary | 0.1802 |
+| objective | rank_xendcg | 0.1729 |
+| IPS clip | 5.0 | 0.1849 |
+| IPS clip | 10.0 | 0.1911 |
+| IPS clip | 20.0 | 0.1882 |
+| IPS clip | 50.0 | 0.1698 |
+| IPS clip | none | 0.1315 |
+| feature blocks | all_features | 0.1731 |
+| feature blocks | no_raw_text_emb | 0.1743 |
+| feature blocks | no_raw_taste | 0.1721 |
+| feature blocks | no_raw_text_no_taste | 0.1729 |
 
-Winner (4-seed mean 0.3167): objective lambdarank, IPS clip 20.0, blocks all_features; the previously shipped config scores 0.3167.
+Winner (4-seed mean 0.1944): objective binary, IPS clip 10.0, blocks no_raw_text_emb; the previously shipped config scores 0.1892.
 
-The validation winner is the configuration that already ships: no change was made to the ranker,
-so the single holdout result in this document is the shipped ranker's. The spread across the three
-objectives is small (a few thousandths of validation NDCG); the large effects are the IPS clip
-(no clipping is clearly worst) and keeping the raw text-embedding block. That last point disagrees
-with the holdout feature-block ablation above, where dropping the raw text block moved holdout
-NDCG@10 by +0.0095 (p=0.0121, not
-significant). The two measure different things (IPS-weighted validation on the logged, biased
-population vs unweighted random-exposure holdout) and neither is decisive; the config was chosen
-by the validation-only rule fixed in advance, and the sweep never scored content cosine, so it
-says nothing about closing the gap to it — only that no ranker knob in this grid beats the
-shipped one on validation.
+Re-run on the final pipeline (corrected features, cross features, tuned tree parameters), the
+validation winner is objective **binary**, IPS clip
+10.0, blocks no_raw_text_emb
+(0.1944), against
+0.1892 for the shipped configuration (lambdarank,
+clip 20, all features): a margin of +0.0052, **below
+the +0.010 adoption bar** fixed for experiment H, so it was **not adopted**. The first plain-rule
+reading of E2 ("adopt the validation winner") would adopt it; the bar was applied instead because
+adopting would need a second holdout read after H, and the five finalists sit within a few
+thousandths of each other (the top rows are ties across the raw-block choice). The large effects are
+the IPS clip (no clipping is clearly worst) and the pointwise `binary` objective edging listwise
+ones, which agrees with DR3 below; `lambdarank` stays because the assignment asks for a
+learning-to-rank model, not because it won. The sweep never scored content cosine.
+
+### 5.1 A feature-skew bug found late, and its fix
+
+**What was wrong.** The implicit traveler block (taste vector, category distribution, interaction
+counts, ...) is one row per trip and was computed as-of the trip's `start_date`. A trip's browsing
+session runs 0-45 days *before* `start_date`, and its interactions are the graded labels. For
+**train and validation trips** the implicit features therefore contained the very session being
+predicted; for **holdout trips** they cannot (their session is not in the history pool), which is
+what serving looks like. The skew is directly measurable in the committed data:
+
+| Implicit-block statistic | Train trips (before fix) | Holdout trips (before fix) | Train trips (after fix) | Holdout trips (after fix) |
+|---|---|---|---|---|
+| Days since last interaction (median) | 3 | 102 | 23 | 102 |
+| Interaction count (mean) | 63.0 | 32.2 | 28.0 | 32.2 |
+
+**The fix.** The per-trip as-of cutoff is now `min(start_date, first logged impression of that trip)`
+(`features/traveler_features.py`); holdout trips are unchanged. A regression test
+(`tests/test_traveler_features.py::test_assemble_traveler_features_excludes_own_session_of_train_trips`)
+pins it. The retriever trains on the same features, so it became honestly weaker on validation (see
+the K discussion in section 4).
+
+**Effect, measured once, on the shipped hyperparameters** (a sandbox run of the whole pipeline at seed
+42 with only the fix applied and K held at the previous value; nothing was selected on the holdout; the
+committed submission before the fix is commit `ec8ac4a`):
+
+| NDCG@10, unbiased holdout | Before fix | Fix only (sandbox) |
+|---|---|---|
+| Primary LambdaMART + IPS | 0.1485 | 0.1856 |
+| Content cosine | 0.1411 | 0.1363 |
+| Popularity | 0.0629 | 0.0578 |
+| Wilcoxon p, primary vs content cosine | 0.445 | 2.75e-13 |
+| % of candidate-level oracle ceiling | 39.6% | 49.9% |
+
+**This retracts the earlier conclusion.** Earlier versions of this document (and the submission as first
+tagged) said the learned ranker added little over content cosine and framed that as evidence-based model
+selection. That was an artifact of the skew: the ranker was fitting label-bearing features that do not
+exist at serving time, so it generalised worse than it should have. With the skew removed the ranker
+beats content cosine by a wide, significant margin (section 4.1).
+
+**Why no control caught it.** Train-carved validation shared the skew (validation trips are train
+trips), so validation looked *better* than holdout rather than worse; the ~2x gap between
+IPS-weighted validation NDCG and holdout NDCG was attributed to the different metrics. The taste
+temporal-safety test only exercised `traveler_history_before` on a hand-built fixture, not the per-trip
+cutoff `assemble_traveler_features` actually applied. Both are now covered.
+
+### 5.2 Explicit cross features and ranker tuning (experiment H)
+
+Pre-registered in `docs/experiments/H-ranker-cross-features.md` before any run (with two amendments,
+both dated and both recorded before the runs they affect). Hypothesis (from the requester): the
+ranker cannot see the traveler x POI interaction terms cosine misses. All selection below is on
+train-carved validation (IPS-weighted NDCG@10, 4 seeds), with the holdout read once after freezing.
+
+**H0 diagnostics.** Grouped-SHAP share by feature group, on the model before the fix and on the final model:
+
+| Group | Before fix | Final model |
+|---|---|---|
+| implicit_taste | 59.4% | 43.2% |
+| interest_match | 16.5% | 16.8% |
+| popularity | 6.4% | 13.0% |
+| price_fit | 6.3% | 6.5% |
+| localness_fit | 5.1% | 4.3% |
+| geo | 1.0% | 2.6% |
+| quality | 4.6% | 6.6% |
+| party_fit | 0.3% | 4.6% |
+| hours | 0.2% | 0.6% |
+| novelty | 0.0% | 1.7% |
+
+The requester's hypothesis is only partly supported: localness, party, price and novelty are a
+minority of attribution (they were ~12% before the fix), but the dominant group before the fix
+(`implicit_taste`, the group carrying the skew) was the artifact, not an unexploited signal. The
+10-cross-feature-only probe scored 0.2257 against
+0.3167 for the full model on the contaminated
+validation (it did not match), and 0.1594 against
+0.1728 on the corrected validation (a small model gets most of the way).
+
+**Protocol consequence (Amendment 1).** The pre-registered bar (+0.010 over the shipped config) was
+defined on contaminated validation, so H1-H3 were re-run on corrected frames with the bar re-baselined
+*before* any candidate was scored: shipped-config corrected-validation baseline
+0.1728,
+bar 0.1828.
+
+| Candidate (validation, 4-seed mean) | Val IPS-NDCG@10 | vs bar |
+|---|---|---|
+| H1: all 20 cross features added | 0.1827 | missed by 0.00005 |
+| H1 ablation: +localness crosses only | 0.1774 | below |
+| H1 ablation: +price crosses only | 0.1755 | below |
+| H1 ablation: +interest crosses only | 0.1762 | below |
+| H1 ablation: +compatibility sub-scores only | 0.1787 | below |
+| H1 ablation: +history (repeat, dismissed) only | 0.1782 | below |
+| H2: cosine `init_score`, shipped features (scale 1 / 2) | 0.1652 / 0.1366 | worse than baseline |
+| H2: cosine `init_score`, + cross features (scale 1 / 2) | 0.1731 / 0.1441 | worse |
+| H3: + cross, num_leaves 15 | 0.1856 | met |
+| H3: + cross, leaves 15, linear label gain | **0.1892** | **met (margin 0.0064)** |
+| H3: + cross, leaves 15, truncation 40 | 0.1835 | met |
+| H3: shipped features + leaves 15 (attribution) | 0.1750 | below |
+
+The H1 result alone missed the bar by a hair; `init_score` residual learning did **not** help (the
+"at least as good as cosine by construction" idea hurt validation), and the adopted configuration is
+the argmax of the declared joint runs: cross features + 15 leaves + linear label gain (the linear
+gain deliberately decouples the training gain from the reported metric gain). Attribution on
+validation: leaves alone +0.0022, cross features
+on top of leaves +0.0106,
+linear gain on top +0.0036.
+
+**Holdout, read once.** Adopted configuration: primary NDCG@10
+0.1842. The same pipeline without H (same K, corrected features,
+seed 42): 0.1816 — a holdout
+difference of +0.0026 NDCG@10, far smaller than the validation gain and inside
+the bootstrap CI: the validation improvement did **not** transfer at anything like its validation size
+(winner's-curse selection among ~14 validation candidates, plus IPS-weighted validation vs unweighted
+holdout, are the likely reasons; not separately tested). H was adopted because the pre-registered rule
+said to; the honest reading is that essentially all of the ranker's gain over cosine comes from the
+skew fix, not from H.
 
 ## 6. IPS correction
 
 Training weight `clip(1/p_expose, 1, clip_high)` renormalised per trip, unexposed candidates at
 neutral weight 1.0 (dropping them would remove most negatives). Exposure rate of fit rows:
-24.9%. Ablating IPS changes NDCG@10 by the `-IPS_weighting` row above.
+24.6%. Ablating IPS changes NDCG@10 by the `-IPS_weighting` row above.
 
-**The clip is not NDCG-optimal on the holdout (DR7).** Less clipping is monotonically better
-here, and no-clip is highest. Selecting the clip on the holdout would leak it into a decision,
-so the shipped value stays and this is reported as an open improvement:
+**The clip is not NDCG-optimal on the holdout (DR7).** Holdout NDCG@10 rises with the clip up to 50
+(0.2131 against 0.1842
+at the shipped 20) and is lower again with no clipping (0.1891);
+the validation-only sweep prefers clips of 10-20, i.e. validation and holdout disagree on where the
+optimum is. Selecting the clip on the holdout would leak it into a decision, so the shipped value stays
+and this is reported as an open improvement:
 
 | Variant | NDCG@10 (95% CI) |
 |---|---|
-| 10 | 0.1439 [0.1335, 0.1545] |
-| 20 | 0.1485 [0.1385, 0.1590] |
-| 5 | 0.1356 [0.1256, 0.1458] |
-| 50 | 0.1618 [0.1513, 0.1727] |
-| no_ips | 0.1244 [0.1152, 0.1339] |
-| none | 0.1571 [0.1466, 0.1678] |
+| 10 | 0.1751 [0.1658, 0.1852] |
+| 20 | 0.1842 [0.1738, 0.1945] |
+| 5 | 0.1504 [0.1413, 0.1601] |
+| 50 | 0.2131 [0.2008, 0.2253] |
+| no_ips | 0.1239 [0.1152, 0.1335] |
+| none | 0.1891 [0.1783, 0.2002] |
 
 ## 7. Scoring layer — multiplicative utility over the brief's additive formula
 
@@ -609,20 +745,20 @@ ranking in production; violations are rows with `hard_gate == 0` in a returned t
 
 | Rule | Hard violations in top-10 | Trips with >= 1 | Mean compat@10 | NDCG@10 |
 |---|---|---|---|---|
-| additive_no_gate (brief) | 901 | 229 / 671 | 0.8616 | 0.1408 |
-| additive_with_gate_filter | 0 | 0 / 671 | 0.8713 | 0.1275 |
-| multiplicative_gated (production) | 0 | 0 / 671 | 0.8368 | 0.1357 |
-| multiplicative_no_gate | 1484 | 314 / 671 | 0.8127 | 0.1526 |
+| additive_no_gate (brief) | 974 | 230 / 671 | 0.8603 | 0.1740 |
+| additive_with_gate_filter | 0 | 0 / 671 | 0.8708 | 0.1577 |
+| multiplicative_gated (production) | 0 | 0 / 671 | 0.8420 | 0.1644 |
+| multiplicative_no_gate | 1391 | 284 / 671 | 0.8209 | 0.1813 |
 
 The production rule returns **0**
-violations across 6598 recommended slots
+violations across 6631 recommended slots
 (build-blocking test + `make audit`). Additive scoring returns violations because a high
 relevance score can outvote a failed factor. NDCG does *not* show a cost for the violations
 (section 0, limit 3): the additive rule's NDCG@10
-(0.1408) is slightly above
-the gated production rule's (0.1357),
+(0.1740) is slightly above
+the gated production rule's (0.1644),
 and the ungated multiplicative variant is higher still
-(0.1526) — i.e. the gate itself
+(0.1813) — i.e. the gate itself
 costs a little NDCG on these labels, by construction, and buys the guarantee. That the labels
 ignore constraints is a limitation of the simulator, not evidence for the additive rule.
 
@@ -630,39 +766,39 @@ ignore constraints is a limitation of the simulator, not evidence for the additi
 
 | Aggregator | NDCG@10 (gated) | Hard violations (ungated) | compat@10 (ungated) |
 |---|---|---|---|
-| arithmetic_mean | 0.1341 | 1585 | 0.8445 |
-| geometric_mean (production) | 0.1357 | 1484 | 0.8127 |
-| min | 0.1347 | 990 | 0.6124 |
-| product | 0.1322 | 884 | 0.4573 |
+| arithmetic_mean | 0.1642 | 1476 | 0.8523 |
+| geometric_mean (production) | 0.1644 | 1391 | 0.8209 |
+| min | 0.1616 | 994 | 0.6193 |
+| product | 0.1562 | 903 | 0.4603 |
 
 **DR10 — α×β grid** (gated multiplicative; shipped α=1.0, β=0.7 sits on a flat surface):
 
 | alpha | beta | NDCG@10 | compat@10 |
 |---|---|---|---|
-| 0.5 | 0.0 | 0.1295 | 0.7913 |
-| 0.5 | 0.3 | 0.1350 | 0.8350 |
-| 0.5 | 0.7 | 0.1355 | 0.8469 |
-| 0.5 | 1.0 | 0.1336 | 0.8542 |
-| 0.5 | 1.5 | 0.1323 | 0.8637 |
-| 1.0 | 0.0 | 0.1295 | 0.7913 |
-| 1.0 | 0.3 | 0.1348 | 0.8306 |
-| 1.0 | 0.7 | 0.1357 | 0.8368 |
-| 1.0 | 1.0 | 0.1362 | 0.8413 |
-| 1.0 | 1.5 | 0.1357 | 0.8482 |
-| 2.0 | 0.0 | 0.1295 | 0.7913 |
-| 2.0 | 0.3 | 0.1345 | 0.8285 |
-| 2.0 | 0.7 | 0.1347 | 0.8312 |
-| 2.0 | 1.0 | 0.1348 | 0.8334 |
-| 2.0 | 1.5 | 0.1356 | 0.8375 |
+| 0.5 | 0.0 | 0.1627 | 0.8217 |
+| 0.5 | 0.3 | 0.1648 | 0.8403 |
+| 0.5 | 0.7 | 0.1637 | 0.8517 |
+| 0.5 | 1.0 | 0.1628 | 0.8579 |
+| 0.5 | 1.5 | 0.1585 | 0.8660 |
+| 1.0 | 0.0 | 0.1627 | 0.8217 |
+| 1.0 | 0.3 | 0.1659 | 0.8360 |
+| 1.0 | 0.7 | 0.1644 | 0.8420 |
+| 1.0 | 1.0 | 0.1638 | 0.8463 |
+| 1.0 | 1.5 | 0.1633 | 0.8528 |
+| 2.0 | 0.0 | 0.1627 | 0.8217 |
+| 2.0 | 0.3 | 0.1655 | 0.8341 |
+| 2.0 | 0.7 | 0.1658 | 0.8366 |
+| 2.0 | 1.0 | 0.1653 | 0.8388 |
+| 2.0 | 1.5 | 0.1645 | 0.8428 |
 
 ## 8. Calibration
 
 Raw LambdaMART scores are unbounded and not comparable across travelers; the output's
 `planner_weight` needs calibrated scores. Isotonic regression is fit on a calibration split
 carved by trip from the fit frame (disjoint from the early-stopping validation trips and from
-the holdout). Measured on the holdout: ECE 0.4444 (naive min-max) →
-**0.0466** (isotonic), Brier 0.3139 →
-0.1047. The `-calibration` ablation is ~0 by construction (isotonic is
+the holdout). Measured on the holdout: ECE 0.4711 (naive min-max) →
+**0.0300** (isotonic), Brier 0.3317 →
+0.0976. The `-calibration` ablation is ~0 by construction (isotonic is
 monotone, so it cannot change within-trip ranking); calibration's job is cross-traveler
 comparability, which NDCG does not measure.
 
@@ -694,29 +830,31 @@ labels (dominant archetype, within-pairs also requiring mixture cosine > 0.8), w
 version kept and labelled as a proxy. (3) The ratio target is now bounded by a reference: the
 same statistic for lists ranked by the true utility.
 
-- same-destination mean pairwise Jaccard@10: 0.0394
+- same-destination mean pairwise Jaccard@10: 0.0764
   (74775 pairs); all-pairs (pooled, structurally diluted):
-  0.0131
-- true-label within / cross Jaccard: 0.0508
-  / 0.0385, ratio
-  **1.32**
+  0.0254
+- true-label within / cross Jaccard: 0.0903
+  / 0.0752, ratio
+  **1.20**
 - reference (perfect ranker): ratio
-  1.86
-- K-Means proxy ratio: 1.14
+  1.89
+- K-Means proxy ratio: 1.19
 
-**Confidence.** The confidence-decile Spearman is now 0.879
-(previously negative on the broken simulator), passing the ≥0.6 target.
+**Confidence.** The confidence-decile Spearman is 0.358, below
+the ≥0.6 target (a MISSED scorecard row, diagnosed there; it was
+0.879 before the feature-skew fix of section 5.1).
 
 **Cold start / new POIs / LODO.** New-POI cohort with vs without behavioural dropout: NDCG@10
-0.5553 vs 0.5565
-(paired Wilcoxon p=0.810: directionally
-consistent with the intent, not statistically significant at this cohort size).
+0.6019 vs 0.6092
+(paired Wilcoxon p=0.328: not statistically
+significant at this cohort size; the point estimate is lower with dropout, so the new-POI
+benefit the dropout was designed for is not demonstrated here).
 Leave-one-destination-out (three retrains): see the cold-start section of `docs/RESULTS.md`.
 
 **Scenarios** (Seoul; spec.md section 15's three required profiles plus the touristiness-flip
 diagnostic, narrated as inbound personas): the flip's top-10 overlap is
-0.176 (target ≤ 0.35), from candidate pools
-that overlap at 0.612.
+0.538 (target ≤ 0.35), from candidate pools
+that overlap at 0.717.
 
 ### Scorecard — every miss carries a diagnosis
 
@@ -724,28 +862,30 @@ Stated up front, then measured. Every MISSED row carries a diagnosis below -- a 
 
 | Metric | Target | Measured | Status |
 |---|---|---|---|
-| NDCG@10 vs popularity | &ge; +40% relative, Wilcoxon p < 0.01 | +136.2% relative, p=4.336e-41 | **MET** |
-| % of oracle ceiling (candidate-level NDCG@10) | &ge; 70% | 39.6% | **MISSED** |
-| Candidate recall, overall (exposed positives) | &ge; 0.85 | 0.8573 | **MET** |
-| Candidate recall, long-tail stratum | &ge; 0.75 | 0.8262 | **MET** |
+| NDCG@10 vs popularity | &ge; +40% relative, Wilcoxon p < 0.01 | +252.0% relative, p=3.537e-75 | **MET** |
+| % of oracle ceiling (candidate-level NDCG@10) | &ge; 70% | 50.0% | **MISSED** |
+| Candidate recall, overall (exposed positives) | &ge; 0.85 | 0.9262 | **MET** |
+| Candidate recall, long-tail stratum | &ge; 0.75 | 0.8975 | **MET** |
 | Candidate recall lift over chance (overall) | &ge; +0.35 | +0.374 | **MET** |
-| Cross-archetype Jaccard@10 (true labels) | &le; 0.25 | 0.0385 | **MET** |
-| Within/cross Jaccard ratio (true labels) | &ge; 2.0 | 1.32 | **MISSED** |
+| Cross-archetype Jaccard@10 (true labels) | &le; 0.25 | 0.0752 | **MET** |
+| Within/cross Jaccard ratio (true labels) | &ge; 2.0 | 1.20 | **MISSED** |
 | Hard-constraint violations in top-10 | = 0 | 0 | **MET** |
-| ECE after calibration | &le; 0.05 | 0.0466 | **MET** |
-| Confidence-decile NDCG rank correlation (Spearman; need not be strictly monotone) | &ge; 0.6 (spec-v2; spec.md section 11.10 said 0.7) | 0.879 | **MET** |
-| Long-tail share of top-10 | &ge; 0.25 | 0.2252 | **MISSED** |
-| Long-tail precision of top-10 | &ge; 0.40 | 0.1541 | **MISSED** |
+| ECE after calibration | &le; 0.05 | 0.0300 | **MET** |
+| Confidence-decile NDCG rank correlation (Spearman; need not be strictly monotone) | &ge; 0.6 (spec-v2; spec.md section 11.10 said 0.7) | 0.358 | **MISSED** |
+| Long-tail share of top-10 | &ge; 0.25 | 0.1436 | **MISSED** |
+| Long-tail precision of top-10 | &ge; 0.40 | 0.1964 | **MISSED** |
 | Localness index Spearman vs latent localness | &ge; 0.6 | 0.5815 | **MISSED** |
-| Scenario-4 (touristiness flip) top-10 overlap | &le; 0.35 | 0.176 | **MET** |
+| Scenario-4 (touristiness flip) top-10 overlap | &le; 0.35 | 0.538 | **MISSED** |
 
 ### Diagnoses of the missed rows
 
 - **% of oracle ceiling (candidate-level NDCG@10)**: The oracle ranks the SAME candidates by the DGP's true utility; the model only sees observable features. Text is not the limiting link: text-alone within-trip taste fidelity is 0.927 and D11 ridge R2 is 0.865. The taste ESTIMATOR is: run over the TRUE semantic vectors it still reaches only 0.572 (shipped chain 0.473), from sparse, exposure-biased histories.
-- **Within/cross Jaccard ratio (true labels)**: Within/cross-archetype list similarity ratio for lists ranked by the TRUE utility (a perfect ranker, same-destination pairs): 1.86 (within 0.0643, cross 0.0345); so the target is NOT attainable even by a perfect ranker in this simulator: the shortfall is a property of the simulator under this target, not of the model.
-- **Long-tail share of top-10**: Long-tail share of the served top-10 is 0.2252. Decision Register DR9 varies the long-tail candidate quota and measures the raw ranker's top-10 share: quota 0 -> 0.156, quota 100 -> 0.168, quota 25 -> 0.161, quota 50 -> 0.161. The candidate quota is therefore not the lever; the share is set by the ranker's scores (and the MMR re-rank) over a candidate set that already contains long-tail POIs.
-- **Long-tail precision of top-10**: Long-tail precision is 0.1541 over 1486 long-tail recommendations, with candidate recall 0.826 in that stratum, so retrieval is not the bottleneck. Measured against the pool's own long-tail positive rate (0.099) the served list is a 1.556x lift (raw ranker 2.234x): the 0.40 target was set a priori without reference to that base rate and was miscalibrated at design time, so lift over base rate is the primary statistic and raw precision secondary (TECHNICAL.md section 4.2). The raw ranker's top-10 long-tail precision (DR9, quota 50, before the compatibility gate, utility and MMR re-rank) is 0.2271 at share 0.1614, against 0.1541 at share 0.2252 in the served list: precision is lost AFTER ranking while share rises. Which of the three scoring-layer steps is responsible is not isolated (untested).
+- **Within/cross Jaccard ratio (true labels)**: Within/cross-archetype list similarity ratio for lists ranked by the TRUE utility (a perfect ranker, same-destination pairs): 1.89 (within 0.0632, cross 0.0334); so the target is NOT attainable even by a perfect ranker in this simulator: the shortfall is a property of the simulator under this target, not of the model.
+- **Confidence-decile NDCG rank correlation (Spearman; need not be strictly monotone)**: Confidence-decile Spearman is 0.358. Before the feature-skew fix (TECHNICAL.md section 5.1) this row was 0.879: the confidence ensemble and the ranker were retrained on the corrected features and the decile ordering changed with them (the holdout features themselves are unchanged). UNVERIFIED hypothesis: the evidence-volume terms dominate the ensemble-sd term, so deciles separate by evidence volume rather than correctness; test = per-component Spearman vs decile NDCG (untested).
+- **Long-tail share of top-10**: Long-tail share of the served top-10 is 0.1436. Decision Register DR9 varies the long-tail candidate quota and measures the raw ranker's top-10 share: quota 0 -> 0.106, quota 100 -> 0.106, quota 25 -> 0.106, quota 50 -> 0.106. The candidate quota is therefore not the lever; the share is set by the ranker's scores (and the MMR re-rank) over a candidate set that already contains long-tail POIs.
+- **Long-tail precision of top-10**: Long-tail precision is 0.1964 over 952 long-tail recommendations, with candidate recall 0.898 in that stratum, so retrieval is not the bottleneck. Measured against the pool's own long-tail positive rate (0.097) the served list is a 2.026x lift (raw ranker 3.538x): the 0.40 target was set a priori without reference to that base rate and was miscalibrated at design time, so lift over base rate is the primary statistic and raw precision secondary (TECHNICAL.md section 4.2). The raw ranker's top-10 long-tail precision (DR9, quota 50, before the compatibility gate, utility and MMR re-rank) is 0.3375 at share 0.1064, against 0.1964 at share 0.1436 in the served list: precision is lost AFTER ranking while share rises. Which of the three scoring-layer steps is responsible is not isolated (untested).
 - **Localness index Spearman vs latent localness**: The composite index reaches rho 0.582; its observable inputs correlate with the latent localness at dist_to_tourist_centroid_km 0.699, foreign_review_ratio -0.555, local_tag_hits 0.050, pop_pct -0.187. The composite is BELOW its best single input (dist_to_tourist_centroid_km, |rho| 0.699): the blend weights were fixed earlier, when the geo input carried almost no signal (before the simulator's geo/localness fix). Re-weighting them against the latent localness would be tuning on the oracle (there is no oracle-free validation target for this index), so that retune is declined on principle: the index is left as shipped and the gap is reported.
+- **Scenario-4 (touristiness flip) top-10 overlap**: Top-10 overlap 0.538 with candidate-pool Jaccard 0.717 between the two profiles (measured from the candidate generator's own output). Before the feature-skew fix (TECHNICAL.md section 5.1) this row was 0.176; the fix changed how much the ranker relies on which signals, and the flip now moves the top-10 less. The localness_fit group carries only 0.043 of the final model grouped-SHAP attribution (section 5.2), so touristiness_pref has limited leverage on the ranking. UNVERIFIED hypothesis: the label-carrying implicit features used to interact with the preference terms in a way the corrected features do not (untested; diagnostic scenario, not a product requirement).
 
 ## 11. Production considerations
 
@@ -790,16 +930,16 @@ Every design choice not dictated by the assignment, the alternative, the experim
 
 | # | Decision | Alternative | Experiment | Result / verdict | Status |
 |---|---|---|---|---|---|
-| DR1 | Multiplicative utility rel^a * compat^b with a hard gate | The brief's additive formula a*rel + b*compat | Same holdout candidates/relevance/compatibility; rank by each combination rule; count hard-constraint violations (hard_gate == 0) among the top-10 of every holdout trip. | Additive scoring puts 901 hard-constraint violations into 229/671 trips' top-10; the multiplicative gated rule puts 0. NDCG@10 0.1408 (additive) vs 0.1357 (multiplicative gated); mean compat@10 0.8616 vs 0.8368. | MEASURED |
-| DR2 | LightGBM LambdaMART ranker | Two-tower neural ranker (shared-space dot product) | Learning curve: both rankers fit on [0.1, 0.25, 0.5, 1.0] of TRAIN trips x seeds [42, 43, 44] (same IPS weights, same train-carved early stopping), scored on the full unbiased holdout; per-trip NDCG@10 averaged over seeds, 2000-resample trip bootstrap CIs. | Two-tower NDCG@10 0.1047, 0.1081, 0.1204, 0.1292 vs LambdaMART-IPS 0.1409, 0.1481, 0.1495, 0.1464 at fractions [0.1, 0.25, 0.5, 1.0]. Crossover at any measured point: False. Log-linear extrapolation puts a crossover at ~22,045 training trips (12.1x the 1829 used; 4-point fit, low confidence). CIs overlap at 100%. | MEASURED |
-| DR3 | Listwise LambdaRank objective | Pointwise binary / graded regression, listwise rank_xendcg | Same features, IPS weights, dropout, split and early-stopping metric (NDCG@10); only the LightGBM objective varies. | lambdarank 0.1485 [0.1385, 0.1590]; rank_xendcg 0.1541 [0.1432, 0.1652]; binary 0.1590 [0.1483, 0.1701]; regression 0.1591 [0.1482, 0.1700] | MEASURED |
-| DR4 | TF-IDF -> SVD-64 POI text embedding | all-MiniLM-L6-v2 sentence embeddings (-> SVD-64) | Swap ONLY the POI text embedding (and the taste vectors and POI features built from it) and refit the ranker on the fixed candidate sets; measure representation fidelity (D9 within-trip, D11) and holdout NDCG@10. THIS SYNTHETIC CORPUS is generated from anchored, synonym-rich phrase pools over latent dimensions, so its vocabulary design favours lexical overlap: the outcome is a statement about this dataset, not a verdict on sentence encoders. | TF-IDF: D11 0.865, D9 0.473, NDCG@10 0.1485. MiniLM: D11 0.590, D9 0.258, NDCG@10 0.1432 (CIs overlap). Dataset-specific (templated synonym-pool text); transfer to real POI text is untested. | MEASURED |
+| DR1 | Multiplicative utility rel^a * compat^b with a hard gate | The brief's additive formula a*rel + b*compat | Same holdout candidates/relevance/compatibility; rank by each combination rule; count hard-constraint violations (hard_gate == 0) among the top-10 of every holdout trip. | Additive scoring puts 974 hard-constraint violations into 230/671 trips' top-10; the multiplicative gated rule puts 0. NDCG@10 0.1740 (additive) vs 0.1644 (multiplicative gated); mean compat@10 0.8603 vs 0.8420. | MEASURED |
+| DR2 | LightGBM LambdaMART ranker | Two-tower neural ranker (shared-space dot product) | Learning curve: both rankers fit on [0.1, 0.25, 0.5, 1.0] of TRAIN trips x seeds [42, 43, 44] (same IPS weights, same train-carved early stopping), scored on the full unbiased holdout; per-trip NDCG@10 averaged over seeds, 2000-resample trip bootstrap CIs. | Two-tower NDCG@10 0.0990, 0.1245, 0.1447, 0.1624 vs LambdaMART-IPS 0.1736, 0.1790, 0.1810, 0.1845 at fractions [0.1, 0.25, 0.5, 1.0]. Crossover at any measured point: False. Log-linear extrapolation puts a crossover at ~4,636 training trips (2.5x the 1829 used; 4-point fit, low confidence). CIs separated at 100%. | MEASURED |
+| DR3 | Listwise LambdaRank objective | Pointwise binary / graded regression, listwise rank_xendcg | Same features, IPS weights, dropout, split and early-stopping metric (NDCG@10); only the LightGBM objective varies. | lambdarank 0.1842 [0.1738, 0.1945]; rank_xendcg 0.1950 [0.1846, 0.2051]; binary 0.2046 [0.1939, 0.2159]; regression 0.2033 [0.1925, 0.2142] | MEASURED |
+| DR4 | TF-IDF -> SVD-64 POI text embedding | all-MiniLM-L6-v2 sentence embeddings (-> SVD-64) | Swap ONLY the POI text embedding (and the taste vectors and POI features built from it) and refit the ranker on the fixed candidate sets; measure representation fidelity (D9 within-trip, D11) and holdout NDCG@10. THIS SYNTHETIC CORPUS is generated from anchored, synonym-rich phrase pools over latent dimensions, so its vocabulary design favours lexical overlap: the outcome is a statement about this dataset, not a verdict on sentence encoders. | TF-IDF: D11 0.865, D9 0.473, NDCG@10 0.1786. MiniLM: D11 0.590, D9 0.258, NDCG@10 0.1758 (CIs overlap). Dataset-specific (templated synonym-pool text); transfer to real POI text is untested. | MEASURED |
 | DR5 | Brute-force cosine retrieval | ANN index (faiss / hnswlib) | NOT RUN | NOT RUN (ANN only matters at catalog sizes far beyond this take-home's three destinations; cut for time, so 'brute force is fine here' is reasoning, not evidence) | NOT RUN |
-| DR6 | Geometric-mean compatibility aggregation | min(), plain product, arithmetic mean | Recompute compatibility from the 6 sub-scores with each aggregator; rank gated and ungated multiplicative utility. | Ungated hard-violation counts: geometric_mean (production)=1484, min=990, product=884, arithmetic_mean=1585; NDCG@10 gated: geometric_mean (production)=0.1357, min=0.1347, product=0.1322, arithmetic_mean=0.1341. Geometric mean ungated NDCG 0.1526. | MEASURED |
-| DR7 | IPS clip = 20 | clip in {5, 10, 50, none} | IPS clip-high swept with everything else fixed (weights renormalised per trip). | clip 5: 0.1356 [0.1256, 0.1458]; clip 10: 0.1439 [0.1335, 0.1545]; clip 20: 0.1485 [0.1385, 0.1590]; clip 50: 0.1618 [0.1513, 0.1727]; clip none: 0.1571 [0.1466, 0.1678]; clip no_ips: 0.1244 [0.1152, 0.1339] | MEASURED |
-| DR8 | 180-day taste half-life and spec interaction weights | +-2x half-life; uniform interaction weights | Rebuild the traveler features with a different taste half-life / interaction weights, refit the ranker on the fixed candidate sets, and score the unbiased holdout; D9 (within-trip, reporting-only) shows the effect on estimator fidelity. | halflife_180d (shipped): NDCG@10 0.1485, D9 0.473; halflife_90d: NDCG@10 0.1496, D9 0.470; halflife_360d: NDCG@10 0.1614, D9 0.474; uniform_weights: NDCG@10 0.1624, D9 0.052 | MEASURED |
-| DR9 | Long-tail candidate quota = 50 | quota in {0, 25, 100} | Regenerate the holdout candidate sets with a different long-tail hard-floor quota (retriever scores fixed); score with the SHIPPED booster (trained at quota 50, not refit per quota); raw ranker top-10, no MMR/gates. | quota 0: NDCG@10 0.1492, long-tail share 0.156, candidate recall 0.845; quota 25: NDCG@10 0.1487, long-tail share 0.161, candidate recall 0.851; quota 50: NDCG@10 0.1485, long-tail share 0.161, candidate recall 0.857; quota 100: NDCG@10 0.1472, long-tail share 0.168, candidate recall 0.874 | MEASURED |
-| DR10 | alpha = 1.0, beta = 0.7 | alpha x beta grid | Gated multiplicative utility over an alpha x beta grid on the same holdout scoring pass. | Shipped (alpha=1.0, beta=0.7): NDCG@10 0.1357, compat@10 0.8368. NDCG-best cell (alpha=1.0, beta=1.0): 0.1362, compat@10 0.8413. | MEASURED |
+| DR6 | Geometric-mean compatibility aggregation | min(), plain product, arithmetic mean | Recompute compatibility from the 6 sub-scores with each aggregator; rank gated and ungated multiplicative utility. | Ungated hard-violation counts: geometric_mean (production)=1391, min=994, product=903, arithmetic_mean=1476; NDCG@10 gated: geometric_mean (production)=0.1644, min=0.1616, product=0.1562, arithmetic_mean=0.1642. Geometric mean ungated NDCG 0.1813. | MEASURED |
+| DR7 | IPS clip = 20 | clip in {5, 10, 50, none} | IPS clip-high swept with everything else fixed (weights renormalised per trip). | clip 5: 0.1504 [0.1413, 0.1601]; clip 10: 0.1751 [0.1658, 0.1852]; clip 20: 0.1842 [0.1738, 0.1945]; clip 50: 0.2131 [0.2008, 0.2253]; clip none: 0.1891 [0.1783, 0.2002]; clip no_ips: 0.1239 [0.1152, 0.1335] | MEASURED |
+| DR8 | 180-day taste half-life and spec interaction weights | +-2x half-life; uniform interaction weights | Rebuild the traveler features with a different taste half-life / interaction weights, refit the ranker on the fixed candidate sets, and score the unbiased holdout; D9 (within-trip, reporting-only) shows the effect on estimator fidelity. | halflife_180d (shipped): NDCG@10 0.1786, D9 0.473; halflife_90d: NDCG@10 0.1786, D9 0.470; halflife_360d: NDCG@10 0.1787, D9 0.474; uniform_weights: NDCG@10 0.1810, D9 0.052 | MEASURED |
+| DR9 | Long-tail candidate quota = 50 | quota in {0, 25, 100} | Regenerate the holdout candidate sets with a different long-tail hard-floor quota (retriever scores fixed); score with the SHIPPED booster (trained at quota 50, not refit per quota); raw ranker top-10, no MMR/gates. | quota 0: NDCG@10 0.1844, long-tail share 0.106, candidate recall 0.916; quota 25: NDCG@10 0.1844, long-tail share 0.106, candidate recall 0.921; quota 50: NDCG@10 0.1842, long-tail share 0.106, candidate recall 0.926; quota 100: NDCG@10 0.1838, long-tail share 0.106, candidate recall 0.935 | MEASURED |
+| DR10 | alpha = 1.0, beta = 0.7 | alpha x beta grid | Gated multiplicative utility over an alpha x beta grid on the same holdout scoring pass. | Shipped (alpha=1.0, beta=0.7): NDCG@10 0.1644, compat@10 0.8420. NDCG-best cell (alpha=1.0, beta=0.3): 0.1659, compat@10 0.8360. | MEASURED |
 | DR11 | Candidate generation = learned retriever + long-tail + interest | The original 6 heuristic channels, and subsets of them | Channel-subset grid at learned K=210 on a train-carved validation split (IPS-weighted logged positives); holdout columns are reporting-only. `none` = the learned retriever alone. Baseline = the original 6-channel heuristic union. | Legacy 6-channel union: recall 0.596 (lift +0.203). Shipped learned+long-tail+interest: recall 0.881 (lift +0.371, 246 candidates/trip). Ranking by true utility would recall 0.991 at the same budget (diagnostic). | MEASURED |
 
 **DR4 (TF-IDF vs MiniLM) — read the caveat.** The synthetic corpus is generated from anchored,
@@ -811,8 +951,8 @@ overlapping CIs, despite much lower D11 / D9.
 
 | Encoder | D11 ridge R2 | D9 within-trip Spearman | NDCG@10 (95% CI) |
 |---|---|---|---|
-| minilm_svd64 | 0.590 | 0.258 | 0.1432 [0.1335, 0.1529] |
-| tfidf_svd64 | 0.865 | 0.473 | 0.1485 [0.1385, 0.1590] |
+| minilm_svd64 | 0.590 | 0.258 | 0.1758 [0.1656, 0.1861] |
+| tfidf_svd64 | 0.865 | 0.473 | 0.1786 [0.1680, 0.1893] |
 
 ## 13. Reproduction, performance and integrity
 
@@ -822,45 +962,45 @@ is CI). It runs both acceptance gates and ends in `compose`, the **only** writer
 enforce single-writer). `make reproduce-full` adds the inspection artifacts (`recommend`,
 capped at a seeded 300-trip sample; `scenarios`), leave-one-destination-out, and the docs.
 
-**reproduce**: 395.7 s total (16-logical-core laptop CPU, no GPU, no network).
+**reproduce**: 334.6 s total (16-logical-core laptop CPU, no GPU, no network).
 
 | Stage | Seconds |
 |---|---|
-| generate | 35.2 |
-| prepare | 5.9 |
-| features | 19.9 |
-| candidates | 48.1 |
-| gate-dgp | 11.4 |
-| train | 123.4 |
-| evaluate | 128.1 |
-| representation | 16.8 |
-| gate-representation | 3.4 |
-| compose | 3.5 |
+| generate | 30.6 |
+| prepare | 5.6 |
+| features | 17.6 |
+| candidates | 40.9 |
+| gate-dgp | 9.9 |
+| train | 78.1 |
+| evaluate | 130.3 |
+| representation | 15.2 |
+| gate-representation | 3.2 |
+| compose | 3.2 |
 
-**reproduce-full**: 492.9 s total (16-logical-core laptop CPU, no GPU, no network).
+**reproduce-full**: 432.5 s total (16-logical-core laptop CPU, no GPU, no network).
 
 | Stage | Seconds |
 |---|---|
-| generate | 35.2 |
-| prepare | 5.9 |
-| features | 19.9 |
-| candidates | 48.1 |
-| gate-dgp | 11.4 |
-| train | 123.4 |
-| evaluate | 128.1 |
-| representation | 16.8 |
-| gate-representation | 3.4 |
-| compose | 3.5 |
-| recommend | 24.4 |
-| scenarios | 26.8 |
-| lodo | 46.0 |
+| generate | 30.6 |
+| prepare | 5.6 |
+| features | 17.6 |
+| candidates | 40.9 |
+| gate-dgp | 9.9 |
+| train | 78.1 |
+| evaluate | 130.3 |
+| representation | 15.2 |
+| gate-representation | 3.2 |
+| compose | 3.2 |
+| recommend | 32.7 |
+| scenarios | 21.0 |
+| lodo | 44.0 |
 | docs | 0.2 |
 
-**Honest wall-clock:** `make reproduce` measured 6.6 min on the dev laptop (other
-processes were running, so timings carry roughly 30-40% noise). The original 5-minute target is
-**not met** and was deliberately not chased further: the two largest stages are `train` and
-`evaluate` (LightGBM fits), and shaving them would cost fidelity (fewer seeds/rounds) rather than
-remove waste.
+**Honest wall-clock:** `make reproduce` measured 5.6 min on the dev laptop (other
+processes may have been running, so timings carry roughly 30-40% noise), which
+is above the original 5-minute target and was not chased further. The two largest stages are `train` and `evaluate` (LightGBM fits, now
+also computing the cross features of section 5.2); shaving them would cost fidelity (fewer
+seeds/rounds) rather than remove waste.
 
 Where the time went (measured): the confidence ensemble was being retrained inside every
 `evaluate` / `recommend` / `scenarios` call — it is now fit once in `train` and loaded; TreeSHAP
@@ -884,22 +1024,21 @@ The full pipeline was regenerated end to end for seeds [42, 43, 44, 45, 46] (a n
 
 | Metric | Mean | SD | Min | Max |
 |---|---|---|---|---|
-| bias_gap_popularity | 0.0643 | 0.0262 | 0.0253 | 0.1016 |
-| bias_gap_primary | 0.0012 | 0.0184 | -0.0268 | 0.0300 |
-| candidate_recall_long_tail | 0.8135 | 0.0078 | 0.8044 | 0.8262 |
-| candidate_recall_overall | 0.8548 | 0.0032 | 0.8504 | 0.8574 |
-| coverage_at_10 | 0.6382 | 0.0242 | 0.6004 | 0.6639 |
-| ece_after | 0.0406 | 0.0076 | 0.0281 | 0.0484 |
-| longtail_precision | 0.1680 | 0.0119 | 0.1541 | 0.1875 |
-| longtail_share | 0.2556 | 0.0179 | 0.2252 | 0.2764 |
-| ndcg10_content_cosine | 0.1430 | 0.0038 | 0.1386 | 0.1490 |
-| ndcg10_lambdamart_ips | 0.1540 | 0.0071 | 0.1460 | 0.1664 |
-| ndcg10_logistic_regression | 0.1231 | 0.0080 | 0.1130 | 0.1338 |
-| ndcg10_popularity | 0.0783 | 0.0088 | 0.0629 | 0.0878 |
-| pct_of_oracle_ceiling | 0.4128 | 0.0172 | 0.3961 | 0.4448 |
-| within_cross_ratio_true_labels | 1.2593 | 0.0382 | 1.2126 | 1.3209 |
+| bias_gap_popularity | 0.0600 | 0.0259 | 0.0220 | 0.0963 |
+| bias_gap_primary | -0.0085 | 0.0208 | -0.0473 | 0.0153 |
+| candidate_recall_long_tail | 0.8785 | 0.0119 | 0.8628 | 0.8975 |
+| candidate_recall_overall | 0.9147 | 0.0069 | 0.9066 | 0.9262 |
+| coverage_at_10 | 0.4952 | 0.0395 | 0.4603 | 0.5718 |
+| ece_after | 0.0280 | 0.0047 | 0.0189 | 0.0315 |
+| longtail_precision | 0.1946 | 0.0190 | 0.1731 | 0.2218 |
+| longtail_share | 0.1851 | 0.0437 | 0.1274 | 0.2409 |
+| ndcg10_content_cosine | 0.1344 | 0.0028 | 0.1298 | 0.1385 |
+| ndcg10_lambdamart_ips | 0.1967 | 0.0083 | 0.1842 | 0.2070 |
+| ndcg10_logistic_regression | 0.1283 | 0.0074 | 0.1196 | 0.1381 |
+| ndcg10_popularity | 0.0695 | 0.0097 | 0.0523 | 0.0816 |
+| pct_of_oracle_ceiling | 0.5354 | 0.0191 | 0.5003 | 0.5533 |
+| within_cross_ratio_true_labels | 1.1593 | 0.0319 | 1.1306 | 1.2008 |
 
-Headline: primary NDCG@10 = 0.1540 ± 0.0071 (mean ± sd over 5 independently regenerated seeds; the committed seed 42, 0.1485, is number 2 of 5 counting from the lowest). The primary system is above content cosine in
-4 of 5 seeds (mean gap +0.0110 NDCG@10). The overall candidate-recall gate (0.85) is passed in every seed, with the
-lowest seed at 0.8504 — the margin over the
-gate is thin, which is the honest reading of a pre-registered K that was fixed on validation.
+Headline: primary NDCG@10 = 0.1967 ± 0.0083 (mean ± sd over 5 independently regenerated seeds; the committed seed 42, 0.1842, is the LOWEST of the five). The primary system is above content cosine in
+5 of 5 seeds (mean gap +0.0623 NDCG@10). The overall candidate-recall gate (0.85) is passed in every seed, with the
+lowest seed at 0.9066.

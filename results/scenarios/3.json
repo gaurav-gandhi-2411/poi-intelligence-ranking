@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-20T07:15:05.881434+00:00",
+  "generated_at": "2026-09-20T16:24:53.825665+00:00",
   "model_version": "lambdamart-ips-v1",
   "profile": {
     "accessibility_needs": [
@@ -27,399 +27,93 @@
   },
   "recommendations": [
     {
-      "category": "cafe",
-      "compatibility_breakdown": {
-        "budget_fit": 0.8333333333333334,
-        "duration_fit": 1.0,
-        "hours_fit": 0.875,
-        "mobility_fit": 0.7457970983118531,
-        "party_fit": 1.0,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.3721415396604455,
-      "context_compatibility": 0.9034578922088045,
-      "diversity_group": "cafe_touristy",
-      "expected_duration_min": 38.07896317850612,
-      "explanation": [
-        "Matches your stated medium budget",
-        "Popular choice -- busier than 72% of comparable POIs in Seoul",
-        "11 min from your stay by car -- a bit of a trek"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": 0.38649916273400914,
-      "name": "Neighborhood Bukchon Coffee House",
-      "planner_weight": 0.13602110533991035,
-      "poi_id": "PSEO0074",
-      "popularity_percentile": 71.99170124481327,
-      "preference_score": 0.05986858116330008,
-      "rank": 1,
-      "top_signals": [
-        {
-          "contribution": 0.957693,
-          "feature_group": "interest_match"
-        },
-        {
-          "contribution": 0.166754,
-          "feature_group": "price_fit"
-        },
-        {
-          "contribution": 0.057808,
-          "feature_group": "popularity"
-        }
-      ],
-      "utility": 0.055761507598990005
-    },
-    {
       "category": "family_activity",
       "compatibility_breakdown": {
         "budget_fit": 0.8333333333333334,
-        "duration_fit": 0.9899253111196327,
-        "hours_fit": 0.7708333333333334,
-        "mobility_fit": 0.977867649291154,
+        "duration_fit": 0.7588759329879444,
+        "hours_fit": 0.7916666666666667,
+        "mobility_fit": 0.9733695499055145,
         "party_fit": 1.0,
         "reservation_fit": 1.0
       },
-      "confidence": 0.4851065543694242,
-      "context_compatibility": 0.9238687799037406,
+      "confidence": 0.5914457493498884,
+      "context_compatibility": 0.887091207757183,
       "diversity_group": "family_activity_touristy",
-      "expected_duration_min": 181.82264076233886,
+      "expected_duration_min": 229.66505569740423,
       "explanation": [
-        "Strong match with your stated interest in family-friendly",
-        "Matches your stated medium budget",
-        "Popular choice -- busier than 68% of comparable POIs in Seoul",
-        "Only open 77% of your trip's plausible visiting hours"
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in family activity",
+        "Popular choice -- busier than 85% of comparable POIs in Seoul",
+        "Weaker fit on visit-length fit than most of your other options"
       ],
       "hard_constraints_ok": true,
-      "localness_index": -0.4157048418258895,
-      "name": "Sun Drenched Bukchon Discovery Center",
-      "planner_weight": 0.12311938101842528,
-      "poi_id": "PSEO0031",
-      "popularity_percentile": 67.63485477178423,
-      "preference_score": 0.053349140486069944,
-      "rank": 2,
+      "localness_index": -1.4270499235747083,
+      "name": "Iconic Itaewon Discovery Center",
+      "planner_weight": 0.173368170955862,
+      "poi_id": "PSEO0053",
+      "popularity_percentile": 84.85477178423237,
+      "preference_score": 0.26897689768976896,
+      "rank": 1,
       "top_signals": [
         {
-          "contribution": 0.967765,
+          "contribution": 0.760625,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.621002,
           "feature_group": "interest_match"
         },
         {
-          "contribution": 0.171893,
-          "feature_group": "price_fit"
-        },
-        {
-          "contribution": 0.082874,
+          "contribution": 0.381277,
           "feature_group": "popularity"
         }
       ],
-      "utility": 0.05047247839286226
-    },
-    {
-      "category": "restaurant",
-      "compatibility_breakdown": {
-        "budget_fit": 0.8333333333333334,
-        "duration_fit": 1.0,
-        "hours_fit": 0.875,
-        "mobility_fit": 0.7290298995499294,
-        "party_fit": 0.5800000000000001,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.4156139274304463,
-      "context_compatibility": 0.8219272076365982,
-      "diversity_group": "restaurant_local",
-      "expected_duration_min": 89.34383432830916,
-      "explanation": [
-        "Matches your stated medium budget",
-        "Highly rated (3.2/5 from 12 reviews)",
-        "11 min from your stay by car -- fits your car preference",
-        "Weaker fit on party/accessibility fit than most of your other options"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": 1.0202155195243001,
-      "name": "Must See Insadong Noodle House",
-      "planner_weight": 0.1030114108462697,
-      "poi_id": "PSEO0230",
-      "popularity_percentile": 17.842323651452283,
-      "preference_score": 0.04844290657439446,
-      "rank": 3,
-      "top_signals": [
-        {
-          "contribution": 0.116733,
-          "feature_group": "price_fit"
-        },
-        {
-          "contribution": 0.020968,
-          "feature_group": "quality"
-        },
-        {
-          "contribution": 0.0184,
-          "feature_group": "geo"
-        }
-      ],
-      "utility": 0.04222926695333628
-    },
-    {
-      "category": "entertainment",
-      "compatibility_breakdown": {
-        "budget_fit": 0.8333333333333334,
-        "duration_fit": 1.0,
-        "hours_fit": 0.8125000000000001,
-        "mobility_fit": 0.5170785054698749,
-        "party_fit": 1.0,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.4272832355282976,
-      "context_compatibility": 0.8395239716096248,
-      "diversity_group": "entertainment_touristy",
-      "expected_duration_min": 137.78442971622778,
-      "explanation": [
-        "Matches your stated medium budget",
-        "Highly rated (3.3/5 from 35 reviews)",
-        "24 min from your stay by car -- a bit of a trek",
-        "Would rank #7 instead of #15 if it were closer to your stay"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": 0.7186296460837288,
-      "name": "Amusement Myeongdong Theater",
-      "planner_weight": 0.09916834162993024,
-      "poi_id": "PSEO0006",
-      "popularity_percentile": 52.385892116182575,
-      "preference_score": 0.045949214026602174,
-      "rank": 4,
-      "top_signals": [
-        {
-          "contribution": 0.150861,
-          "feature_group": "price_fit"
-        },
-        {
-          "contribution": 0.088197,
-          "feature_group": "interest_match"
-        },
-        {
-          "contribution": 0.039885,
-          "feature_group": "quality"
-        }
-      ],
-      "utility": 0.04065381046241273
+      "utility": 0.24733909797708378
     },
     {
       "category": "nature_park",
       "compatibility_breakdown": {
-        "budget_fit": 0.8333333333333334,
-        "duration_fit": 1.0,
-        "hours_fit": 0.9583333333333333,
-        "mobility_fit": 0.8520329055211924,
-        "party_fit": 0.5800000000000001,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.4849924587960711,
-      "context_compatibility": 0.856452506858451,
-      "diversity_group": "nature_park_touristy",
-      "expected_duration_min": 116.6232990935152,
-      "explanation": [
-        "Strong match with your stated interest in nature park",
-        "Matches your stated medium budget",
-        "Less touristy than 19% of comparable POIs in Seoul",
-        "Weaker fit on party/accessibility fit than most of your other options",
-        "Would rank #3 instead of #6 if it better accommodated your travel party"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": -0.2884086260705014,
-      "name": "Tucked Away Bukchon Park",
-      "planner_weight": 0.10849942468455391,
-      "poi_id": "PSEO0090",
-      "popularity_percentile": 81.32780082987551,
-      "preference_score": 0.049575070821529746,
-      "rank": 5,
-      "top_signals": [
-        {
-          "contribution": 0.588965,
-          "feature_group": "interest_match"
-        },
-        {
-          "contribution": 0.134507,
-          "feature_group": "price_fit"
-        },
-        {
-          "contribution": 0.08285,
-          "feature_group": "localness_fit"
-        }
-      ],
-      "utility": 0.04447906432545819
-    },
-    {
-      "category": "museum",
-      "compatibility_breakdown": {
-        "budget_fit": 0.8333333333333334,
-        "duration_fit": 1.0,
-        "hours_fit": 0.7083333333333333,
-        "mobility_fit": 0.9836229431806218,
-        "party_fit": 1.0,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.4738033631230578,
-      "context_compatibility": 0.9133716215766156,
-      "diversity_group": "museum_touristy",
-      "expected_duration_min": 116.6733030492114,
-      "explanation": [
-        "Matches your stated medium budget",
-        "Popular choice -- busier than 94% of comparable POIs in Seoul",
-        "Only open 71% of your trip's plausible visiting hours"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": -1.2491357445858062,
-      "name": "Wallet Friendly Gangnam Gallery",
-      "planner_weight": 0.08224122143297974,
-      "poi_id": "PSEO0249",
-      "popularity_percentile": 93.56846473029046,
-      "preference_score": 0.03592233009708738,
-      "rank": 6,
-      "top_signals": [
-        {
-          "contribution": 0.151564,
-          "feature_group": "price_fit"
-        },
-        {
-          "contribution": 0.148027,
-          "feature_group": "interest_match"
-        },
-        {
-          "contribution": 0.100263,
-          "feature_group": "popularity"
-        }
-      ],
-      "utility": 0.03371458041327766
-    },
-    {
-      "category": "shopping",
-      "compatibility_breakdown": {
-        "budget_fit": 0.8333333333333334,
-        "duration_fit": 1.0,
-        "hours_fit": 0.6875,
-        "mobility_fit": 0.9936419654217558,
-        "party_fit": 1.0,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.2957005681192066,
-      "context_compatibility": 0.9103748057054495,
-      "diversity_group": "shopping_local",
-      "expected_duration_min": 57.205733521560326,
-      "explanation": [
-        "Matches your stated medium budget",
-        "Less touristy than 95% of comparable POIs in Seoul",
-        "Highly rated (3.2/5 from 3 reviews)",
-        "Only open 69% of your trip's plausible visiting hours"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": -0.950024902283277,
-      "name": "Retail Insadong Bazaar",
-      "planner_weight": 0.082052242178767,
-      "poi_id": "PSEO0251",
-      "popularity_percentile": 5.186721991701245,
-      "preference_score": 0.03592233009708738,
-      "rank": 7,
-      "top_signals": [
-        {
-          "contribution": 0.162962,
-          "feature_group": "price_fit"
-        },
-        {
-          "contribution": 0.066331,
-          "feature_group": "localness_fit"
-        },
-        {
-          "contribution": 0.026088,
-          "feature_group": "quality"
-        }
-      ],
-      "utility": 0.033637108846688774
-    },
-    {
-      "category": "historic_site",
-      "compatibility_breakdown": {
-        "budget_fit": 0.8333333333333334,
-        "duration_fit": 1.0,
-        "hours_fit": 0.7708333333333334,
-        "mobility_fit": 0.748020105863423,
-        "party_fit": 1.0,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.5050233034281201,
-      "context_compatibility": 0.8850111697904903,
-      "diversity_group": "historic_site_touristy",
-      "expected_duration_min": 126.42411309741222,
-      "explanation": [
-        "Matches your stated medium budget",
-        "Less touristy than 5% of comparable POIs in Seoul",
-        "Popular choice -- busier than 95% of comparable POIs in Seoul",
-        "10 min from your stay by car -- a bit of a trek"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": -0.6739059600284141,
-      "name": "Gallery Like Gangnam Monument",
-      "planner_weight": 0.10289967571291586,
-      "poi_id": "PSEO0088",
-      "popularity_percentile": 95.22821576763485,
-      "preference_score": 0.045949214026602174,
-      "rank": 8,
-      "top_signals": [
-        {
-          "contribution": 0.153834,
-          "feature_group": "price_fit"
-        },
-        {
-          "contribution": 0.117632,
-          "feature_group": "localness_fit"
-        },
-        {
-          "contribution": 0.102898,
-          "feature_group": "popularity"
-        }
-      ],
-      "utility": 0.04218346141843775
-    },
-    {
-      "category": "viewpoint",
-      "compatibility_breakdown": {
         "budget_fit": 0.5,
         "duration_fit": 1.0,
-        "hours_fit": 1.0,
-        "mobility_fit": 0.9825717052351174,
+        "hours_fit": 0.7291666666666666,
+        "mobility_fit": 0.985416891568306,
         "party_fit": 1.0,
         "reservation_fit": 1.0
       },
-      "confidence": 0.3567279421077451,
-      "context_compatibility": 0.8882919157968477,
-      "diversity_group": "viewpoint_local",
-      "expected_duration_min": 43.14622551359041,
+      "confidence": 0.6011282451708422,
+      "context_compatibility": 0.8431460355232482,
+      "diversity_group": "nature_park_touristy",
+      "expected_duration_min": 86.78599223943465,
       "explanation": [
-        "Popular choice -- busier than 10% of comparable POIs in Seoul",
-        "Less touristy than 90% of comparable POIs in Seoul",
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in nature park",
+        "Popular choice -- busier than 90% of comparable POIs in Seoul",
         "More budget-friendly than typical for your medium budget",
-        "Would rank #21 instead of #36 if it fit your budget exactly"
+        "Would rank #1 instead of #2 if it fit your budget exactly"
       ],
       "hard_constraints_ok": true,
-      "localness_index": -1.0274430280806512,
-      "name": "Screening Itaewon Skyline Point",
-      "planner_weight": 0.08065388446166152,
-      "poi_id": "PSEO0132",
-      "popularity_percentile": 9.751037344398341,
-      "preference_score": 0.03592233009708738,
-      "rank": 9,
+      "localness_index": -1.2644654257933945,
+      "name": "Time Honored Seongsu Trail",
+      "planner_weight": 0.16731063079865494,
+      "poi_id": "PSEO0210",
+      "popularity_percentile": 89.83402489626556,
+      "preference_score": 0.26897689768976896,
+      "rank": 2,
       "top_signals": [
         {
-          "contribution": 0.524593,
+          "contribution": 0.862898,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.710335,
           "feature_group": "interest_match"
         },
         {
-          "contribution": 0.070182,
+          "contribution": 0.336822,
           "feature_group": "popularity"
-        },
-        {
-          "contribution": 0.050702,
-          "feature_group": "localness_fit"
         }
       ],
-      "utility": 0.033063855642536166
+      "utility": 0.2386969896236133
     },
     {
       "category": "restaurant",
@@ -431,39 +125,351 @@
         "party_fit": 1.0,
         "reservation_fit": 1.0
       },
-      "confidence": 0.41993926030216,
+      "confidence": 0.5448496437666692,
       "context_compatibility": 0.9148330667234131,
       "diversity_group": "restaurant_touristy",
       "expected_duration_min": 124.3904487115112,
       "explanation": [
-        "Matches your stated medium budget",
-        "Strong match with your stated interest in family-friendly",
+        "Popular with travelers who share your interests",
         "Popular choice -- busier than 82% of comparable POIs in Seoul",
+        "Matches your stated medium budget",
         "10 min from your stay by car -- a bit of a trek"
       ],
       "hard_constraints_ok": true,
       "localness_index": -0.5479168284360577,
       "name": "Bohemian Myeongdong Grill",
-      "planner_weight": 0.08233331269458641,
+      "planner_weight": 0.10080476831532983,
       "poi_id": "PSEO0123",
       "popularity_percentile": 82.15767634854771,
-      "preference_score": 0.03592233009708738,
+      "preference_score": 0.1530612244897959,
+      "rank": 3,
+      "top_signals": [
+        {
+          "contribution": 0.95846,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.130164,
+          "feature_group": "popularity"
+        },
+        {
+          "contribution": 0.12436,
+          "feature_group": "price_fit"
+        }
+      ],
+      "utility": 0.14381509783159857
+    },
+    {
+      "category": "shopping",
+      "compatibility_breakdown": {
+        "budget_fit": 0.5,
+        "duration_fit": 1.0,
+        "hours_fit": 0.9166666666666666,
+        "mobility_fit": 0.7223040736035599,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5095499328805477,
+      "context_compatibility": 0.8317323328163888,
+      "diversity_group": "shopping_local",
+      "expected_duration_min": 70.65068334728667,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Popular choice -- busier than 9% of comparable POIs in Seoul",
+        "Highly rated (3.3/5 from 5 reviews)",
+        "More budget-friendly than typical for your medium budget",
+        "Would rank #15 instead of #17 if it fit your budget exactly"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -0.6149161016485963,
+      "name": "Easygoing Gangnam Bazaar",
+      "planner_weight": 0.09430403760286592,
+      "poi_id": "PSEO0446",
+      "popularity_percentile": 9.024896265560166,
+      "preference_score": 0.1530612244897959,
+      "rank": 4,
+      "top_signals": [
+        {
+          "contribution": 1.008791,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.181447,
+          "feature_group": "popularity"
+        },
+        {
+          "contribution": 0.068856,
+          "feature_group": "quality"
+        }
+      ],
+      "utility": 0.13454070298883297
+    },
+    {
+      "category": "entertainment",
+      "compatibility_breakdown": {
+        "budget_fit": 0.8333333333333334,
+        "duration_fit": 1.0,
+        "hours_fit": 0.7708333333333334,
+        "mobility_fit": 0.7323837767405734,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5860343406917567,
+      "context_compatibility": 0.8819006432323482,
+      "diversity_group": "entertainment_touristy",
+      "expected_duration_min": 92.53322706466699,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Popular choice -- busier than 87% of comparable POIs in Seoul",
+        "Matches your stated medium budget",
+        "11 min from your stay by car -- a bit of a trek"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -0.8835965036381569,
+      "name": "Authentic Seongsu Playhouse",
+      "planner_weight": 0.07114759457314336,
+      "poi_id": "PSEO0410",
+      "popularity_percentile": 86.51452282157676,
+      "preference_score": 0.11083830235005261,
+      "rank": 5,
+      "top_signals": [
+        {
+          "contribution": 0.672672,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.212048,
+          "feature_group": "popularity"
+        },
+        {
+          "contribution": 0.154354,
+          "feature_group": "price_fit"
+        }
+      ],
+      "utility": 0.10150410982556153
+    },
+    {
+      "category": "museum",
+      "compatibility_breakdown": {
+        "budget_fit": 0.8333333333333334,
+        "duration_fit": 1.0,
+        "hours_fit": 0.7083333333333333,
+        "mobility_fit": 0.9836229431806218,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5829640891015071,
+      "context_compatibility": 0.9133716215766156,
+      "diversity_group": "museum_touristy",
+      "expected_duration_min": 116.6733030492114,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Popular choice -- busier than 94% of comparable POIs in Seoul",
+        "Matches your stated medium budget",
+        "Only open 71% of your trip's plausible visiting hours"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -1.2491357445858062,
+      "name": "Wallet Friendly Gangnam Gallery",
+      "planner_weight": 0.05952449058064015,
+      "poi_id": "PSEO0249",
+      "popularity_percentile": 93.56846473029046,
+      "preference_score": 0.09048275862068965,
+      "rank": 6,
+      "top_signals": [
+        {
+          "contribution": 0.550295,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.240387,
+          "feature_group": "popularity"
+        },
+        {
+          "contribution": 0.160685,
+          "feature_group": "price_fit"
+        }
+      ],
+      "utility": 0.08492178077779476
+    },
+    {
+      "category": "cafe",
+      "compatibility_breakdown": {
+        "budget_fit": 0.6666666666666667,
+        "duration_fit": 1.0,
+        "hours_fit": 0.8541666666666667,
+        "mobility_fit": 0.9852300942630814,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.53833875482773,
+      "context_compatibility": 0.9081651625316401,
+      "diversity_group": "cafe_touristy",
+      "expected_duration_min": 34.68103991805685,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Highly rated (4.0/5 from 90 reviews)",
+        "1 min from your stay by car -- fits your car preference",
+        "Priced above what's typical for your medium budget",
+        "Would rank #25 instead of #30 if it fit your budget exactly"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -0.7435274393651932,
+      "name": "Teahouse Bukchon Bakery",
+      "planner_weight": 0.05928677329116747,
+      "poi_id": "PSEO0071",
+      "popularity_percentile": 88.79668049792531,
+      "preference_score": 0.09048275862068965,
+      "rank": 7,
+      "top_signals": [
+        {
+          "contribution": 0.75687,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.102867,
+          "feature_group": "quality"
+        },
+        {
+          "contribution": 0.076069,
+          "feature_group": "geo"
+        }
+      ],
+      "utility": 0.08458263674906356
+    },
+    {
+      "category": "religious_site",
+      "compatibility_breakdown": {
+        "budget_fit": 0.5,
+        "duration_fit": 1.0,
+        "hours_fit": 0.8958333333333333,
+        "mobility_fit": 0.9065996447498033,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5252641286836469,
+      "context_compatibility": 0.8605355066669876,
+      "diversity_group": "religious_site_local",
+      "expected_duration_min": 55.242442886034546,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Popular choice -- busier than 5% of comparable POIs in Seoul",
+        "4 min from your stay by car -- fits your car preference",
+        "More budget-friendly than typical for your medium budget",
+        "Would rank #33 instead of #40 if it fit your budget exactly"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -0.6311912425963898,
+      "name": "Off The Beaten Path Gangnam Monastery",
+      "planner_weight": 0.05119658244726935,
+      "poi_id": "PSEO0428",
+      "popularity_percentile": 4.875518672199171,
+      "preference_score": 0.08113835906751438,
+      "rank": 8,
+      "top_signals": [
+        {
+          "contribution": 0.50277,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.233591,
+          "feature_group": "popularity"
+        },
+        {
+          "contribution": 0.05748,
+          "feature_group": "geo"
+        }
+      ],
+      "utility": 0.07304060746675853
+    },
+    {
+      "category": "historic_site",
+      "compatibility_breakdown": {
+        "budget_fit": 0.8333333333333334,
+        "duration_fit": 1.0,
+        "hours_fit": 0.7708333333333334,
+        "mobility_fit": 0.748020105863423,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5899842555097761,
+      "context_compatibility": 0.8850111697904903,
+      "diversity_group": "historic_site_touristy",
+      "expected_duration_min": 126.42411309741222,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Popular choice -- busier than 95% of comparable POIs in Seoul",
+        "Matches your stated medium budget",
+        "10 min from your stay by car -- a bit of a trek"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -0.6739059600284141,
+      "name": "Gallery Like Gangnam Monument",
+      "planner_weight": 0.07132316163359677,
+      "poi_id": "PSEO0088",
+      "popularity_percentile": 95.22821576763485,
+      "preference_score": 0.11083830235005261,
+      "rank": 9,
+      "top_signals": [
+        {
+          "contribution": 0.716157,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.231054,
+          "feature_group": "popularity"
+        },
+        {
+          "contribution": 0.164051,
+          "feature_group": "price_fit"
+        }
+      ],
+      "utility": 0.10175458601232415
+    },
+    {
+      "category": "family_activity",
+      "compatibility_breakdown": {
+        "budget_fit": 0.8333333333333334,
+        "duration_fit": 1.0,
+        "hours_fit": 0.7916666666666667,
+        "mobility_fit": 0.5614248995092053,
+        "party_fit": 1.0,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5240973794538384,
+      "context_compatibility": 0.847439683718219,
+      "diversity_group": "family_activity_touristy",
+      "expected_duration_min": 153.6862004386706,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in family-friendly",
+        "Popular choice -- busier than 98% of comparable POIs in Seoul",
+        "21 min from your stay by car -- a bit of a trek",
+        "Would rank #3 instead of #5 if it were closer to your stay"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -0.6690159938150113,
+      "name": "Family Day Seongsu Adventure Park",
+      "planner_weight": 0.15173378980147031,
+      "poi_id": "PSEO0007",
+      "popularity_percentile": 98.13278008298755,
+      "preference_score": 0.24306898774983882,
       "rank": 10,
       "top_signals": [
         {
-          "contribution": 0.144669,
-          "feature_group": "price_fit"
+          "contribution": 0.690457,
+          "feature_group": "implicit_taste"
         },
         {
-          "contribution": 0.137193,
+          "contribution": 0.65729,
           "feature_group": "interest_match"
         },
         {
-          "contribution": 0.131422,
+          "contribution": 0.299258,
           "feature_group": "popularity"
         }
       ],
-      "utility": 0.03375233299271045
+      "utility": 0.2164739842107167
     }
   ],
   "scenario_name": "Family with young children",

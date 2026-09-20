@@ -320,6 +320,7 @@ def run_scoring_pipeline(
     trips_df_override: pd.DataFrame | None = None,
     travelers_df_override: pd.DataFrame | None = None,
     candidates_df_override: pd.DataFrame | None = None,
+    calibrator_override: Any | None = None,
 ) -> dict[str, Any]:
     """Run the full spec.md section 9 scoring pipeline over the primary holdout
     trip set (optionally restricted to `trip_id_filter`), returning every
@@ -344,7 +345,6 @@ def run_scoring_pipeline(
         holdout_frame = holdout_frame_override
     else:
         holdout_frame = load_holdout_evaluation_frame(data_dir, budget_target_price_level)
-    train_frame = load_train_ranking_frame(data_dir, budget_target_price_level)
 
     if trip_id_filter is not None:
         keep = holdout_frame["trip_id"].isin(trip_id_filter)
@@ -378,16 +378,36 @@ def run_scoring_pipeline(
         )
     }
 
-    calib_result = fit_and_apply_calibration(
-        train_frame,
-        holdout_frame,
-        raw_score,
-        booster_ips,
-        numeric_columns,
-        categorical_columns,
-        model_cfg,
-        scoring_cfg,
-    )
+    if calibrator_override is None:
+        train_frame = load_train_ranking_frame(data_dir, budget_target_price_level)
+        calib_result = fit_and_apply_calibration(
+            train_frame,
+            holdout_frame,
+            raw_score,
+            booster_ips,
+            numeric_columns,
+            categorical_columns,
+            model_cfg,
+            scoring_cfg,
+        )
+    else:
+        # Serving path (`poi_rank.cli demo`): apply the calibrator persisted by `recommend`
+        # instead of re-fitting it on the whole train frame; calibration diagnostics need
+        # labelled holdout rows and are not computed here.
+        calib_result = {
+            "calibrator": calibrator_override,
+            "relevance": cal.apply_calibrator(calibrator_override, raw_score),
+            "naive_probability": cal.naive_probability_from_raw_score(raw_score),
+            "n_calibration_rows": 0,
+            "n_calibration_trips": 0,
+            "ece_before": float("nan"),
+            "ece_after": float("nan"),
+            "brier_before": float("nan"),
+            "brier_after": float("nan"),
+            "holdout_binary_label": (holdout_frame["label"].to_numpy(dtype=np.int64) >= 1).astype(
+                np.float64
+            ),
+        }
     holdout_frame["relevance"] = calib_result["relevance"]
 
     # Confidence: ensemble std (5 seeds), trained/scored against this SAME

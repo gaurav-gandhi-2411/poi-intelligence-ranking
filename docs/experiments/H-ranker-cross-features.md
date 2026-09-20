@@ -82,7 +82,7 @@ Fix (a correctness fix, not a tuned choice): the per-trip as-of cutoff is `min(s
 logged impression of that trip)`. Holdout trips are unchanged (no session rows in the pool).
 A sandbox run (`seed_replication.run_seed(42)`, all other configuration unchanged, K=195, no
 selection of anything) read the holdout once for the shipped hyperparameters: see the results in
-`docs/experiments/H-results.md`.
+`docs/TECHNICAL.md` sections 5.1-5.2 and `results/experiments/h/`.
 
 **Protocol consequences, decided now:**
 1. The leak fix is adopted as a bug fix independent of the +0.010 bar (the bar was defined for
@@ -113,3 +113,15 @@ same table, which is disclosed): K = the largest grid K whose validation lift is
 0.01 margin) = **240** (validation recall 0.915, validation lift 0.363). This deviates from the
 requester E4 rule and is flagged for the requester to override; the 0.93 recall margin was itself
 calibrated on the leaky features (validation-minus-holdout recall gap +0.07 then, -0.01 now).
+
+## Outcome (2026-09-21)
+
+Numbers are generated, not typed, in `docs/TECHNICAL.md` sections 5.1-5.2 (from
+`results/parts/h_experiments.json`, which aggregates `results/experiments/h/*.json`). In short: the
+feature-skew fix (Amendment 1) is what moved the ranker above content cosine; H1 alone missed the
+re-baselined bar by 0.00005, H2 (cosine `init_score`) hurt, and the H3 joint configuration (cross
+features + 15 leaves + linear label gain) met the bar on validation, was adopted per the protocol, and
+transferred to the holdout at a small fraction of its validation gain (holdout read once; the same
+pipeline without H, run in a sandbox at the same K and seed, is
+`results/experiments/h/holdout_ablation_no_h_seed42.json`). The E2 sweep re-run on the final pipeline
+found a winner below the bar and was not adopted. Amendment 2 records the K deviation.

@@ -2,71 +2,71 @@
   "lambda_default": 0.8,
   "mmr_lambda_diagnostic_post_hoc_on_holdout": {
     "0.5": {
-      "long_tail_precision": 0.1384217335058215,
-      "long_tail_share": 0.2343134283116096,
-      "n_long_tail_recommended": 1546,
-      "n_total_recommended": 6598
+      "long_tail_precision": 0.18445692883895132,
+      "long_tail_share": 0.16106167998793544,
+      "n_long_tail_recommended": 1068,
+      "n_total_recommended": 6631
     },
     "0.6": {
-      "long_tail_precision": 0.14504324683965403,
-      "long_tail_share": 0.2277963019096696,
-      "n_long_tail_recommended": 1503,
-      "n_total_recommended": 6598
+      "long_tail_precision": 0.1878121878121878,
+      "long_tail_share": 0.15095762328457246,
+      "n_long_tail_recommended": 1001,
+      "n_total_recommended": 6631
     },
     "0.7": {
-      "long_tail_precision": 0.14845360824742268,
-      "long_tail_share": 0.2205213701121552,
-      "n_long_tail_recommended": 1455,
-      "n_total_recommended": 6598
+      "long_tail_precision": 0.19019019019019018,
+      "long_tail_share": 0.15065600965163625,
+      "n_long_tail_recommended": 999,
+      "n_total_recommended": 6631
     },
     "0.8": {
-      "long_tail_precision": 0.1541049798115747,
-      "long_tail_share": 0.22521976356471657,
-      "n_long_tail_recommended": 1486,
-      "n_total_recommended": 6598
+      "long_tail_precision": 0.19642857142857142,
+      "long_tail_share": 0.14356808927763534,
+      "n_long_tail_recommended": 952,
+      "n_total_recommended": 6631
     },
     "0.9": {
-      "long_tail_precision": 0.1725516322451699,
-      "long_tail_share": 0.22749317975143982,
-      "n_long_tail_recommended": 1501,
-      "n_total_recommended": 6598
+      "long_tail_precision": 0.2512873326467559,
+      "long_tail_share": 0.14643341879052932,
+      "n_long_tail_recommended": 971,
+      "n_total_recommended": 6631
     },
     "1": {
-      "long_tail_precision": 0.19154388212684176,
-      "long_tail_share": 0.23658684449833284,
-      "n_long_tail_recommended": 1561,
-      "n_total_recommended": 6598
+      "long_tail_precision": 0.2616387337057728,
+      "long_tail_share": 0.16196652088674407,
+      "n_long_tail_recommended": 1074,
+      "n_total_recommended": 6631
     }
   },
   "stages": {
     "0_candidate_pool (positive rate among long-tail candidates)": {
-      "head_positive_rate": 0.1325058472083922,
-      "long_tail_precision": 0.0990277123399152,
-      "long_tail_share": 0.4478124380622351
+      "head_positive_rate": 0.12269683812839355,
+      "long_tail_precision": 0.0969458077314475,
+      "long_tail_share": 0.43431873874075483
     },
     "1_raw_ranker_top10": {
-      "long_tail_precision": 0.22123893805309736,
-      "long_tail_share": 0.2020864381520119,
-      "n_long_tail_recommended": 1356,
+      "long_tail_precision": 0.34296977660972405,
+      "long_tail_share": 0.11341281669150521,
+      "n_long_tail_recommended": 761,
       "n_total_recommended": 6710
     },
     "2_after_hard_gate_raw_order": {
-      "long_tail_precision": 0.1852340145023072,
-      "long_tail_share": 0.22991815701727797,
-      "n_long_tail_recommended": 1517,
-      "n_total_recommended": 6598
+      "long_tail_precision": 0.26778656126482214,
+      "long_tail_share": 0.1526164982657216,
+      "n_long_tail_recommended": 1012,
+      "n_total_recommended": 6631
     },
     "3_after_utility": {
-      "long_tail_precision": 0.19154388212684176,
-      "long_tail_share": 0.23658684449833284,
-      "n_long_tail_recommended": 1561,
-      "n_total_recommended": 6598
+      "long_tail_precision": 0.2616387337057728,
+      "long_tail_share": 0.16196652088674407,
+      "n_long_tail_recommended": 1074,
+      "n_total_recommended": 6631
     },
     "4_final_after_mmr": {
-      "long_tail_precision": 0.1541049798115747,
-      "long_tail_share": 0.22521976356471657,
-      "n_long_tail_recommended": 1486,
-      "n_total_recommended": 6598
+      "long_tail_precision": 0.19642857142857142,
+      "long_tail_share": 0.14356808927763534,
+      "n_long_tail_recommended": 952,
+      "n_total_recommended": 6631
     }
   }
 }

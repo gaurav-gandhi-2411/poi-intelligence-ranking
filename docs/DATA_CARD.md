@@ -2887,6 +2887,9 @@ adopted, because selecting on the holdout would leak it into a decision.
 
 ### Block E — "the one problem" (2026-09-20): does the ranker beat a cosine baseline?
 
+> **Superseded by Block F below**: the conclusions here (ranker ~ cosine, K=195, seed 42 second-lowest) were
+> produced on features with a train/serve skew and are retained as history only.
+
 Provenance: `results/parts/{retrieval_ranking_decomposition,ranker_sweep,longtail_stages,e4_k_sweep}.json`
 composed into `results/metrics.json`; scripts `scripts/e4_k_sweep.py`, CLI `decompose|sweep|longtail-stages`.
 
@@ -2919,14 +2922,57 @@ composed into `results/metrics.json`; scripts `scripts/e4_k_sweep.py`, CLI `deco
   recall (0.991) is a different quantity and does not explain the ratio.
 - `make reproduce` measured 396 s (6.6 min) on a contended laptop; the 5-minute target is not met
   and was not chased further.
-- **`data/synthetic/candidates_legacy6.parquet`** (committed, 1.1 MB): the candidate set the
-  ORIGINAL six-channel generator (geo, interest, semantic, item-item CF, long-tail, archetype; config
-  `configs/features_legacy6.yaml`, taken from commit `9215f8b`) produces for the same trips, built
-  by the `decompose` CLI command. It is read only by `src/poi_rank/eval/decomposition.py` (E1), which
-  scores every system on both this set and the shipped learned-retriever set to separate the
-  retrieval effect from the ranking effect. It is committed so the decomposition (and its part
-  `results/parts/retrieval_ranking_decomposition.json`) can be re-run from a clone without
-  regenerating the old pipeline. It is NOT used by `make reproduce`, training or serving.
-- **DR5 (ANN benchmark) stays NOT RUN:** ANN only matters at catalog sizes far beyond this
-  take-home's three destinations; cut for time, so "brute force is fine here" is reasoning, not
-  evidence.
+
+### Block F — a train/serve feature skew, its fix, and the final pipeline (2026-09-20/21)
+
+Provenance: `docs/experiments/H-ranker-cross-features.md` (pre-registration + Amendments 1-2),
+`results/experiments/h/*.json`, `results/parts/h_experiments.json`, `results/parts/e4_k_sweep.json`.
+Session-log numbers not backed by a committed artifact are marked (log).
+
+- **Correction to the "RC3.1 per-impression as-of cutoff" entry above.** That entry documents
+  `traveler_history_before` correctly, but `assemble_traveler_features` (one row per TRIP) applied
+  it with `as_of = start_date`, so a train trip's implicit block contained its whole browsing
+  session (dated 0-45 days BEFORE `start_date`), i.e. the labelled interactions. Holdout trips have no
+  session rows in the pool. Measured on the committed data: `implicit_days_since_last_interaction`
+  median 3 (train) vs 102 (holdout) days; `implicit_interaction_count` mean 63 vs 32. Fixed:
+  `as_of = min(start_date, first own impression)`; regression test
+  `test_assemble_traveler_features_excludes_own_session_of_train_trips`.
+- **Effect (sandbox, seed 42, K=195, fix only, holdout read once, nothing selected on it):** primary
+  NDCG@10 0.1485 -> 0.1856, content cosine 0.1411 -> 0.1363, popularity 0.0629 -> 0.0578;
+  Wilcoxon p vs cosine 0.445 -> 2.7e-13. The conclusion of the first submission tag ("the learned
+  ranker adds little over cosine") is RETRACTED; it was an artifact of the skew.
+- **K.** The blind recall rule on the corrected features gives K=270 but violates the blocking Gate-B
+  lift row already on validation (0.332 < 0.35), and `make reproduce` then exits 1. No grid K satisfies
+  both. Shipped K=240 (largest grid K with validation lift >= 0.36): a DEVIATION from the requester
+  E4 rule (Amendment 2), flagged for override. Holdout at K=240: overall recall 0.926, long-tail
+  0.898, lift +0.374.
+- **Experiment H (validation only, corrected frames, 4 seeds).** Baseline 0.1728, bar 0.1828. H1 (20
+  cross features) 0.1827 (missed by 0.00005); H2 (cosine init_score) worse; H3/H3b: cross features +
+  15 leaves + linear label gain 0.1892 = adopted (bar met by 0.0064). Holdout read once: 0.1842
+  [0.1738, 0.1945]; the same pipeline WITHOUT H (same K, seed 42) 0.1816 [0.1712, 0.1930], so H's
+  holdout effect is +0.0026, inside the CI, far below its validation gain (+0.0164): winner's-curse
+  selection and IPS-weighted-vs-unweighted metrics are the likely reasons (not separately tested).
+  E2 sweep re-run: winner binary/clip 10 (0.1944) vs shipped 0.1892 = +0.0052 < bar, not adopted.
+- **Final pipeline, seed 42:** primary 0.1842, content cosine 0.1336, popularity 0.0523; Wilcoxon p
+  vs cosine 1.3e-14; 50.0% of the oracle ceiling; ECE 0.030; 0 hard-constraint violations; Gate-A and
+  Gate-B pass. **Five seeds** (whole pipeline regenerated): 0.1967 +/- 0.0083 (sd); above cosine in
+  5 of 5 seeds, mean gap +0.0623 (sd 0.0112), paired t p=2.4e-4 (Wilcoxon p=0.0625 is the minimum
+  attainable with 5 pairs). Seed 42 is the LOWEST of the five.
+- **Scorecard moved both ways.** New misses caused by the fix: confidence-decile Spearman 0.879 -> 0.358
+  and scenario-4 (touristiness flip) overlap 0.176 -> 0.538. Long-tail share 0.225 -> 0.144 (still a
+  miss), long-tail raw-ranker precision 0.221 -> 0.343. All diagnosed in RESULTS.md.
+- **Retrieval vs ranking (E1) re-run:** with a ranker retrained on each candidate set, the original
+  six-channel set scores HIGHER end-to-end than the learned set (0.1919 vs 0.1814, p=0.005) despite far
+  lower recall: the learned retriever is kept for the recall/long-tail gate rows, not for top-10 NDCG.
+- **Windows checkout bug:** with `core.autocrlf=true` git checked LightGBM model text out as CRLF and
+  `lgb.Booster(model_file=...)` failed ("Model format error"), which would break `make demo` on a
+  Windows clone. `.gitattributes` now pins `artifacts/*.txt|json` to LF.
+- **New surfaces:** `docs/results.html` (self-contained results explorer, generated from JSON),
+  `poi_rank.cli demo` / `make demo` (live top-10 from committed artifacts), `submission/SUBMISSION.md`.
+- `data/synthetic/candidates_legacy6.parquet` (committed, 1.1 MB): the candidate set the ORIGINAL
+  six-channel generator (config `configs/features_legacy6.yaml`, from commit `9215f8b`) produces for the
+  same trips, built by the `decompose` CLI command on the current (corrected) features. It is read only
+  by `src/poi_rank/eval/decomposition.py` (E1) and committed so the decomposition can be re-run from a
+  clone. It is not used by `make reproduce`, training or serving.
+- **DR5 (ANN benchmark) stays NOT RUN:** ANN only matters at catalog sizes far beyond this take-home
+  three destinations; cut for time, so "brute force is fine here" is reasoning, not evidence.

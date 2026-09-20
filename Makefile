@@ -1,6 +1,6 @@
 .PHONY: reproduce reproduce-full decision-register generate prepare features candidates gate-dgp train evaluate \
 	representation gate-representation compose lodo recommend scenarios docs audit test \
-	test-fast test-slow lint
+	test-fast test-slow lint demo results-html
 
 PY := uv run python
 export PYTHONHASHSEED := 0
@@ -61,6 +61,7 @@ scenarios:
 
 docs:
 	$(PY) -m poi_rank.eval.report
+	$(PY) scripts/render_results_html.py
 
 # Decision Register experiments (DR1-DR11; ~25 min, refits models). Evidence generation only --
 # results are committed under results/parts/dr/, so reproduce/reproduce-full do not run it.
@@ -88,3 +89,23 @@ lint:
 	uv run ruff check src tests
 	uv run ruff format --check src tests
 	uv run mypy
+
+# --- live demo + results explorer (use the committed model artifacts; run `reproduce-full` once
+# first if you changed anything, so artifacts/calibrator.pkl matches the model) ------------------
+#   make demo TRAVELER=U0005
+#   make demo INTERESTS=local_food,neighborhoods BUDGET=medium MOBILITY=public_transport #             TOURISTINESS=-0.8 PARTY=solo DEST=seoul
+BUDGET ?= medium
+MOBILITY ?= public_transport
+TOURISTINESS ?= 0.0
+PARTY ?= solo
+DEST ?= seoul
+demo:
+ifdef TRAVELER
+	$(PY) -m poi_rank.cli demo --traveler $(TRAVELER)
+else
+	$(PY) -m poi_rank.cli demo --interests $(INTERESTS) --budget $(BUDGET) --mobility $(MOBILITY) 		--touristiness $(TOURISTINESS) --party $(PARTY) --dest $(DEST)
+endif
+
+# docs/results.html: single self-contained results explorer (no build step, no CDN).
+results-html:
+	$(PY) scripts/render_results_html.py

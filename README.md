@@ -13,14 +13,20 @@ number or an explicit `NOT RUN`.
 ## Headline — read this first
 
 Primary system (IPS-weighted LambdaMART + hard-gated utility) NDCG@10 on the unbiased random-exposure
-holdout: **0.1540 ± 0.0071 (mean ± sd over 5 independently regenerated seeds; the committed seed 42, 0.1485, is number 2 of 5 counting from the lowest)**. It is a **significant** improvement over the popularity ranker the
-incumbents already run (Wilcoxon p=4.34e-41, seed 42) and a
-**not significant** improvement over a plain content-cosine baseline (p=0.445
-at seed 42; the primary is above content cosine in 4 of 5 seeds (mean gap +0.0110 NDCG@10)). A measured decomposition
-(TECHNICAL.md section 4.1) shows the gain over popularity comes from *ranking*, not from the learned
-retriever: the retriever raised candidate recall without moving end-to-end NDCG@10 significantly.
-The relative-lift number against popularity is real but is not the right headline on its own,
-because it compares against the weakest reasonable baseline.
+holdout: **0.1967 ± 0.0083 (mean ± sd over 5 independently regenerated seeds; the committed seed 42, 0.1842, is the LOWEST of the five)**. It is a **significant** improvement over the popularity ranker the
+incumbents already run (Wilcoxon p=3.54e-75, seed 42) **and over a
+plain content-cosine baseline** (p=1.27e-14 at seed 42; above cosine in
+5 of 5 seeds (mean gap +0.0623 NDCG@10); 5-seed paired t-test p=0.000239).
+
+**A late-found bug, and what it changed.** As first tagged, this submission reported the ranker
+*indistinguishable* from cosine (NDCG@10 0.1485 vs
+0.1411, p=0.445) and explained that as
+"a well-constructed baseline is hard to beat". That explanation was wrong: train-time traveler features
+contained each trip's own labelled browsing session, which holdout features cannot. Fixing the as-of
+cutoff (`docs/TECHNICAL.md` section 5.1; the conclusion in the first tag is retracted) is what moved the
+ranker above cosine; the pre-registered follow-up experiment on explicit cross features (section 5.2)
+added essentially nothing on the holdout. The relative lift over popularity remains real but compares
+against the weakest reasonable baseline, so cosine is the right yardstick.
 
 ## The result that matters commercially
 
@@ -29,19 +35,19 @@ The incumbents already rank by popularity. On the unbiased random-exposure holdo
 
 | | This system | Popularity ranker |
 |---|---|---|
-| Long-tail share (bottom-50% popularity stratum) | **0.225** | 0.000 |
-| Catalog coverage@10 | **66.4%** | 5.7% |
-| NDCG@10 | **0.1485** [0.1385, 0.1590] | 0.0629 |
+| Long-tail share (bottom-50% popularity stratum) | **0.144** | 0.000 |
+| Catalog coverage@10 | **47.3%** | 3.5% |
+| NDCG@10 | **0.1842** [0.1738, 0.1945] | 0.0523 |
 
-Long-tail **precision** is 0.154 against a pool base rate of
-0.099, i.e. a **1.556x lift over base rate**
-(2.234x at the raw ranker); lift over base rate is the primary statistic. The
+Long-tail **precision** is 0.196 against a pool base rate of
+0.097, i.e. a **2.026x lift over base rate**
+(3.538x at the raw ranker); lift over base rate is the primary statistic. The
 0.40 raw-precision target was set a priori without reference to that base rate and was miscalibrated
 at design time (`docs/TECHNICAL.md` section 4.2), so the honest claim is: it surfaces the long tail
 far more than a popularity ranker at a real relevance gain, and ranks long-tail POIs well above the
 pool's base rate, but not to the absolute precision the a-priori target assumed.
-The bias-gap table (popularity +0.083 vs primary
-+0.009 NDCG@10 between biased and unbiased holdouts) shows why the
+The bias-gap table (popularity +0.080 vs primary
+-0.005 NDCG@10 between biased and unbiased holdouts) shows why the
 comparison must be made on the unbiased holdout.
 
 ## Quick start
@@ -68,8 +74,8 @@ uv run python -m poi_rank.cli compose                # the only writer of result
 That is `make reproduce` (data → gates → train → evaluate → compose). `make reproduce-full` adds
 `recommend` (a seeded 300-trip inspection sample), `scenarios`, `lodo` and the docs. Wall-clock
 on a 16-logical-core laptop CPU (`scripts/time_reproduce.py`):
-**396 s (6.6 min) for `reproduce`**, **493 s for
-`reproduce-full`**. Per-stage timings are in `docs/RESULTS.md`. The original target was 5 minutes; the measured value is above it and was not chased further (the two largest stages are `train` and `evaluate`, i.e. LightGBM fits; the per-stage table is in `docs/RESULTS.md`).
+**335 s (5.6 min) for `reproduce`**, **432 s for
+`reproduce-full`**. Per-stage timings are in `docs/RESULTS.md`. The measured `reproduce` value is above the original 5-minute target and was not chased further (the two largest stages are `train` and `evaluate`, i.e. LightGBM fits; the per-stage table is in `docs/RESULTS.md`).
 
 **Cold fresh-clone reproduction verified.** Commit `60c399a` was cloned
 into a clean directory, dependencies installed with `uv sync --frozen` on an empty cache
@@ -88,17 +94,45 @@ uv run pytest -m slow                        # heavy pipeline tests, serial lane
 uv run ruff check src tests && uv run mypy
 ```
 
+## Results
+
+**[`docs/results.html`](docs/results.html)** is a single self-contained results explorer (no build step,
+no CDN, no server — open it by double-click): the four scenarios with their top-10 tables and
+compatibility breakdowns, the scenario overlap matrix, the full MET/MISSED scorecard with each miss's
+diagnosis, the baseline table with confidence intervals and the bias-gap table. It is generated from
+`results/metrics.json` and `results/scenarios/*.json` by `scripts/render_results_html.py` (part of
+`make docs`). It is a reviewer aid, not a product UI — frontend is out of scope per the assignment brief.
+
+### Live demo (uses the committed model artifacts)
+
+```bash
+# a real traveler's last trip, through the real pipeline
+make demo TRAVELER=U0005
+# a stated profile (a new traveler, cold-start path)
+make demo INTERESTS=local_food,neighborhoods BUDGET=medium MOBILITY=public_transport \
+          TOURISTINESS=-0.8 PARTY=solo DEST=seoul
+# without make:
+uv run python -m poi_rank.cli demo --traveler U0005
+uv run python -m poi_rank.cli demo --interests local_food,neighborhoods --budget medium \
+    --mobility public_transport --touristiness -0.8 --party solo --dest seoul
+```
+
+Each prints the top-10 with utility, preference, compatibility and confidence scores, the top SHAP
+signals and the explanation lines, in a few seconds (the calibrator persisted by `recommend` is
+loaded rather than re-fitted). `TOURISTINESS` is in [-1, 1]; `INTERESTS` accepts the dataset's
+interest labels or the aliases `local_food`, `neighborhoods`, `museums`, `nightlife`.
+
 ## Headline numbers (all generated from `results/metrics.json`)
 
 | Metric | Value |
 |---|---|
-| Primary system NDCG@10 (seed 42, committed run) | **0.1485** — 5-seed: 0.1540 ± 0.0071 (mean ± sd over 5 independently regenerated seeds; the committed seed 42, 0.1485, is number 2 of 5 counting from the lowest) |
-| vs popularity | **+136.2% relative**, Wilcoxon p=4.34e-41 |
-| vs best baseline (content cosine) | p=0.445 — NOT statistically significant at 0.05, so not a supported win over that baseline |
-| % of candidate-level oracle ceiling | 39.6% (target ≥70% — missed, diagnosed) |
-| Candidate recall (exposed positives), overall / long-tail | 0.857 / 0.826 |
+| Primary system NDCG@10 (seed 42, committed run) | **0.1842** — 5-seed: 0.1967 ± 0.0083 (mean ± sd over 5 independently regenerated seeds; the committed seed 42, 0.1842, is the LOWEST of the five) |
+| vs popularity | **+252.0% relative**, Wilcoxon p=3.54e-75 |
+| vs best baseline (content cosine) | p=1.27e-14 — statistically significant at 0.05 |
+| % of candidate-level oracle ceiling | 50.0% (target ≥70% — missed, diagnosed) |
+| Candidate recall (exposed positives), overall / long-tail | 0.926 / 0.898 |
 | Hard-constraint violations in top-10 | **0** |
-| ECE after isotonic calibration | **0.0466** |
+| ECE after isotonic calibration | **0.0300** |
 
 Acceptance gates — Gate-A overall pass: **True**; Gate-B overall pass: **True**. Every scorecard row, every miss with its diagnosis, all nine
 systems, the bias-gap table, per-stratum recall with chance baselines, cold-start cohorts, the

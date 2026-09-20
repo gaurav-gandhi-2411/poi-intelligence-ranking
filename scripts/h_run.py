@@ -1,6 +1,6 @@
 """Experiment H runner (validation only; see docs/experiments/H-ranker-cross-features.md).
 
-    uv run python scripts/h_run.py prep      # build + cache the cross-feature train frame
+    uv run python scripts/h_run.py prep      # sanity: load the frames (they carry the xf_ columns)
     uv run python scripts/h_run.py h0a       # grouped SHAP on the shipped model
     uv run python scripts/h_run.py h0b       # cross-features-only probe vs shipped
     uv run python scripts/h_run.py h1        # full model + cross features (and group ablations)
@@ -12,8 +12,6 @@ Results go to results/experiments/h/<stage>.json. The holdout is never read here
 
 from __future__ import annotations
 
-import torch  # noqa: F401, I001  (must import before pandas on this machine)
-
 import json
 import sys
 import time
@@ -22,20 +20,17 @@ from typing import Any
 
 import lightgbm as lgb
 import numpy as np
-import pandas as pd
+import torch  # noqa: F401, I001  (must import before pandas on this machine)
 
 from poi_rank.eval.config import EvalConfig
 from poi_rank.eval.decision_register import load_lab
 from poi_rank.eval.ranker_h import (
     ADOPTION_BAR,
     SEEDS,
-    augment_frame,
-    lab_with_frame,
 )
 from poi_rank.eval.ranker_sweep import _Cache
 from poi_rank.explain.shap_groups import compute_grouped_shap
 from poi_rank.features.config import FeatureBuildConfig
-from poi_rank.models import lambdamart as lm
 from poi_rank.models.baselines import categorical_feature_columns, numeric_feature_columns
 from poi_rank.models.config import ModelConfig
 from poi_rank.scoring.config import ScoringConfig
@@ -43,7 +38,6 @@ from poi_rank.scoring.config import ScoringConfig
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data" / "synthetic"
 OUT = ROOT / "results" / "experiments" / "h"
-CACHE = Path("C:/Users/gaura/h_cache")
 SHIPPED = {"objective": "lambdarank", "clip": 20.0}
 PROBE = (
     "interact_cos_taste_poi",
@@ -70,7 +64,6 @@ GROUPS = {
         "xf_budget_fit",
         "xf_mobility_fit",
         "xf_hours_fit",
-        "xf_reservation_fit",
         "xf_party_fit",
         "xf_duration_fit",
         "xf_travel_min",
@@ -91,20 +84,8 @@ def _cfgs() -> tuple[FeatureBuildConfig, ModelConfig, EvalConfig, ScoringConfig]
 
 
 def _lab() -> Any:
-    feat, model, ev, scoring = _cfgs()
-    lab = load_lab(DATA, feat, model, ev)
-    path = CACHE / "train_aug.parquet"
-    if path.exists():
-        frame = pd.read_parquet(path)
-    else:
-        t0 = time.perf_counter()
-        frame = augment_frame(
-            lab.train_frame, DATA, feat.traveler_features.budget_target_price_level, scoring
-        )
-        CACHE.mkdir(parents=True, exist_ok=True)
-        frame.to_parquet(path, index=False)
-        print(f"augmented + cached in {time.perf_counter() - t0:.0f}s", flush=True)
-    return lab_with_frame(lab, frame)
+    feat, model, ev, _scoring = _cfgs()
+    return load_lab(DATA, feat, model, ev)  # frames already carry the xf_ cross features
 
 
 def _seeds(cache: _Cache, **kw: Any) -> dict[str, Any]:
@@ -131,9 +112,8 @@ def _save(name: str, payload: dict[str, Any]) -> None:
 def h0a() -> None:
     lab = _lab()
     cache = _Cache(lab)
-    base = lab.train_frame.drop(columns=[c for c in lab.train_frame.columns if c.startswith("xf_")])
-    numeric = numeric_feature_columns(base)
-    cat = categorical_feature_columns(base)
+    numeric = numeric_feature_columns(lab.train_frame)  # the shipped model uses the xf_ columns too
+    cat = categorical_feature_columns(lab.train_frame)
     booster = lgb.Booster(model_file=str(ROOT / "artifacts" / "model.txt"))
     val = cache.val
     trips = np.sort(val["trip_id"].unique())
@@ -174,7 +154,7 @@ def h1() -> None:
     cache = _Cache(_lab())
     out: dict[str, Any] = {"full_plus_cross": _seeds(cache)}
     print("full+cross", out["full_plus_cross"], flush=True)
-    for g, cols in GROUPS.items():
+    for g in GROUPS:
         drop_others = tuple(c for gg, cc in GROUPS.items() if gg != g for c in cc)
         out[f"plus_{g}_only"] = _seeds(cache, drop=drop_others)
         print("plus", g, out[f"plus_{g}_only"], flush=True)
@@ -212,6 +192,27 @@ def h3() -> None:
     _save("h3_group_tuning", {"init_scale": init, "grid": out, "bar": ADOPTION_BAR})
 
 
+def h3b() -> None:
+    """Combine the H3 single-parameter winners (declared before running): attribution run on the
+    shipped features plus the joint configurations on full+cross. Highest 4-seed mean wins; a
+    joint configuration is preferred over a simpler one only if it is >= 0.001 better."""
+    cache = _Cache(_lab())
+    leaves = {"num_leaves": 15}
+    gain = {"label_gain": [0, 1, 2, 3]}
+    trunc = {"lambdarank_truncation_level": 40}
+    runs = {
+        "shipped_features_leaves15": {"drop": ("xf_",), "params": leaves},
+        "cross_leaves15": {"params": leaves},
+        "cross_leaves15_gainlinear": {"params": {**leaves, **gain}},
+        "cross_leaves15_trunc40": {"params": {**leaves, **trunc}},
+        "cross_leaves15_gainlinear_trunc40": {"params": {**leaves, **gain, **trunc}},
+    }
+    out = {k: _seeds(cache, **v) for k, v in runs.items()}
+    for k, v in out.items():
+        print(k, v["mean"], v["per_seed"], flush=True)
+    _save("h3b_combinations", {"runs": out, "bar": ADOPTION_BAR})
+
+
 def prep() -> None:
     _lab()
     print("ok")
@@ -220,5 +221,5 @@ def prep() -> None:
 if __name__ == "__main__":
     stage = sys.argv[1]
     t0 = time.perf_counter()
-    {"prep": prep, "h0a": h0a, "h0b": h0b, "h1": h1, "h2": h2, "h3": h3}[stage]()
+    {"prep": prep, "h0a": h0a, "h0b": h0b, "h1": h1, "h2": h2, "h3": h3, "h3b": h3b}[stage]()
     print(f"[{stage}] {time.perf_counter() - t0:.0f}s")

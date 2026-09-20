@@ -49,6 +49,7 @@ from poi_rank.features.pair_frame import (
     build_ranking_frame,
     label_by_trip_poi,
 )
+from poi_rank.models.cross_ranking import attach_cross_features
 
 FloatArray = npt.NDArray[np.float64]
 
@@ -90,7 +91,7 @@ def load_holdout_evaluation_frame(
     d = _load_common(data_dir)
     holdout_random = pd.read_parquet(data_dir / INTERACTIONS_HOLDOUT_RANDOM_FILENAME)
     holdout_trip_ids = set(d["trips_df"].loc[d["trips_df"]["is_holdout"], "trip_id"])
-    return build_ranking_frame(
+    frame = build_ranking_frame(
         d["candidates_df"],
         holdout_trip_ids,
         holdout_random,
@@ -101,6 +102,7 @@ def load_holdout_evaluation_frame(
         d["traveler_features_df"],
         budget_target_price_level,
     )
+    return attach_cross_features(frame, data_dir, budget_target_price_level)
 
 
 def load_holdout_biased_evaluation_frame(
@@ -123,7 +125,7 @@ def load_holdout_biased_evaluation_frame(
     d = _load_common(data_dir)
     holdout_logged = pd.read_parquet(data_dir / INTERACTIONS_HOLDOUT_LOGGED_FILENAME)
     holdout_trip_ids = set(d["trips_df"].loc[d["trips_df"]["is_holdout"], "trip_id"])
-    return build_ranking_frame(
+    frame = build_ranking_frame(
         d["candidates_df"],
         holdout_trip_ids,
         holdout_logged,
@@ -134,6 +136,7 @@ def load_holdout_biased_evaluation_frame(
         d["traveler_features_df"],
         budget_target_price_level,
     )
+    return attach_cross_features(frame, data_dir, budget_target_price_level)
 
 
 def load_train_ranking_frame(
@@ -145,7 +148,7 @@ def load_train_ranking_frame(
     d = _load_common(data_dir)
     interactions_train = pd.read_parquet(data_dir / INTERACTIONS_TRAIN_FILENAME)
     train_trip_ids = set(d["trips_df"].loc[~d["trips_df"]["is_holdout"], "trip_id"])
-    return build_ranking_frame(
+    frame = build_ranking_frame(
         d["candidates_df"],
         train_trip_ids,
         interactions_train,
@@ -156,3 +159,4 @@ def load_train_ranking_frame(
         d["traveler_features_df"],
         budget_target_price_level,
     )
+    return attach_cross_features(frame, data_dir, budget_target_price_level)

@@ -1,0 +1,34 @@
+{
+  "probe_cross_only": {
+    "mean": 0.22568364072377398,
+    "per_seed": [
+      0.2278405296469691,
+      0.22366731053344036,
+      0.2244185047529261,
+      0.2268082179617603
+    ],
+    "sd": 0.0019649427686646726
+  },
+  "probe_features": [
+    "interact_cos_taste_poi",
+    "interact_category_affinity",
+    "interact_interest_match",
+    "xf_loc_align",
+    "xf_price_signed",
+    "xf_party_fit",
+    "xf_mobility_fit",
+    "xf_interest_cover",
+    "xf_pop_x_pref",
+    "xf_prior_poi_engaged"
+  ],
+  "shipped_237": {
+    "mean": 0.3167050812052992,
+    "per_seed": [
+      0.31232162231554506,
+      0.31347013510944866,
+      0.321752284260471,
+      0.3192762831357322
+    ],
+    "sd": 0.0045374341548361525
+  }
+}

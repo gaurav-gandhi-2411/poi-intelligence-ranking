@@ -1,25 +1,25 @@
 {
   "blocking_checks": {
     "candidate_recall_lift_long_tail": {
-      "measured": 0.3924894464140465,
+      "measured": 0.41693619629640377,
       "op": ">=",
       "passed": true,
       "threshold": 0.35
     },
     "candidate_recall_lift_overall": {
-      "measured": 0.373832093852631,
+      "measured": 0.37368544427110595,
       "op": ">=",
       "passed": true,
       "threshold": 0.35
     },
     "candidate_recall_long_tail": {
-      "measured": 0.8262227145918638,
+      "measured": 0.8975155374255375,
       "op": ">=",
       "passed": true,
       "threshold": 0.75
     },
     "candidate_recall_overall": {
-      "measured": 0.8573417575961688,
+      "measured": 0.9262135366807853,
       "op": ">=",
       "passed": true,
       "threshold": 0.85
@@ -34,45 +34,45 @@
     "d9_within_trip_shipped_chain": 0.473078575320493,
     "d9_within_trip_taste_estimator_alone": 0.5718227327374178,
     "d9_within_trip_text_alone": 0.927213789525191,
-    "oracle_ceiling_ndcg10_candidate_level": 0.3748759408951673,
-    "oracle_relevance_recall_long_tail": 0.9106863247697823,
-    "oracle_relevance_recall_overall": 0.9357103726960528,
+    "oracle_ceiling_ndcg10_candidate_level": 0.3681897646256315,
+    "oracle_relevance_recall_long_tail": 0.9644310235219326,
+    "oracle_relevance_recall_overall": 0.9787735941675552,
     "recall_by_stratum": {
       "long_tail": {
-        "chance_recall": 0.4337332681778173,
-        "lift_abs": 0.3924894464140465,
+        "chance_recall": 0.4805793411291337,
+        "lift_abs": 0.41693619629640377,
         "n_trips": 605.0,
-        "recall": 0.8262227145918638
+        "recall": 0.8975155374255375
       },
       "overall": {
-        "chance_recall": 0.4835096637435378,
-        "lift_abs": 0.373832093852631,
+        "chance_recall": 0.5525280924096794,
+        "lift_abs": 0.37368544427110595,
         "n_trips": 605.0,
-        "recall": 0.8573417575961688
+        "recall": 0.9262135366807853
       },
       "q1_least_popular": {
-        "chance_recall": 0.47416805324459227,
-        "lift_abs": 0.36557001465474454,
+        "chance_recall": 0.5313505268996118,
+        "lift_abs": 0.3826178038860849,
         "n_trips": 601.0,
-        "recall": 0.8397380678993368
+        "recall": 0.9139683307856967
       },
       "q2": {
-        "chance_recall": 0.3934118457300275,
-        "lift_abs": 0.4173725134173992,
+        "chance_recall": 0.43000780532598715,
+        "lift_abs": 0.45247496290194367,
         "n_trips": 600.0,
-        "recall": 0.8107843591474267
+        "recall": 0.8824827682279308
       },
       "q3": {
-        "chance_recall": 0.4246462819054407,
-        "lift_abs": 0.39180088410435104,
+        "chance_recall": 0.5097365559712914,
+        "lift_abs": 0.3976917912579252,
         "n_trips": 603.0,
-        "recall": 0.8164471660097917
+        "recall": 0.9074283472292166
       },
       "q4_most_popular": {
-        "chance_recall": 0.6410491086674408,
-        "lift_abs": 0.27433136266917135,
+        "chance_recall": 0.7379823782528515,
+        "lift_abs": 0.23065621271862835,
         "n_trips": 605.0,
-        "recall": 0.9153804713366122
+        "recall": 0.9686385909714799
       }
     }
   }

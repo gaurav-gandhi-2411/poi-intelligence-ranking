@@ -1,4 +1,38 @@
 {
+  "gate_b_lift_row_target": 0.35,
+  "gate_feasible_rule": "largest K whose validation lift >= 0.35 + 0.01 margin",
+  "gate_feasible_k": 225,
+  "shipped_k": 240,
+  "at_rule_k": {
+    "learned_K": 270,
+    "val_ips_weighted_selection": {
+      "recall": 0.933,
+      "lt": 0.9,
+      "size": 292.0,
+      "lift": 0.327
+    },
+    "holdout_reporting_only": {
+      "recall": 0.947,
+      "lt": 0.92,
+      "size": 292.0,
+      "lift": 0.34
+    }
+  },
+  "at_shipped_k": {
+    "learned_K": 240,
+    "val_ips_weighted_selection": {
+      "recall": 0.911,
+      "lt": 0.877,
+      "size": 266.0,
+      "lift": 0.358
+    },
+    "holdout_reporting_only": {
+      "recall": 0.924,
+      "lt": 0.89,
+      "size": 267.0,
+      "lift": 0.371
+    }
+  },
   "pre_registered_rule": "smallest K with IPS-weighted validation overall recall >= 0.93 (val = 20% of train trips vs logged positives, weighted 1/clip(p_expose)); applied once, blind to the holdout column, which is reporting-only",
   "rule_k": 270,
   "holdout_at_rule_k_reporting_only": {
@@ -11,10 +45,10 @@
     {
       "learned_K": 90,
       "val_ips_weighted_selection": {
-        "recall": 0.689,
-        "lt": 0.673,
+        "recall": 0.676,
+        "lt": 0.627,
         "size": 151.0,
-        "lift": 0.377
+        "lift": 0.363
       },
       "holdout_reporting_only": {
         "recall": 0.701,
@@ -26,10 +60,10 @@
     {
       "learned_K": 105,
       "val_ips_weighted_selection": {
-        "recall": 0.724,
-        "lt": 0.698,
+        "recall": 0.713,
+        "lt": 0.663,
         "size": 161.0,
-        "lift": 0.39
+        "lift": 0.379
       },
       "holdout_reporting_only": {
         "recall": 0.739,
@@ -41,10 +75,10 @@
     {
       "learned_K": 120,
       "val_ips_weighted_selection": {
-        "recall": 0.754,
-        "lt": 0.729,
+        "recall": 0.745,
+        "lt": 0.698,
         "size": 172.0,
-        "lift": 0.398
+        "lift": 0.389
       },
       "holdout_reporting_only": {
         "recall": 0.769,
@@ -56,10 +90,10 @@
     {
       "learned_K": 135,
       "val_ips_weighted_selection": {
-        "recall": 0.783,
-        "lt": 0.757,
+        "recall": 0.773,
+        "lt": 0.727,
         "size": 183.0,
-        "lift": 0.404
+        "lift": 0.394
       },
       "holdout_reporting_only": {
         "recall": 0.796,
@@ -71,10 +105,10 @@
     {
       "learned_K": 150,
       "val_ips_weighted_selection": {
-        "recall": 0.81,
-        "lt": 0.783,
+        "recall": 0.802,
+        "lt": 0.757,
         "size": 194.0,
-        "lift": 0.407
+        "lift": 0.399
       },
       "holdout_reporting_only": {
         "recall": 0.82,
@@ -86,10 +120,10 @@
     {
       "learned_K": 165,
       "val_ips_weighted_selection": {
-        "recall": 0.833,
-        "lt": 0.806,
-        "size": 205.0,
-        "lift": 0.407
+        "recall": 0.825,
+        "lt": 0.782,
+        "size": 206.0,
+        "lift": 0.399
       },
       "holdout_reporting_only": {
         "recall": 0.843,
@@ -101,10 +135,10 @@
     {
       "learned_K": 180,
       "val_ips_weighted_selection": {
-        "recall": 0.851,
-        "lt": 0.818,
+        "recall": 0.845,
+        "lt": 0.799,
         "size": 217.0,
-        "lift": 0.401
+        "lift": 0.394
       },
       "holdout_reporting_only": {
         "recall": 0.866,
@@ -116,10 +150,10 @@
     {
       "learned_K": 195,
       "val_ips_weighted_selection": {
-        "recall": 0.87,
-        "lt": 0.844,
+        "recall": 0.864,
+        "lt": 0.824,
         "size": 229.0,
-        "lift": 0.396
+        "lift": 0.389
       },
       "holdout_reporting_only": {
         "recall": 0.883,
@@ -131,10 +165,10 @@
     {
       "learned_K": 210,
       "val_ips_weighted_selection": {
-        "recall": 0.885,
-        "lt": 0.865,
+        "recall": 0.88,
+        "lt": 0.846,
         "size": 241.0,
-        "lift": 0.385
+        "lift": 0.379
       },
       "holdout_reporting_only": {
         "recall": 0.897,
@@ -146,10 +180,10 @@
     {
       "learned_K": 225,
       "val_ips_weighted_selection": {
-        "recall": 0.902,
-        "lt": 0.881,
-        "size": 253.0,
-        "lift": 0.376
+        "recall": 0.897,
+        "lt": 0.862,
+        "size": 254.0,
+        "lift": 0.37
       },
       "holdout_reporting_only": {
         "recall": 0.911,
@@ -161,10 +195,10 @@
     {
       "learned_K": 240,
       "val_ips_weighted_selection": {
-        "recall": 0.915,
-        "lt": 0.892,
+        "recall": 0.911,
+        "lt": 0.877,
         "size": 266.0,
-        "lift": 0.363
+        "lift": 0.358
       },
       "holdout_reporting_only": {
         "recall": 0.924,
@@ -176,10 +210,10 @@
     {
       "learned_K": 255,
       "val_ips_weighted_selection": {
-        "recall": 0.928,
-        "lt": 0.903,
+        "recall": 0.923,
+        "lt": 0.887,
         "size": 279.0,
-        "lift": 0.349
+        "lift": 0.344
       },
       "holdout_reporting_only": {
         "recall": 0.936,
@@ -191,10 +225,10 @@
     {
       "learned_K": 270,
       "val_ips_weighted_selection": {
-        "recall": 0.937,
-        "lt": 0.914,
+        "recall": 0.933,
+        "lt": 0.9,
         "size": 292.0,
-        "lift": 0.332
+        "lift": 0.327
       },
       "holdout_reporting_only": {
         "recall": 0.947,
@@ -206,10 +240,10 @@
     {
       "learned_K": 285,
       "val_ips_weighted_selection": {
-        "recall": 0.947,
-        "lt": 0.927,
+        "recall": 0.944,
+        "lt": 0.916,
         "size": 305.0,
-        "lift": 0.315
+        "lift": 0.311
       },
       "holdout_reporting_only": {
         "recall": 0.957,
@@ -221,10 +255,10 @@
     {
       "learned_K": 300,
       "val_ips_weighted_selection": {
-        "recall": 0.958,
-        "lt": 0.946,
+        "recall": 0.956,
+        "lt": 0.938,
         "size": 318.0,
-        "lift": 0.299
+        "lift": 0.296
       },
       "holdout_reporting_only": {
         "recall": 0.964,
@@ -236,10 +270,10 @@
     {
       "learned_K": 315,
       "val_ips_weighted_selection": {
-        "recall": 0.966,
-        "lt": 0.957,
+        "recall": 0.964,
+        "lt": 0.952,
         "size": 331.0,
-        "lift": 0.279
+        "lift": 0.277
       },
       "holdout_reporting_only": {
         "recall": 0.97,
@@ -251,10 +285,10 @@
     {
       "learned_K": 330,
       "val_ips_weighted_selection": {
-        "recall": 0.975,
-        "lt": 0.964,
+        "recall": 0.973,
+        "lt": 0.96,
         "size": 345.0,
-        "lift": 0.26
+        "lift": 0.258
       },
       "holdout_reporting_only": {
         "recall": 0.976,
@@ -266,10 +300,10 @@
     {
       "learned_K": 345,
       "val_ips_weighted_selection": {
-        "recall": 0.981,
-        "lt": 0.969,
+        "recall": 0.98,
+        "lt": 0.968,
         "size": 358.0,
-        "lift": 0.238
+        "lift": 0.237
       },
       "holdout_reporting_only": {
         "recall": 0.98,
@@ -281,10 +315,10 @@
     {
       "learned_K": 360,
       "val_ips_weighted_selection": {
-        "recall": 0.985,
-        "lt": 0.976,
+        "recall": 0.984,
+        "lt": 0.971,
         "size": 372.0,
-        "lift": 0.214
+        "lift": 0.212
       },
       "holdout_reporting_only": {
         "recall": 0.985,

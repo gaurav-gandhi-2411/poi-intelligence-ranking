@@ -79,5 +79,9 @@ if full:
     }
     (parts / "timings.json").write_text(json.dumps(reproduce_out, indent=2) + "\n", encoding="utf-8")
 # Fold the fresh timings into metrics.json and the docs.
-for cmd in (["-m", "poi_rank.cli", "compose"], ["-m", "poi_rank.eval.report"]):
+for cmd in (
+    ["-m", "poi_rank.cli", "compose"],
+    ["-m", "poi_rank.eval.report"],
+    ["scripts/render_results_html.py"],  # docs/results.html
+):
     subprocess.run([sys.executable, *cmd], cwd=ROOT, env=env, check=False)  # noqa: S603

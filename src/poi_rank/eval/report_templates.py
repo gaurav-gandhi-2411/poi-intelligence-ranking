@@ -86,7 +86,24 @@ def _reproduce_minutes(ctx: dict[str, Any]) -> str:
     return f"{ctx['timings']['total_seconds'] / 60:.1f} min"
 
 
+def _reproduce_vs_target(ctx: dict[str, Any]) -> str:
+    return (
+        "meets the original 5-minute target"
+        if ctx["timings"]["total_seconds"] <= 300
+        else "is above the original 5-minute target and was not chased further"
+    )
+
+
+def _dropout_direction(ctx: dict[str, Any]) -> str:
+    c = ctx["new_poi_cohort"]
+    with_d = c["ndcg@10_lambdamart_ips_with_dropout"]["mean"]
+    without = c["ndcg@10_lambdamart_ips_no_dropout"]["mean"]
+    return "higher" if with_d > without else "lower"
+
+
 _DERIVED: dict[str, Callable[[dict[str, Any]], float | str]] = {
+    "dropout_direction": _dropout_direction,
+    "reproduce_vs_target": _reproduce_vs_target,
     "reproduce_minutes": _reproduce_minutes,
     "seed_headline": _seed_headline,
     "seed_vs_cosine": _seed_vs_cosine,

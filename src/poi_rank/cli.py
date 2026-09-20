@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -36,6 +37,13 @@ from poi_rank.eval.decision_register import (
     run_dr_scoring,
 )
 from poi_rank.eval.decomposition import run_decomposition
+from poi_rank.eval.demo import (
+    DemoInputError,
+    build_profile,
+    format_recommendations,
+    recommend_for_profile,
+    recommend_for_traveler,
+)
 from poi_rank.eval.dgp_diagnostics import run_dgp_diagnostics
 from poi_rank.eval.dr_experiments import (
     run_dr2,
@@ -1092,6 +1100,64 @@ def longtail_stages(
     )
     compose_metrics(results_dir)
     typer.echo(json.dumps(payload["stages"], indent=1))
+
+
+@app.command()
+def demo(
+    traveler: str = typer.Option(
+        "", "--traveler", help="A traveler_id from the dataset (e.g. U0005)"
+    ),
+    interests: str = typer.Option("", help="Comma list, e.g. local_food,neighborhoods"),
+    budget: str = typer.Option("medium", help="low | medium | high"),
+    mobility: str = typer.Option("public_transport", help="walk | public_transport | car | mixed"),
+    touristiness: float = typer.Option(0.0, help="Preference in [-1, 1]; -1 = avoid touristy"),
+    party: str = typer.Option(
+        "solo", help="solo | couple | family_young_kids | family_teens | friends"
+    ),
+    dest: str = typer.Option("seoul", help="Destination in the catalog"),
+    features_config_path: Path = typer.Option(DEFAULT_FEATURES_CONFIG_PATH),  # noqa: B008
+    model_config_path: Path = typer.Option(DEFAULT_MODEL_CONFIG_PATH),  # noqa: B008
+    scoring_config_path: Path = typer.Option(DEFAULT_SCORING_CONFIG_PATH),  # noqa: B008
+    data_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR),  # noqa: B008
+    artifacts_dir: Path = typer.Option(DEFAULT_ARTIFACTS_DIR),  # noqa: B008
+) -> None:
+    """Live top-10 from the committed model artifacts: `--traveler U0005` (real trip) or a
+    stated profile (`--interests`, `--budget`, `--mobility`, `--touristiness`, `--party`,
+    `--dest`)."""
+    warnings.simplefilter("ignore", FutureWarning)  # pandas dtype-downcast noise, not actionable
+    feature_cfg = FeatureBuildConfig.from_yaml(features_config_path)
+    model_cfg = ModelConfig.from_yaml(model_config_path)
+    scoring_cfg = ScoringConfig.from_yaml(scoring_config_path)
+    candidates_cfg = CandidatesConfig.from_yaml(features_config_path)
+    try:
+        if traveler:
+            recs = recommend_for_traveler(
+                traveler,
+                data_dir,
+                artifacts_dir,
+                feature_cfg,
+                model_cfg,
+                scoring_cfg,
+                candidates_cfg,
+            )
+        else:
+            travelers_df = pd.read_parquet(data_dir / "travelers.parquet")
+            vocabulary = {label for xs in travelers_df["interests"] for label in xs}
+            profile = build_profile(interests, budget, mobility, touristiness, party, vocabulary)
+            recs = recommend_for_profile(
+                profile,
+                dest,
+                data_dir,
+                artifacts_dir,
+                feature_cfg,
+                model_cfg,
+                scoring_cfg,
+                candidates_cfg,
+            )
+    except DemoInputError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(format_recommendations(recs))
 
 
 if __name__ == "__main__":

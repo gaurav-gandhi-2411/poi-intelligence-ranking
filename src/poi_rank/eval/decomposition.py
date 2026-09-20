@@ -38,6 +38,7 @@ from poi_rank.features.pair_frame import build_ranking_frame, label_by_trip_poi
 from poi_rank.features.reconcile import build_poi_id_canonical_map
 from poi_rank.models import baselines as bl
 from poi_rank.models import lambdamart as lm
+from poi_rank.models.cross_ranking import attach_cross_features
 
 LEGACY_CANDIDATES_FILENAME = "candidates_legacy6.parquet"
 
@@ -104,9 +105,10 @@ def run_decomposition(
     legacy = _legacy_candidates(data_dir, lab, legacy_cfg)
 
     def frame(cand: pd.DataFrame, ids: set[str], interactions: pd.DataFrame) -> pd.DataFrame:
-        return build_ranking_frame(
+        built = build_ranking_frame(
             cand, ids, interactions, trips, travelers, lab.pois_df, pf, tf_all, budget
         )
+        return attach_cross_features(built, data_dir, budget)  # the shipped booster needs xf_
 
     frames = {
         "learned_retriever": lab.holdout_frame,

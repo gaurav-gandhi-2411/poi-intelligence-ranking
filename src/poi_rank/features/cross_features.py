@@ -8,8 +8,8 @@ derived POI column -- exactly the compatibility dimensions the assignment's sect
 **Not oracle leakage**: every input is a stated traveler attribute (explicit touristiness
 preference, interests, budget, party, mobility), a derived POI column the production system has
 (localness index, price level, tags, category, embedding) or the traveler's own logged history
-before the trip starts. Nothing here reads `_oracle/` or `datagen`; `tests/test_cross_features.py`
-extends the firewall check to this module.
+before the trip session starts. Nothing here reads the oracle export or the data generator;
+`tests/test_cross_features.py` and the features firewall test cover this module.
 
 All features carry the `xf_` prefix. `candidates/retriever.py` drops that prefix, so adding them
 never changes the retriever or the candidate sets.
@@ -23,6 +23,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
+from poi_rank.features import compat_scores as cs
 from poi_rank.features.config import BudgetTargetPriceLevel
 
 FloatArray = npt.NDArray[np.float64]
@@ -47,6 +48,10 @@ class CrossFeatureContext:
     poi_localness_reference: FloatArray  # catalog localness values (frame-independent percentiles)
     history: pd.DataFrame  # traveler_id, poi_id, interaction_type, label, timestamp
     budget_target_price_level: BudgetTargetPriceLevel
+    # Optional: compatibility-style scores as features (need traveler/POI tables + constants).
+    travelers_df: pd.DataFrame | None = None
+    pois_df: pd.DataFrame | None = None
+    compat: cs.CompatParams | None = None
 
 
 def _localness_percentile(values: FloatArray, reference: FloatArray) -> FloatArray:
@@ -175,6 +180,16 @@ def add_cross_features(frame: pd.DataFrame, ctx: CrossFeatureContext) -> pd.Data
     for col in prior.columns:
         out[col] = prior[col].to_numpy()
     out["xf_cos_dismissed"] = _dismissed_cosine(out, ctx)
+    if ctx.compat is not None and ctx.travelers_df is not None and ctx.pois_df is not None:
+        cctx = cs.build_context(out, ctx.trips_df, ctx.travelers_df, ctx.pois_df)
+        travel_min, half_life = cs.travel_minutes(cctx, ctx.compat)
+        out["xf_budget_fit"] = cs.budget_fit(cctx, ctx.budget_target_price_level, ctx.compat)
+        out["xf_mobility_fit"] = cs.mobility_fit(cctx, ctx.compat)
+        out["xf_hours_fit"] = cs.hours_fit(cctx, ctx.compat)
+        out["xf_party_fit"] = cs.party_fit(cctx, ctx.compat)
+        out["xf_duration_fit"] = cs.duration_fit(cctx, ctx.compat)
+        out["xf_travel_min"] = travel_min
+        out["xf_travel_ratio"] = travel_min / half_life
     return out
 
 

@@ -25,6 +25,7 @@ from poi_rank.eval.decision_register import (
 from poi_rank.features.config import FeatureBuildConfig
 from poi_rank.models import lambdamart as lm
 from poi_rank.models.baselines import categorical_feature_columns, numeric_feature_columns
+from poi_rank.models.cross_ranking import attach_cross_features
 
 # -----------------------------------------------------------------------------------
 # DR2: two-tower learning curve; DR3: objectives; DR7: IPS clip
@@ -349,9 +350,13 @@ def run_dr9(
             cfg_q,
             learned_top_k=top_k,
         )
-        frame = build_ranking_frame(
-            cand, hold_ids, holdout_random, trips, travelers, pois, pf, tf_all, budget
-        )
+        frame = attach_cross_features(
+            build_ranking_frame(
+                cand, hold_ids, holdout_random, trips, travelers, pois, pf, tf_all, budget
+            ),
+            data_dir,
+            budget,
+        )  # the shipped booster needs the xf_ columns
         score = score_lgb(booster, num, cat, frame)
         per = per_trip_ndcg10(frame, score)
         lt_payload = _longtail_payload(_top_k_lists(frame, score), pois, frame, 0.4)

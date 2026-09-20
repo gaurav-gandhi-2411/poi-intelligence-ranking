@@ -1,0 +1,490 @@
+{
+  "baseline_corrected": {
+    "bar": 0.1827837780824289,
+    "baseline_shipped_config_on_corrected_frames_4seed_val_ips_ndcg10": {
+      "mean": 0.1727837780824289,
+      "per_seed": [
+        0.17636490111861144,
+        0.16987251203054418,
+        0.17374650095177463,
+        0.17115119822878538
+      ],
+      "sd": 0.002880512947770338
+    },
+    "leaky_frames_reference_0p3167_not_comparable": true,
+    "rule": "adopt an H1-H3 candidate only if 4-seed validation IPS-weighted NDCG@10 >= baseline + 0.010 (Amendment 1 point 3)"
+  },
+  "decision": {
+    "attribution_val": {
+      "cross_features_with_leaves15_minus_shipped_features_with_leaves15": 0.01061152125273307,
+      "gain_linear_on_top": 0.0036398786230810443,
+      "shipped_features_leaves15": 0.0021738113888160604
+    },
+    "bar": 0.1827837780824289,
+    "bar_met": true,
+    "baseline_shipped_on_corrected_frames": 0.1727837780824289,
+    "config": {
+      "features": "shipped + 20 xf_ cross features (xf_reservation_fit excluded: constant 1.0)",
+      "init_score": null,
+      "label_gain": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "num_leaves": 15
+    },
+    "frozen_before_holdout_read": true,
+    "h1_full_plus_cross_alone_missed_bar_by": 5.1401875658413365e-05,
+    "h1_full_plus_cross_alone_val": 0.1827323762067705,
+    "h2_init_score": "not adopted: cosine init worse than no init on validation (see h2_init_score.json)",
+    "margin_over_bar": 0.006425211264630165,
+    "note": "ADOPTION_BAR=0.3267 in earlier JSON files was defined on contaminated validation; superseded by baseline_corrected.json",
+    "selected": "cross_leaves15_gainlinear",
+    "selected_is_argmax_of_h3b": "cross_leaves15_gainlinear",
+    "validation_ips_ndcg10_4seed": {
+      "mean": 0.18920898934705907,
+      "per_seed": [
+        0.19063288784792756,
+        0.18957127052350733,
+        0.18882744858971331,
+        0.1878043504270881
+      ],
+      "sd": 0.001194057290166246
+    }
+  },
+  "feature_skew_post_fix": {
+    "holdout_trips": {
+      "days_since_last_interaction_median": 102.0,
+      "interaction_count_mean": 32.210134128166914,
+      "n_trips": 671.0
+    },
+    "train_trips": {
+      "days_since_last_interaction_median": 23.0,
+      "interaction_count_mean": 27.978676872607984,
+      "n_trips": 1829.0
+    }
+  },
+  "feature_skew_pre_fix": {
+    "holdout_trips": {
+      "days_since_last_interaction_median": 102.0,
+      "interaction_count_mean": 32.210134128166914,
+      "n_trips": 671.0
+    },
+    "train_trips": {
+      "days_since_last_interaction_median": 3.0,
+      "interaction_count_mean": 62.9710224166211,
+      "n_trips": 1829.0
+    }
+  },
+  "h0a_shap_shares_final_model": {
+    "geo": 0.02637056332983833,
+    "hours": 0.006182189694590322,
+    "implicit_taste": 0.43197849488465373,
+    "interest_match": 0.16803729566123865,
+    "localness_fit": 0.04261912027258755,
+    "novelty": 0.017357897377672883,
+    "party_fit": 0.04588583133905216,
+    "popularity": 0.13021065388025418,
+    "price_fit": 0.06531695999261813,
+    "quality": 0.06604099356749409
+  },
+  "h0a_shap_shares_pre_fix_model": {
+    "geo": 0.009798720515663295,
+    "hours": 0.0024945398262298177,
+    "implicit_taste": 0.5944518184929856,
+    "interest_match": 0.1652463184117347,
+    "localness_fit": 0.05141035243633175,
+    "novelty": 0.0,
+    "party_fit": 0.0027916587814645704,
+    "popularity": 0.06440921018019098,
+    "price_fit": 0.06305419023359977,
+    "quality": 0.046343191121799465
+  },
+  "h0b_corrected_frames": {
+    "probe_cross_only": {
+      "mean": 0.1594480037946857,
+      "per_seed": [
+        0.16115089120412712,
+        0.16315984242015028,
+        0.15476823652804078,
+        0.1587130450264246
+      ],
+      "sd": 0.0036109997494567425
+    },
+    "probe_features": [
+      "interact_cos_taste_poi",
+      "interact_category_affinity",
+      "interact_interest_match",
+      "xf_loc_align",
+      "xf_price_signed",
+      "xf_party_fit",
+      "xf_mobility_fit",
+      "xf_interest_cover",
+      "xf_pop_x_pref",
+      "xf_prior_poi_engaged"
+    ],
+    "shipped_237": {
+      "mean": 0.1727837780824289,
+      "per_seed": [
+        0.17636490111861144,
+        0.16987251203054418,
+        0.17374650095177463,
+        0.17115119822878538
+      ],
+      "sd": 0.002880512947770338
+    }
+  },
+  "h0b_pre_fix_frames": {
+    "probe_cross_only": {
+      "mean": 0.22568364072377398,
+      "per_seed": [
+        0.2278405296469691,
+        0.22366731053344036,
+        0.2244185047529261,
+        0.2268082179617603
+      ],
+      "sd": 0.0019649427686646726
+    },
+    "probe_features": [
+      "interact_cos_taste_poi",
+      "interact_category_affinity",
+      "interact_interest_match",
+      "xf_loc_align",
+      "xf_price_signed",
+      "xf_party_fit",
+      "xf_mobility_fit",
+      "xf_interest_cover",
+      "xf_pop_x_pref",
+      "xf_prior_poi_engaged"
+    ],
+    "shipped_237": {
+      "mean": 0.3167050812052992,
+      "per_seed": [
+        0.31232162231554506,
+        0.31347013510944866,
+        0.321752284260471,
+        0.3192762831357322
+      ],
+      "sd": 0.0045374341548361525
+    }
+  },
+  "h1": {
+    "full_plus_cross": {
+      "mean": 0.1827323762067705,
+      "per_seed": [
+        0.18525867737998503,
+        0.18177715167673017,
+        0.17826428002174827,
+        0.1856293957486185
+      ],
+      "sd": 0.003447281888920376
+    },
+    "plus_compat_only": {
+      "mean": 0.17865884397607495,
+      "per_seed": [
+        0.1845475174446689,
+        0.17532475421597382,
+        0.18065530124638762,
+        0.17410780299726944
+      ],
+      "sd": 0.00484735135137685
+    },
+    "plus_history_only": {
+      "mean": 0.1781743173790839,
+      "per_seed": [
+        0.1850869660018956,
+        0.17549379805288426,
+        0.1785505950440693,
+        0.17356591041748645
+      ],
+      "sd": 0.005044762777556436
+    },
+    "plus_interest_only": {
+      "mean": 0.17616814416629314,
+      "per_seed": [
+        0.17427368251628422,
+        0.17188537928174852,
+        0.17774794271199268,
+        0.18076557215514724
+      ],
+      "sd": 0.0038971428661408033
+    },
+    "plus_loc_only": {
+      "mean": 0.17744354207513674,
+      "per_seed": [
+        0.17639693277035368,
+        0.17910045229983726,
+        0.1740409665538312,
+        0.1802358166765249
+      ],
+      "sd": 0.0027817896012771346
+    },
+    "plus_price_only": {
+      "mean": 0.17552642307487704,
+      "per_seed": [
+        0.1769043872452258,
+        0.17237072467460993,
+        0.17449739591733507,
+        0.1783331844623374
+      ],
+      "sd": 0.002632744070693205
+    }
+  },
+  "h2": {
+    "full_plus_cross_init1": {
+      "mean": 0.17306186846329705,
+      "per_seed": [
+        0.17478246646998727,
+        0.16963749957159155,
+        0.17572249636498347,
+        0.1721050114466259
+      ],
+      "sd": 0.0027496227613190735
+    },
+    "full_plus_cross_init2": {
+      "mean": 0.14406154909621327,
+      "per_seed": [
+        0.14033228231820852,
+        0.14226108088178974,
+        0.1523193009517413,
+        0.1413335322331135
+      ],
+      "sd": 0.005561224631485182
+    },
+    "shipped_features_init1": {
+      "mean": 0.1652384437406594,
+      "per_seed": [
+        0.16489853293668252,
+        0.16694446692924006,
+        0.16304400211992187,
+        0.16606677297679318
+      ],
+      "sd": 0.001685997017088528
+    },
+    "shipped_features_init2": {
+      "mean": 0.1366435103318485,
+      "per_seed": [
+        0.13992595867944543,
+        0.14418919066617072,
+        0.12318287696376407,
+        0.13927601501801376
+      ],
+      "sd": 0.009234545476183242
+    }
+  },
+  "h3": {
+    "bar": 0.3267,
+    "grid": {
+      "gain_linear": {
+        "mean": 0.18403555193050125,
+        "per_seed": [
+          0.18390226341436425,
+          0.18484986135641746,
+          0.18663082994364794,
+          0.1807592530075754
+        ],
+        "sd": 0.0024597065046842287
+      },
+      "gain_steep": {
+        "mean": 0.17926762128997825,
+        "per_seed": [
+          0.18049784216049514,
+          0.17649122116512678,
+          0.18436384008561146,
+          0.17571758174867955
+        ],
+        "sd": 0.003991493780582242
+      },
+      "leaves15": {
+        "mean": 0.18556911072397803,
+        "per_seed": [
+          0.18354738704698262,
+          0.18977329558734296,
+          0.18012450262010948,
+          0.18883125764147696
+        ],
+        "sd": 0.004547816212481527
+      },
+      "leaves63": {
+        "mean": 0.17657982392764063,
+        "per_seed": [
+          0.18164397621305578,
+          0.17472959450917008,
+          0.17631631131364156,
+          0.17362941367469512
+        ],
+        "sd": 0.003551682551001801
+      },
+      "mdl200": {
+        "mean": 0.17925645759220638,
+        "per_seed": [
+          0.1760997838908111,
+          0.1844761066246495,
+          0.1774861387070458,
+          0.1789638011463192
+        ],
+        "sd": 0.0036710126500027426
+      },
+      "mdl50": {
+        "mean": 0.18276060916219186,
+        "per_seed": [
+          0.18560936859458846,
+          0.18269915190982283,
+          0.17996576359346053,
+          0.18276815255089562
+        ],
+        "sd": 0.002304374532153112
+      },
+      "trunc10": {
+        "mean": 0.18150245661104752,
+        "per_seed": [
+          0.17858339264315914,
+          0.18107383460551923,
+          0.17944197025142844,
+          0.18691062894408333
+        ],
+        "sd": 0.003750492558506489
+      },
+      "trunc20": {
+        "mean": 0.1827323762067705,
+        "per_seed": [
+          0.18525867737998503,
+          0.18177715167673017,
+          0.17826428002174827,
+          0.1856293957486185
+        ],
+        "sd": 0.003447281888920376
+      },
+      "trunc40": {
+        "mean": 0.18370326906673343,
+        "per_seed": [
+          0.18109537754772237,
+          0.18194036499222838,
+          0.18318212691619365,
+          0.18859520681078937
+        ],
+        "sd": 0.00337202080774643
+      }
+    },
+    "init_scale": null
+  },
+  "h3b": {
+    "bar": 0.3267,
+    "runs": {
+      "cross_leaves15": {
+        "mean": 0.18556911072397803,
+        "per_seed": [
+          0.18354738704698262,
+          0.18977329558734296,
+          0.18012450262010948,
+          0.18883125764147696
+        ],
+        "sd": 0.004547816212481527
+      },
+      "cross_leaves15_gainlinear": {
+        "mean": 0.18920898934705907,
+        "per_seed": [
+          0.19063288784792756,
+          0.18957127052350733,
+          0.18882744858971331,
+          0.1878043504270881
+        ],
+        "sd": 0.001194057290166246
+      },
+      "cross_leaves15_gainlinear_trunc40": {
+        "mean": 0.1874840432382105,
+        "per_seed": [
+          0.18970472943624267,
+          0.18787330746424855,
+          0.18249638936215926,
+          0.18986174669019149
+        ],
+        "sd": 0.0034454384684998057
+      },
+      "cross_leaves15_trunc40": {
+        "mean": 0.18346512788265584,
+        "per_seed": [
+          0.18424663532786834,
+          0.17666605267773916,
+          0.1872213890884559,
+          0.18572643443656003
+        ],
+        "sd": 0.004692589303215724
+      },
+      "shipped_features_leaves15": {
+        "mean": 0.17495758947124496,
+        "per_seed": [
+          0.17567541636322248,
+          0.17406121171982175,
+          0.17273071060116743,
+          0.17736301920076808
+        ],
+        "sd": 0.002005313791385617
+      }
+    }
+  },
+  "holdout_ablation_no_h_seed42": {
+    "description": "seed 42, K as committed, corrected features, WITHOUT experiment H (no xf_ columns, num_leaves 31, label_gain [0,1,3,7]); holdout headline",
+    "headline": {
+      "bias_gap_popularity": 0.08040486881364459,
+      "bias_gap_primary": -0.024726288828936627,
+      "candidate_recall_long_tail": 0.8975155374255375,
+      "candidate_recall_overall": 0.9262135366807853,
+      "coverage_at_10": 0.4702627939142462,
+      "ece_after": 0.028720711502752072,
+      "longtail_precision": 0.19898477157360406,
+      "longtail_share": 0.14854471422108279,
+      "ndcg10_content_cosine": 0.1336481415015319,
+      "ndcg10_lambdamart_ips": 0.18157680634276804,
+      "ndcg10_logistic_regression": 0.10905103494636337,
+      "ndcg10_popularity": 0.05233742647342687,
+      "pct_of_oracle_ceiling": 0.4931609289231382,
+      "within_cross_ratio_true_labels": 1.162113040591202
+    },
+    "ndcg10_primary_ci": [
+      0.1711822803908007,
+      0.1929758440594996
+    ],
+    "wilcoxon_primary_vs_content_cosine_p": 7.908472620297826e-13
+  },
+  "leakfix_sandbox_seed42_k195": {
+    "description": "Sandbox run of the whole pipeline at seed 42 with the as-of-cutoff fix ONLY (K=195, hyperparameters unchanged, no cross features); the holdout was read once for this diagnostic and nothing was selected on it. Pre-fix comparison: results at commit ec8ac4a.",
+    "headline": {
+      "bias_gap_popularity": 0.08530428179780258,
+      "bias_gap_primary": -0.018115280779236076,
+      "candidate_recall_long_tail": 0.84191688059501,
+      "candidate_recall_overall": 0.88120293879902,
+      "coverage_at_10": 0.4806362378976487,
+      "ece_after": 0.03393945544309407,
+      "longtail_precision": 0.19310344827586207,
+      "longtail_share": 0.15390447308567096,
+      "ndcg10_content_cosine": 0.13627208751360992,
+      "ndcg10_lambdamart_ips": 0.18559045941619456,
+      "ndcg10_logistic_regression": 0.10643701015905098,
+      "ndcg10_popularity": 0.05784115056994312,
+      "pct_of_oracle_ceiling": 0.4987999877563846,
+      "within_cross_ratio_true_labels": 1.155749816627886
+    },
+    "ndcg10_primary_ci": [
+      0.1744165725497242,
+      0.1970202021157037
+    ],
+    "wilcoxon_primary_vs_content_cosine_p": 2.7464142878912056e-13
+  },
+  "pre_fix_commit": "ec8ac4a",
+  "pre_fix_headline": {
+    "confidence_decile_spearman": 0.8787878787878788,
+    "five_seed_mean_content_cosine": 0.1429811670302628,
+    "five_seed_mean_primary": 0.1540204228209646,
+    "longtail_precision": 0.1541049798115747,
+    "longtail_share": 0.22521976356471657,
+    "ndcg10_content_cosine": 0.14107550765951068,
+    "ndcg10_popularity": 0.06286792432019955,
+    "ndcg10_primary": 0.14848471206262726,
+    "pct_of_oracle_ceiling": 0.3960902684447025,
+    "scenario4_overlap": 0.17647058823529413,
+    "wilcoxon_primary_vs_content_cosine_p": 0.44451814716307203,
+    "within_cross_ratio": 1.3209164281396495
+  }
+}
