@@ -96,3 +96,20 @@ selection of anything) read the holdout once for the shipped hyperparameters: se
    stricter of that and 0.3267 does not apply (0.3267 was defined on contaminated validation).
 4. Everything else in the protocol is unchanged: validation only, holdout read once after the
    configuration is frozen, DO NOT MERGE H1-H3 candidates that miss the re-baselined bar.
+
+## Amendment 2 (2026-09-20) - the E4 recall rule and the blocking Gate-B lift row conflict
+
+Re-applying the E4 rule (smallest K with IPS-weighted validation recall >= 0.93) to the corrected
+features gives K=270 (`results/parts/e4_k_sweep.json`). Running the pipeline with it makes
+`gate-representation` fail its BLOCKING row `candidate_recall_lift_overall` (0.3415 < 0.35), and
+`make reproduce` exits 1 at that stage, so a reviewer could not reproduce. The conflict is visible on
+VALIDATION alone: at K=270 the validation lift is 0.332 < 0.35, and no grid K satisfies both
+"val recall >= 0.93" and "val lift >= 0.35" (recall 0.928 at K=255 already has val lift 0.349). The two
+pre-registered criteria are therefore mutually infeasible; Gate-B is the binding ruling (spec-v3
+rulings), so it takes precedence over the recall margin.
+
+Resolution (one decision, made from validation columns only; the holdout column was printed in the
+same table, which is disclosed): K = the largest grid K whose validation lift is >= 0.36 (0.35 plus a
+0.01 margin) = **240** (validation recall 0.915, validation lift 0.363). This deviates from the
+requester E4 rule and is flagged for the requester to override; the 0.93 recall margin was itself
+calibrated on the leaky features (validation-minus-holdout recall gap +0.07 then, -0.01 now).

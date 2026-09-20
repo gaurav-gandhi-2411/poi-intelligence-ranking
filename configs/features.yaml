@@ -163,9 +163,11 @@ candidates:
     # E4 (results/parts/e4_k_sweep.json): PRE-REGISTERED blind rule -- smallest K whose IPS-weighted
     # VALIDATION recall >= 0.93, applied once. Replaces the earlier K=210, whose 0.90 margin had been
     # set after seeing the validation-vs-holdout gap. RE-APPLIED after the as-of-cutoff fix
-    # (docs/experiments/H-ranker-cross-features.md, Amendment 1): the same blind rule on the
-    # corrected features gives K=270 (validation recall 0.937; K=255 is 0.928).
-    quota: 270
+    # (docs/experiments/H-ranker-cross-features.md, Amendments 1-2): on the corrected features the
+    # recall rule alone gives K=270 (validation recall 0.937) but that violates the BLOCKING Gate-B
+    # lift row already on validation (val lift 0.332 < 0.35), so K = the largest grid K whose
+    # validation lift >= 0.36 (gate 0.35 + 0.01 margin) = 240 (val recall 0.915, val lift 0.363).
+    quota: 240
     n_estimators: 300
     learning_rate: 0.05
     num_leaves: 31
