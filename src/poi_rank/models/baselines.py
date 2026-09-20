@@ -45,6 +45,7 @@ _NUMERIC_FEATURE_PREFIXES: tuple[str, ...] = (
     "explicit_",
     "implicit_",
     "interact_",
+    "xf_",  # explicit cross features (features/cross_features.py); absent unless added
 )
 # `geo_h3_cell` is a string identifier, not a numeric feature -- the one column under
 # the numeric-prefix set that must be excluded explicitly.

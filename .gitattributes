@@ -1,0 +1,8 @@
+# LightGBM model text files must keep LF: with core.autocrlf=true (Windows default) git checks
+# them out as CRLF and lgb.Booster(model_file=...) then fails ("Model format error").
+artifacts/*.txt text eol=lf
+artifacts/*.json text eol=lf
+*.parquet binary
+*.pkl binary
+*.npy binary
+*.png binary

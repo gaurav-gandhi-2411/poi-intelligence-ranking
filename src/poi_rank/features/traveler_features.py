@@ -514,15 +514,28 @@ def assemble_traveler_features(
     halflife = cfg.traveler_features.taste_halflife_days
     emb_dim = poi_embeddings.shape[1]
 
+    # The implicit block is ONE row per trip, so its as-of cutoff must be no later than the trip's
+    # FIRST logged impression: a trip's browsing session runs 0-45 days BEFORE `start_date`, and
+    # `timestamp < start_date` would fold the session's own engagements -- the very interactions the
+    # graded labels are made of -- into the features of the rows being labelled (train/validation
+    # trips only; holdout trips have no session rows in the history pool, which is what serving
+    # looks like). Holdout trips and trips without logged impressions keep `start_date`.
+    session_start = interactions_train.groupby("trip_id")["timestamp"].min()
+    as_of_by_trip = {
+        str(t): min(start, session_start.get(t, start))
+        for t, start in zip(merged["trip_id"], merged["start_date"], strict=True)
+    }
+
     history_rows: list[dict[str, Any]] = []
     for row in merged.itertuples(index=False):
+        trip_as_of = as_of_by_trip[str(row.trip_id)]
         history = traveler_history_before(
-            interactions_by_traveler, row.traveler_id, row.trip_id, row.start_date, remapped
+            interactions_by_traveler, row.traveler_id, row.trip_id, trip_as_of, remapped
         )
         history_rows.append(
             _compute_history_derived_row(
                 history,
-                row.start_date,
+                trip_as_of,
                 poi_emb_by_id,
                 poi_category_by_id,
                 poi_price_by_id,

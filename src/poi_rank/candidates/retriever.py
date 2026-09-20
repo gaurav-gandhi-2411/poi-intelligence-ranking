@@ -42,7 +42,7 @@ from poi_rank.features.reconcile import build_poi_id_canonical_map, remap_intera
 # engineered `interact_cos_taste_poi` cross feature, and 96 raw dims would dominate a small
 # retriever without adding recoverable signal (D11 says the 64-d text block is linear in
 # poi_semantic already).
-_DROP_PREFIXES = ("text_emb_", "implicit_taste_")
+_DROP_PREFIXES = ("text_emb_", "implicit_taste_", "xf_")  # xf_: ranker-only cross features
 _NON_FEATURES = frozenset({"label", "trip_id", "poi_id", "traveler_id"})
 # Trips per scoring chunk: bounds peak memory of the full-catalog pair frame (~480 rows/trip).
 _SCORE_CHUNK_TRIPS = 250

@@ -18,6 +18,7 @@ seeds. All rows are reported so the choice is auditable.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from itertools import product
 from pathlib import Path
 from typing import Any
@@ -89,24 +90,54 @@ class _Cache:
         self.y_fit = self.fit_d["label"].to_numpy(dtype=np.float64)
         self.y_val = val["label"].to_numpy(dtype=np.float64)
 
+    def cosine_init(self, scale: float) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+        """Per-trip z-scored content-cosine baseline score (interest match + price fit, the same
+        blend as `baseline_content_cosine`) times `scale`: the boosting starting point for the
+        residual-learning variant (H2)."""
+
+        def one(frame: pd.DataFrame) -> npt.NDArray[np.float64]:
+            price_fit = 1.0 - frame["interact_price_gap"].to_numpy(dtype=float) / 3.0
+            raw = 0.7 * frame["interact_interest_match"].to_numpy(dtype=float) + 0.3 * price_fit
+            s = pd.Series(raw, index=frame.index)
+            g = s.groupby(frame["trip_id"].to_numpy())
+            z = (s - g.transform("mean")) / g.transform("std").fillna(1.0).replace(0.0, 1.0)
+            return np.asarray(scale * z.to_numpy(dtype=float), dtype=np.float64)
+
+        return one(self.fit_d), one(self.val)
+
     def score(
-        self, objective: str, clip: float, drop: tuple[str, ...], seed: int
+        self,
+        objective: str,
+        clip: float,
+        drop: tuple[str, ...],
+        seed: int,
+        *,
+        only: Sequence[str] | None = None,
+        params: dict[str, Any] | None = None,
+        init_scale: float | None = None,
     ) -> tuple[float, float]:
         cfg = self.cfg
         keep = [c for c in self.x_fit.columns if not c.startswith(drop)]
+        if only is not None:
+            keep = [c for c in keep if c in set(only)]
         cat = [c for c in self.categorical if c in keep]
         weights = lm.compute_ips_weights(
             self.fit_d["trip_id"], self.p_fit, cfg.ips_clip_low, clip
         ).to_numpy(dtype=np.float64)
-        params = lm._lgb_params(cfg, seed)
-        params["objective"] = objective
-        params["metric"] = "ndcg"
+        lgb_params = lm._lgb_params(cfg, seed)
+        lgb_params["objective"] = objective
+        lgb_params["metric"] = "ndcg"
+        lgb_params.update(params or {})
+        init_fit = init_val = None
+        if init_scale is not None:
+            init_fit, init_val = self.cosine_init(init_scale)
         y_fit = (self.y_fit >= 1).astype(float) if objective == "binary" else self.y_fit
         train_set = lgb.Dataset(
             self.x_fit[keep],
             label=y_fit,
             group=self.g_fit,
             weight=weights,
+            init_score=init_fit,
             categorical_feature=cat,
             free_raw_data=False,
         )
@@ -114,12 +145,13 @@ class _Cache:
             self.x_val[keep],
             label=self.y_val,
             group=self.g_val,
+            init_score=init_val,
             reference=train_set,
             categorical_feature=cat,
             free_raw_data=False,
         )
         booster = lgb.train(
-            params,
+            lgb_params,
             train_set,
             num_boost_round=cfg.n_estimators,
             valid_sets=[val_set],
@@ -130,6 +162,8 @@ class _Cache:
             ],
         )
         pred = np.asarray(booster.predict(self.x_val[keep]), dtype=np.float64)
+        if init_val is not None:
+            pred = pred + init_val
         return (
             ips_weighted_ndcg10(self.val, pred, self.p_val),
             float(booster.best_score["val"]["ndcg@10"]),
