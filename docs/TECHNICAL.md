@@ -84,7 +84,8 @@ recommendation only if it is both *preferred* (relevant to the traveler's taste)
 *compatible* (it fits the trip's hard and soft constraints — budget, hours, accessibility,
 party, mobility, reservation lead time). This project is genuinely two-stage:
 `src/poi_rank/models/` produces relevance, `src/poi_rank/scoring/` produces compatibility and
-combines the two (section 7).
+combines the two (section 7). The end-to-end architecture diagram and the module map are in
+`README.md` (sections "Architecture" and "Repository layout").
 
 **Exposure bias** is the second first-class concern. Logged interactions conflate "the
 traveler liked it" with "the serving policy showed it". The DGP simulates two exposure policies
@@ -640,6 +641,22 @@ quantified there, and even with no diversity term (lambda 1) precision stays wel
 **Chosen:** LightGBM `objective="lambdarank"`, grouped by trip, IPS-weighted, behavioural-block
 dropout (designed for new-POI robustness; its measured effect is in section 10).
 
+**Learning signal, training data and inference (brief sections 5.3 and 10).** *Interaction types to a
+label:* `datagen/interactions.py::INTERACTION_LABELS` maps the eight logged interaction types to a graded
+relevance label: `view` and `dismiss` 0, `click` 1, `navigate`, `save` and `share` 2, `visit` and `booking`
+3. A POI's label for a trip is the **maximum** over its interactions in that trip; a candidate with no
+interaction row is label 0 (a true negative on the uniform-random holdout log, an unexposed candidate on
+the biased training log). `dismiss` is recorded as a `hard_negative` flag in the log but is not used as a
+separate training signal. *Objective:* listwise LambdaRank, one query group per trip, linear label gain
+0/1/2/3 (chosen in experiment H, section 5.2), truncation level 20. *Training data:* one row per (trip,
+candidate) from the same candidate generator that runs at serving time, train trips only, each row weighted
+by the clipped inverse exposure propensity (section 6), 15% behavioural-block dropout, early stopping on
+train-carved validation trips (never the holdout). *Inference:* candidates (learned retriever at
+K=240, long-tail floor, interest channel) -> the same feature builder -> booster raw
+score -> isotonic calibration -> hard-constraint gate and compatibility -> utility -> MMR (lambda
+0.8) -> top-10 with `confidence`, `planner_weight` and a grouped-TreeSHAP explanation
+(`eval/demo.py::recommend_for_traveler`, `scoring/output.py`).
+
 **Measured against a two-tower neural ranker (DR2, learning curve).** A small two-tower model
 (traveler tower and POI tower into a shared space, dot-product score, same IPS weights, same
 train-carved early stopping) was trained on 10/25/50/100% of the training trips over three
@@ -1142,6 +1159,38 @@ Stated up front, then measured. Every MISSED row carries a diagnosis below -- a 
 - **Localness index Spearman vs latent localness**: The composite index reaches rho 0.582; its observable inputs correlate with the latent localness at dist_to_tourist_centroid_km 0.699, foreign_review_ratio -0.555, local_tag_hits 0.050, pop_pct -0.187. The composite is BELOW its best single input (dist_to_tourist_centroid_km, |rho| 0.699): the blend weights were fixed earlier, when the geo input carried almost no signal (before the simulator's geo/localness fix). Re-weighting them against the latent localness would be tuning on the oracle (there is no oracle-free validation target for this index), so that retune is declined on principle: the index is left as shipped and the gap is reported.
 - **Scenario-4 (touristiness flip) top-10 overlap**: Top-10 overlap 0.538 with candidate-pool Jaccard 0.717 between the two profiles (measured from the candidate generator's own output). Before the feature-skew fix this row was 0.176. Measured (TECHNICAL.md section 10.1): the features that read touristiness_pref carry 0.070 of the final model attribution for a cold-start traveler, and negating the preference on the 671 real holdout trips leaves the raw top-10 at Jaccard 0.904 (0.813 for pure cold-start trips). Personalization by taste is healthy (cross-archetype Jaccard 0.075); touristiness_pref is a weak lever for a brand-new traveler, whose ranking is driven mainly by stated interests, popularity/quality and compatibility. The pre-fix value reflected an off-distribution response (0.825 of that model attribution sat on leak-trained history-based features, absent for these travelers), not stronger personalization (interpretation; the numbers are measured). Reported as a cold-start limitation.
 
+### 10.3 Cold start (brief section 15)
+
+Three cases, one mechanism: every history-dependent feature is computed as-of the trip and is absent
+(NaN or zero, never imputed from other travelers) when there is no history, and the ranker is trained with behavioural-block dropout so it has
+seen that regime. Nothing in the ranker reads a destination id (no `dest*` column among its features;
+popularity and localness are within-destination percentiles).
+
+- **New traveler (no history).** The explicit block (interests, budget, party, mobility, touristiness
+  preference) and the interest and long-tail candidate channels carry the ranking. Measured on the holdout:
+  NDCG@10 0.187 for the
+  72 trips with no history against
+  0.182 for the
+  539 trips with more than 10 interactions. Cold-start is
+  *not worse* here, which is a property of this simulator (stated interests are informative by design), not
+  a general claim. For the stated touristiness preference the cold-start ranker does respond (section 3.1).
+- **New POI (no interactions).** The POI is represented by its text embedding, structured, category and
+  geo features; behavioural aggregates are missing and dropped out in training. The
+  71 POIs created after the train/holdout boundary form the cohort:
+  cohort-restricted NDCG@10 0.602 with dropout,
+  0.609 without (paired Wilcoxon
+  p=0.328, 318 trips). The
+  cohort number is computed over cohort candidates and is not comparable to the headline NDCG@10; the
+  benefit of the dropout is **not demonstrated**.
+- **New destination (little or no history).** Because no feature is destination-specific, a destination the
+  model never saw is scored like any other. Leave-one-destination-out (three retrains): NDCG@10 of
+  0.184 / 0.177 / 0.184
+  (barcelona / kyoto / seoul) against
+  0.178 / 0.190 / 0.185
+  with the destination in training; only kyoto differs significantly
+  (p=0.018). The three destinations share one
+  simulator, so this is transfer between similar cities, not to a different market.
+
 ## 11. Production considerations
 
 Prose only; no implementation in this repository backs the items below.
@@ -1162,6 +1211,19 @@ claim "no ANN at this scale" is therefore reasoning, not evidence.
 **Online vs offline features.** Offline nightly: text embeddings, popularity percentiles,
 localness index, CF, archetype affinities. Online: distance from the stay location, open-now,
 live availability, session context. A shared transformation library prevents train/serve skew.
+
+**Model serving.** At request time: (1) fetch the traveler's as-of history and the destination's POI
+feature rows from a feature store; (2) the retriever scores the destination's POIs and the long-tail floor
+and interest channel are unioned in (a few hundred candidates); (3) build the same features as in training;
+(4) one booster call plus the calibrator; (5) hard gate, compatibility, utility, MMR and template
+explanations on the returned rows only. Steps 3-5 are the code in `eval/demo.py::recommend_for_traveler`;
+the feature store, the caching and the latency budget are prose here, not measured.
+
+**Data freshness.** POI information (name, price, accessibility) changes rarely: nightly batch refresh of
+the POI feature table. Opening hours and availability change intra-day and are read at request time, never
+baked into a batch feature (the hard gate and `hours_fit` use them). Popularity and behavioural aggregates
+refresh daily with time decay, so a brand-new or trending POI moves quickly without a retrain. A traveler's
+own new interactions enter the implicit block on the next request.
 
 **Retraining and promotion.** Weekly retrain, daily behavioural-aggregate refresh; promotion
 gated on offline NDCG over a fresh uniform-exposure slice plus interleaving, never on offline

@@ -86,6 +86,9 @@ def derived_numbers(m: dict[str, Any]) -> dict[str, Any]:
         out["mmr_lambda_lift_over_base_rate"] = {
             lam: v["long_tail_precision"] / base for lam, v in sweep.items()
         }
+        # scalar endpoints of the curve: template paths cannot address a key containing a dot
+        out["mmr_lift_lambda_0_5"] = out["mmr_lambda_lift_over_base_rate"]["0.5"]
+        out["mmr_lift_lambda_1_0"] = out["mmr_lambda_lift_over_base_rate"]["1"]
     seeds = m.get("seed_replication", {}).get("metrics", {})
     if "ndcg10_lambdamart_ips" in seeds and "ndcg10_content_cosine" in seeds:
         from scipy import stats

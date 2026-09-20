@@ -2526,6 +2526,8 @@
       "0.9": 2.592039186912079,
       "1": 2.698814315215632
     },
+    "mmr_lift_lambda_0_5": 1.9026808188541893,
+    "mmr_lift_lambda_1_0": 2.698814315215632,
     "ndcg10_gain_content_cosine_to_primary": 0.050556994578826175,
     "ndcg10_gain_popularity_to_content_cosine": 0.08131071502810502,
     "ranker_sweep_margin": {
