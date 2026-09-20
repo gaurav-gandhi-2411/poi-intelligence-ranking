@@ -6,6 +6,15 @@ as originally written was ambiguous or self-contradictory and had to be resolved
 Grows across build phases. Phase 1 (datagen) is covered first; Phase 2 (data prep,
 `src/poi_rank/data/`) follows below.
 
+> **Read this first.** This file is a chronological build log. Sections up to and including
+> "Phase 10" record numbers measured at that phase on the pre-remediation dataset (600 travelers /
+> 800 trips, 202-trip holdout) and are **historical**: they are kept as the decision record, not as
+> current results. The current dataset (1,875 travelers / 2,500 trips, 671 holdout trips; early Block A text quotes an
+> earlier realization with 620) and the current numbers start
+> at "DGP remediation, Block A"; the single source of truth for any current number is
+> `results/metrics.json` (composed from `results/parts/`), as rendered in `docs/RESULTS.md` and
+> `docs/TECHNICAL.md`.
+
 ## Resolved ambiguities
 
 ### 1. Sign of the localness term in `u(t,p)`
@@ -2942,7 +2951,7 @@ Session-log numbers not backed by a committed artifact are marked (log).
   Wilcoxon p vs cosine 0.445 -> 2.7e-13. The conclusion of the first submission tag ("the learned
   ranker adds little over cosine") is RETRACTED; it was an artifact of the skew.
 - **K.** The blind recall rule on the corrected features gives K=270 but violates the blocking Gate-B
-  lift row already on validation (0.332 < 0.35), and `make reproduce` then exits 1. No grid K satisfies
+  lift row already on validation (0.327 < 0.35 on the committed final grid; the first grid computation read stale channel flags and gave 0.332, see DR13), and `make reproduce` then exits 1. No grid K satisfies
   both. Shipped K=240 (largest grid K with validation lift >= 0.36): a DEVIATION from the requester
   E4 rule (Amendment 2), flagged for override. Holdout at K=240: overall recall 0.926, long-tail
   0.898, lift +0.374.
