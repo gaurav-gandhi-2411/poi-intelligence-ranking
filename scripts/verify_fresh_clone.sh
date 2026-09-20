@@ -20,7 +20,10 @@ T0=$(date +%s)
 mkdir -p "$D" && cd "$D" || exit 1
 git clone -q "$URL" repo >> "$LOG" 2>&1 || { echo "clone failed"; exit 1; }
 cd repo || exit 1
-SHA=$(git rev-parse "refs/tags/$REF^{commit}" 2>/dev/null || git rev-parse "$REF^{commit}")
+# --verify -q: plain `git rev-parse <unknown>` echoes its argument to stdout, which turned a raw-SHA REF into a
+# two-line value and left the clone on the default branch (verified the wrong commit, 2026-09-21).
+SHA=$(git rev-parse --verify -q "refs/tags/$REF^{commit}" || git rev-parse --verify "$REF^{commit}")
+[ -n "$SHA" ] || { echo "cannot resolve $REF" >&2; exit 2; }
 git checkout -q "$SHA" >> "$LOG" 2>&1
 export UV_CACHE_DIR="$D/uv-cache"
 unset VIRTUAL_ENV
