@@ -90,11 +90,11 @@ one (no key differs; regenerated model files differ only in line endings). The v
 of that final run are recorded in the annotated tag (`git show v1.0-konnect-submission`), because a commit
 cannot contain its own SHA; `bash scripts/verify_fresh_clone.sh` repeats the check for any ref. The most
 recent recorded cold run (`results/parts/fresh_clone_verification.json`): `uv sync`
-177 s, first `demo` runs
-15 s and
-6 s (warm: about
-4-5 s), the ten stages
-431 s, 668 s in total on a busy laptop (the warm
+95 s, first `demo` runs
+13 s and
+5 s (warm: about
+5-5 s), the ten stages
+363 s, 494 s in total on a busy laptop (the warm
 figure above is 377 s). The committed LightGBM model text is pinned to LF by
 `.gitattributes`, so a Windows checkout (`core.autocrlf=true`) loads it and `make demo` works.
 

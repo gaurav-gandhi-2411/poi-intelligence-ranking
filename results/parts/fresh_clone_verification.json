@@ -1,23 +1,25 @@
 {
-  "caveat": "that run overlapped with unrelated diagnostics on the same laptop, so its timings are an upper bound; a warm rerun of the same stages is in results/parts/timings.json",
-  "commit": "the commit tagged v1.0-konnect-submission",
+  "caveat": "cold run on an otherwise idle laptop (empty uv cache, new venv); the final tagged commit differs from the verified run commit only by this record, and its own verification is in the annotated tag message",
+  "commit": "the commit tagged v1.1-konnect-submission",
   "committed_model_text_is_lf": true,
   "demo_first_cold_run_seconds": {
-    "profile": 6,
-    "traveler": 15
+    "profile": 5,
+    "traveler": 13
   },
   "demo_warm_seconds_same_machine": {
-    "profile": 5.2,
-    "traveler": 4.4
+    "profile": 5.3,
+    "traveler": 4.7
   },
   "keys_that_differ": [],
   "method": "git clone into a clean directory outside the working tree, checkout of the tag commit; uv sync --frozen with a fresh empty UV_CACHE_DIR and a new .venv; `demo` run from the COMMITTED artifacts; then the README quick-start commands in order with PYTHONHASHSEED=0 (make is not installed on the verification machine; the Makefile reproduce target runs the same ten stages in the same order). Implemented by scripts/verify_fresh_clone.sh.",
   "metrics_json_identical_to_committed": true,
-  "metrics_json_sha256": "b480cb07ba06f146bf04f5a19edfea34d18af5ed287fea5e4b1de4705353fcb1",
+  "metrics_json_sha256": "a071e5caf638b53e0376dfb695c7277ebd8b9b82ec3a8a06e77067f8732861e1",
+  "metrics_json_sha256_lf_blob": "f7d0e422f779fd59d0f89d7be720c56114847938d13b4356cfd6c1b572aed21a",
+  "metrics_json_sha256_note": "the first hash is of the Windows (CRLF) working-tree file that the verification script hashes; the second is of the LF blob as committed, which is what a Linux or macOS checkout hashes. Both are of results/metrics.json at the run commit; the final tagged commit differs from it only by this record.",
   "model_and_retriever_artifacts_identical_ignoring_line_endings": true,
-  "pipeline_seconds": 431,
-  "previous_run_commit": "b93022f1f02ce38fcada6ea6d5a73977a783afa9",
-  "total_seconds": 668,
-  "uv_sync_seconds": 177,
-  "where_the_verified_sha_is": "a commit cannot contain its own SHA, so the exact SHA verified at the FINAL tagged commit, its timings and the metrics.json comparison are recorded in the annotated tag message (`git show v1.0-konnect-submission`); `bash scripts/verify_fresh_clone.sh` repeats the check for any ref. The numbers below are from the most recent cold-clone run recorded before the final commit (run against the tag state `b93022f1f02ce38fcada6ea6d5a73977a783afa9`)."
+  "pipeline_seconds": 363,
+  "previous_run_commit": "3715e5c63277eca344bfbab6338ac0c1ad187ba0",
+  "total_seconds": 494,
+  "uv_sync_seconds": 95,
+  "where_the_verified_sha_is": "a commit cannot contain its own SHA, so the exact SHA verified at the FINAL tagged commit, its timings and both metrics.json hashes are recorded in the annotated tag message (`git show v1.1-konnect-submission`); `bash scripts/verify_fresh_clone.sh` repeats the check for any ref. The numbers here are from the cold-clone run of the commit recorded above."
 }
