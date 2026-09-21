@@ -30,6 +30,7 @@ REQUIRED_RECOMMENDATION_KEYS = {
     "planner_weight",
     "preference_score",
     "context_compatibility",
+    "pref_align",
     "compatibility_breakdown",
     "confidence",
     "hard_constraints_ok",
@@ -76,6 +77,8 @@ def test_output_schema_every_recommendation_has_required_fields_and_types(
             assert isinstance(rec["planner_weight"], float)
             assert isinstance(rec["preference_score"], float)
             assert isinstance(rec["context_compatibility"], float)
+            assert isinstance(rec["pref_align"], float)
+            assert 0.0 < rec["pref_align"] < 1.0
             assert isinstance(rec["compatibility_breakdown"], dict)
             assert set(rec["compatibility_breakdown"].keys()) == set(COMPATIBILITY_BREAKDOWN_KEYS)
             for v in rec["compatibility_breakdown"].values():

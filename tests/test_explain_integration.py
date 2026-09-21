@@ -45,6 +45,7 @@ REQUIRED_RECOMMENDATION_KEYS = {
     "planner_weight",
     "preference_score",
     "context_compatibility",
+    "pref_align",
     "compatibility_breakdown",
     "confidence",
     "hard_constraints_ok",
