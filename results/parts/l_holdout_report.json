@@ -1,0 +1,126 @@
+{
+  "method": "scripts/l_holdout_report.py; holdout read once after L1/L2/L3 were frozen",
+  "n_holdout_trips": 671,
+  "raw_ranker_gradient_reproduction": {
+    "all": {
+      "label_slope": -0.1082178337240038,
+      "n_trips": 582.0,
+      "score_over_label": 0.2701023568487494,
+      "score_pref_spearman": -0.06983088733283468,
+      "score_slope": -0.0292298919419195
+    },
+    "cold_start": {
+      "label_slope": -0.08854874495637746,
+      "n_trips": 63.0,
+      "score_over_label": 1.4842288066014355,
+      "score_pref_spearman": -0.3761057199983951,
+      "score_slope": -0.131426598052659
+    },
+    "with_history": {
+      "label_slope": -0.11087198537208073,
+      "n_trips": 519.0,
+      "score_over_label": 0.11455109254847039,
+      "score_pref_spearman": -0.021911944104991067,
+      "score_slope": -0.012700507057389876
+    }
+  },
+  "raw_ranker_gradient_reproduction_all_candidate_rows": {
+    "all": {
+      "label_slope": -0.147178606629487,
+      "n_trips": 605.0,
+      "score_over_label": 0.1344528530873545,
+      "score_pref_spearman": -0.08356569546369016,
+      "score_slope": -0.019788583574755953
+    },
+    "cold_start": {
+      "label_slope": -0.1537516951268936,
+      "n_trips": 65.0,
+      "score_over_label": 0.8331118972949351,
+      "score_pref_spearman": -0.5341390962568238,
+      "score_slope": -0.12809236643947874
+    },
+    "with_history": {
+      "label_slope": -0.1468114820388563,
+      "n_trips": 540.0,
+      "score_over_label": -0.010997830213482246,
+      "score_pref_spearman": -0.010534461853586221,
+      "score_slope": 0.00161460775285304
+    }
+  },
+  "selected_config": {
+    "category_entropy_bits": 2.9395676678654623,
+    "config": {
+      "gamma": 1.0,
+      "lambda": 1.0
+    },
+    "flip_overlap": 0.3531253865766838,
+    "flip_overlap_cold_start": 0.29332523317946435,
+    "flip_overlap_with_history": 0.36031338498169185,
+    "gradient_reproduction_of_utility": {
+      "all": {
+        "label_slope": -0.1082178337240038,
+        "n_trips": 582.0,
+        "score_over_label": 10.821303064385475,
+        "score_pref_spearman": -0.8916332495936978,
+        "score_slope": -1.17105797569872
+      },
+      "cold_start": {
+        "label_slope": -0.08854874495637746,
+        "n_trips": 63.0,
+        "score_over_label": 13.4542888726128,
+        "score_pref_spearman": -0.8347156115333287,
+        "score_slope": -1.191360393950418
+      },
+      "with_history": {
+        "label_slope": -0.11087198537208073,
+        "n_trips": 519.0,
+        "score_over_label": 10.559206664427462,
+        "score_pref_spearman": -0.8915182785569562,
+        "score_slope": -1.1707202068391789
+      }
+    },
+    "longtail_precision": 0.26575342465753427,
+    "longtail_share": 0.22017795204343235,
+    "n_cold_start_trips": 72,
+    "n_trips_ndcg": 671,
+    "served_ndcg10_mean": 0.16359016831931325
+  },
+  "shipped_config": {
+    "category_entropy_bits": 3.256768632765411,
+    "config": {
+      "gamma": 0.0,
+      "lambda": 0.8
+    },
+    "flip_overlap": 0.8368780703531297,
+    "flip_overlap_cold_start": 0.6974064878476643,
+    "flip_overlap_with_history": 0.8536426011384276,
+    "gradient_reproduction_of_utility": {
+      "all": {
+        "label_slope": -0.1082178337240038,
+        "n_trips": 582.0,
+        "score_over_label": 0.05169604608746373,
+        "score_pref_spearman": -0.007374098620129883,
+        "score_slope": -0.005594434119681587
+      },
+      "cold_start": {
+        "label_slope": -0.08854874495637746,
+        "n_trips": 63.0,
+        "score_over_label": 0.8210978219530232,
+        "score_pref_spearman": -0.1789070673441434,
+        "score_slope": -0.07270718162035528
+      },
+      "with_history": {
+        "label_slope": -0.11087198537208073,
+        "n_trips": 519.0,
+        "score_over_label": -0.04621979236794374,
+        "score_pref_spearman": 0.026645094906824995,
+        "score_slope": 0.005124480143319267
+      }
+    },
+    "longtail_precision": 0.19642857142857142,
+    "longtail_share": 0.14356808927763534,
+    "n_cold_start_trips": 72,
+    "n_trips_ndcg": 671,
+    "served_ndcg10_mean": 0.13445159127154718
+  }
+}

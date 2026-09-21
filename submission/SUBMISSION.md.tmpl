@@ -2,7 +2,7 @@
 
 > Generated from `submission/SUBMISSION.md.tmpl`; every number resolves from `results/metrics.json`.
 
-**Repo:** https://github.com/gaurav-gandhi-2411/poi-intelligence-ranking · **Tag:** `v1.0-konnect-submission` · **Requirement-by-requirement coverage:** `docs/REQUIREMENTS.md`
+**Repo:** https://github.com/gaurav-gandhi-2411/poi-intelligence-ranking · **Tag:** `v1.1-konnect-submission` · **Requirement-by-requirement coverage:** `docs/REQUIREMENTS.md`
 
 ## Headline: we found a train/serve skew in our own pipeline, and retracted our own conclusion
 
@@ -14,8 +14,9 @@ labels and holdout features could not: the median days since the last interactio
 cosine ({{h_experiments.pre_fix_headline.ndcg10_primary|.4f}} vs {{h_experiments.pre_fix_headline.ndcg10_content_cosine|.4f}}, p={{h_experiments.pre_fix_headline.wilcoxon_primary_vs_content_cosine_p|.3g}}); that
 conclusion is retracted in the docs (`docs/TECHNICAL.md` sections 5.1, 10.1) and the whole pipeline was re-run.
 The fix also *cost* two scorecard rows (confidence-decile Spearman
-{{h_experiments.pre_fix_headline.confidence_decile_spearman|.3f}} → {{confidence_decile_validation.spearman_rho|.3f}}, scenario-4 flip overlap {{h_experiments.pre_fix_headline.scenario4_overlap|.3f}} → {{scenarios.overlap_matrix.diagnostic_vs_base_jaccard|.3f}});
-both are diagnosed with measured mechanisms, not tuned away. **Holdout feature distributions were inspected
+{{h_experiments.pre_fix_headline.confidence_decile_spearman|.3f}} → {{confidence_diagnosis.post_fix.decile_spearman_recomputed|.3f}}, scenario-4 flip overlap {{h_experiments.pre_fix_headline.scenario4_overlap|.3f}} → {{l_pre_scenarios.diagnostic_vs_base_jaccard|.3f}});
+both were diagnosed with measured mechanisms, not tuned away. Experiment L (v1.1, below) then fixed the second in the scoring layer
+({{l_pre_scenarios.diagnostic_vs_base_jaccard|.3f}} → {{scenarios.overlap_matrix.diagnostic_vs_base_jaccard|.3f}}); the first fell further ({{confidence_decile_validation.spearman_rho|.3f}}). **Holdout feature distributions were inspected
 to diagnose a train/serve skew. No labels were used for selection and no hyperparameter was chosen on holdout.**
 
 ## Three supporting results
@@ -32,7 +33,7 @@ to diagnose a train/serve skew. No labels were used for selection and no hyperpa
 
 ```bash
 git clone https://github.com/gaurav-gandhi-2411/poi-intelligence-ranking.git && cd poi-intelligence-ranking
-git checkout v1.0-konnect-submission
+git checkout v1.1-konnect-submission
 uv sync --frozen && export PYTHONHASHSEED=0      # PowerShell: $env:PYTHONHASHSEED = "0"
 for s in generate prepare features candidates gate-dgp train evaluate representation \
          gate-representation compose; do uv run python -m poi_rank.cli $s; done   # = make reproduce
@@ -42,7 +43,7 @@ make demo TRAVELER=U0005                          # live top-10 from the committ
 `make reproduce` measured {{timings.total_seconds|.0f}} s ({{~reproduce_minutes}}; reported as measured, no longer optimised).
 The tagged commit was cold-cloned (empty uv cache, new venv), run in the order above, and its regenerated
 `results/metrics.json` compared byte-for-byte with the committed file; the verified SHA and the result are in the
-annotated tag (`git show v1.0-konnect-submission`), and `bash scripts/verify_fresh_clone.sh` repeats the check.
+annotated tag (`git show v1.1-konnect-submission`), and `bash scripts/verify_fresh_clone.sh` repeats the check.
 
 ## What a reviewer should see (seed 42)
 
@@ -50,7 +51,7 @@ Primary NDCG@10 {{systems.lambdamart_ips.metrics.ndcg@10.mean|.4f}}, popularity 
 {{candidate_recall.overall.recall_mean|.3f}} overall / {{candidate_recall.long_tail.recall_mean|.3f}} long-tail; Gate-A **{{gate_dgp.overall_pass}}**, Gate-B **{{gate_representation.overall_pass}}**;
 hard-constraint violations **{{constraint_compatibility.n_hard_constraint_violations}}**; ECE {{calibration.ece_after|.4f}}.
 
-## What was missed, and why (7 MISSED rows; full scorecard: `docs/RESULTS.md`)
+## What was missed, and why (6 MISSED rows; full scorecard: `docs/RESULTS.md`)
 
 - % of oracle ceiling {{systems.lambdamart_ips.pct_of_ceiling_ndcg10|.1%}} (target 70%); localness index rho {{localness_validation.spearman_rho|.3f}} (target 0.6).
 - Long-tail share {{longtail.share|.3f}} (target 0.25) and precision {{longtail.precision|.3f}}. **Two rows trace to targets set without reference to the data's
@@ -58,38 +59,39 @@ hard-constraint violations **{{constraint_compatibility.n_hard_constraint_violat
   {{scenario4_diagnosis.post_fix.holdout_personalization_reference.perfect_ranker_within_cross_ratio|.2f}}); the recall 0.85 and chance-lift +0.35 targets were also set a priori and made the K rule infeasible (DR13).
 - Decisions worth reading (DR3 objective, DR12 retrieval design, DR13 K selection): `docs/TECHNICAL.md` section 12.1. DR5 (ANN benchmark) not run; all data is synthetic.
 
+## Experiment L (v1.1): what changed after the first submission
+
+Three model-layer decisions, each by a rule written before it ran (`docs/experiments/L-final.md`), on the train-carved validation split, the holdout
+read once: (1) **the stated touristiness preference steers the served ranking** through a scoring-layer factor `pref_align^gamma` (no retraining), with gamma
+and the MMR lambda selected together; (2) **the MMR lambda was selected**, not defaulted (selected: {{longtail_stages.lambda_default}}, which turns the diversity
+re-rank off and sits on the pre-registered entropy constraint); (3) **the retrieval design was re-decided** on validation with the ranker retrained per design, after
+Gate-B's blocking rows were amended (long-tail recall and a 300-candidate serving budget block; the a-priori overall-recall and chance-lift targets report only): the
+learned retriever stays. On the holdout the scorecard's MET rows are unchanged (seven MET rows before, eight now: scenario-4 overlap
+{{l_pre_scenarios.diagnostic_vs_base_jaccard|.3f}} -> {{scenarios.overlap_matrix.diagnostic_vs_base_jaccard|.3f}} passes its target); one MISSED row got worse (confidence-decile Spearman
+{{confidence_diagnosis.post_fix.decile_spearman_recomputed|.3f}} -> {{confidence_decile_validation.spearman_rho|.3f}}).
+
 ## Anticipated questions
 
-**Why does the ranking barely change when the touristiness preference flips?** It changes less than it should, and we
-measured why before writing it up (`docs/TECHNICAL.md` section 3.1; `results/parts/touristiness_axis.json`). Negating the stated
-preference on the {{scenario4_diagnosis.post_fix.holdout_counterfactual_flip.n_trips}} real holdout trips leaves the raw top-10 at Jaccard
-{{scenario4_diagnosis.post_fix.holdout_counterfactual_flip.flip_top10_jaccard_all_trips|.3f}}, but that average is diluted by travelers whose preference is near zero
-(bottom |pref| tercile {{touristiness_axis.e_flip_stratified.jaccard_by_abs_pref_tercile.low.jaccard|.3f}}, top {{touristiness_axis.e_flip_stratified.jaccard_by_abs_pref_tercile.high.jaccard|.3f}}). It is not an
-artifact of the simulator: outcomes carry the preference (trip-level Spearman {{touristiness_axis.c_d_localness_gradient_by_stated_pref.all.label_pref_vs_rho_spearman|+.2f}}) and the ranker
-reproduces {{touristiness_axis.c_d_localness_gradient_by_stated_pref.cold_start.model_over_label_slope|.0%}} of that gradient for cold-start trips but {{touristiness_axis.c_d_localness_gradient_by_stated_pref.warm.model_over_label_slope|.0%}} for trips with history.
-That is our measured answer to the brief's explicit-versus-implicit question: the blend is learned, and when the two conflict implicit
-history wins (implicit-taste attribution {{h_experiments.h0a_shap_shares_final_model.implicit_taste|.1%}} against
-{{scenario4_diagnosis.post_fix.scenario_rows.scenario1_share_carried_by_pref_dependent_features|.1%}} for the features that read the preference; removing the raw implicit block even improves
-holdout NDCG@10 by {{ablations.6.delta_ndcg@10|+.4f}}). Untested fixes: a preference-consistency term in the utility layer or a hard filter. For a platform whose
-differentiator is non-touristy discovery, a stated preference should not be left for the ranker to learn.
+**Why does the ranking barely change when the touristiness preference flips?** In the ranker alone it did, and we measured why (`docs/TECHNICAL.md` section 3.1; `results/parts/touristiness_axis.json`):
+outcomes carry the preference (trip-level Spearman {{touristiness_axis.c_d_localness_gradient_by_stated_pref.all.label_pref_vs_rho_spearman|+.2f}}) but the ranker reproduced
+{{l_holdout_report.raw_ranker_gradient_reproduction_all_candidate_rows.cold_start.score_over_label|.0%}} of that gradient for cold-start trips and {{l_holdout_report.raw_ranker_gradient_reproduction_all_candidate_rows.with_history.score_over_label|.0%}} for trips with history, because history-derived features are the cheaper split
+(implicit-taste attribution {{h_experiments.h0a_shap_shares_final_model.implicit_taste|.1%}}; removing the raw implicit block even improves holdout NDCG@10 by {{ablations.6.delta_ndcg@10|+.4f}}). That is our
+measured answer to the brief's explicit-versus-implicit question: the blend is learned and, with history, the implicit side won. A stated "prefer less touristy" is a per-trip instruction, so it now enters
+the scoring layer (v1.1): on the real holdout trips the served top-10 flip-overlap falls {{l_holdout_report.shipped_config.flip_overlap|.3f}} -> {{l_holdout_report.selected_config.flip_overlap|.3f}} (with history {{l_holdout_report.shipped_config.flip_overlap_with_history|.3f}} -> {{l_holdout_report.selected_config.flip_overlap_with_history|.3f}}), the
+scenario-4 overlap is {{scenarios.overlap_matrix.diagnostic_vs_base_jaccard|.3f}} against a target of at most 0.35, and served NDCG@10 does not fall ({{l_holdout_report.shipped_config.served_ndcg10_mean|.4f}} -> {{l_holdout_report.selected_config.served_ndcg10_mean|.4f}}). Two honest caveats:
+the factor **overshoots** the outcome gradient (about {{l_holdout_report.selected_config.gradient_reproduction_of_utility.with_history.score_over_label|.0f}}x), because the pre-registered rule minimised flip-overlap under two constraints rather than matching the slope; and the selection turned the diversity re-rank off.
 
-**You shipped the retriever even though the legacy six-channel union scores higher end-to-end.** Correct, and it is reported
-(DR12): the legacy union reaches NDCG@10 {{decision_register.rows.11.results.ndcg10_end_to_end.legacy_six_channel_retrained_ranker|.4f}} against
-{{decision_register.rows.11.results.ndcg10_end_to_end.learned_retriever_shipped_ranker|.4f}} for the shipped retriever (paired p={{decision_register.rows.11.results.ndcg10_end_to_end.paired_wilcoxon_p|.4f}}), with the
-ranker retrained on each set. The two sets differ on the criteria that were fixed before the comparison: candidate recall
-{{decision_register.rows.11.results.candidate_sets.learned_retriever.recall_overall|.3f}} against {{decision_register.rows.11.results.candidate_sets.legacy_six_channel.recall_overall|.3f}}, long-tail recall
-{{decision_register.rows.11.results.candidate_sets.learned_retriever.recall_long_tail|.3f}} against {{decision_register.rows.11.results.candidate_sets.legacy_six_channel.recall_long_tail|.3f}}, and
-{{decision_register.rows.11.results.candidate_sets.learned_retriever.gate_b_rows_passed}} of 4 blocking Gate-B rows passed against
-{{decision_register.rows.11.results.candidate_sets.legacy_six_channel.gate_b_rows_passed}}. NDCG@10 over exposed labels is bounded by what the candidate set contains and does not reward
-the long tail, which is the product's differentiator; the legacy set also holds fewer candidates per trip
-({{decision_register.rows.11.results.candidate_sets.legacy_six_channel.mean_candidates_per_trip|.0f}} against {{decision_register.rows.11.results.candidate_sets.learned_retriever.mean_candidates_per_trip|.0f}}). Switching to the legacy union
-because it wins on the holdout would be selection on the holdout, so the row is reported and not acted on.
+**You shipped the retriever even though the legacy six-channel union scores higher end-to-end.** DR12 reports it: on the *holdout* the legacy union reaches NDCG@10
+{{decision_register.rows.11.results.ndcg10_end_to_end.legacy_six_channel_retrained_ranker|.4f}} against {{decision_register.rows.11.results.ndcg10_end_to_end.learned_retriever_shipped_ranker|.4f}} (paired p={{decision_register.rows.11.results.ndcg10_end_to_end.paired_wilcoxon_p|.4f}}),
+with recall {{decision_register.rows.11.results.candidate_sets.learned_retriever.recall_overall|.3f}} against {{decision_register.rows.11.results.candidate_sets.legacy_six_channel.recall_overall|.3f}} and long-tail recall
+{{decision_register.rows.11.results.candidate_sets.learned_retriever.recall_long_tail|.3f}} against {{decision_register.rows.11.results.candidate_sets.legacy_six_channel.recall_long_tail|.3f}}. A holdout comparison cannot drive a switch, so v1.1 re-decided the design on validation with a
+rule fixed in advance (`docs/experiments/L-final.md`): three designs (learned, legacy, their union), the ranker retrained per design, four seeds, blocking constraints of long-tail recall at least 0.75 and at most
+300 effective candidates, and a +0.010 adoption bar. Result: learned {{l3b_designs.designs.A.v_ndcg10|.4f}}, legacy {{l3b_designs.designs.B.v_ndcg10|.4f}} (long-tail recall {{l3b_designs.designs.B.long_tail_recall|.3f}}, below the brief's requirement),
+union {{l3b_designs.designs.C.v_ndcg10|.4f}} ({{l3b_designs.designs.C.effective_k|.0f}} candidates, over the serving budget). Nothing cleared the bar, so the learned retriever stays; on validation the legacy union is not ahead, so its holdout
+advantage in DR12 is not a stable property of the design.
 
-**Long-tail precision is {{longtail.precision|.3f}} against a 0.40 target.** The 0.40 was set a priori, without reference to the data: the
-candidate pool's own long-tail positive rate is {{derived.longtail_lift_over_base_rate.base_rate|.3f}}, so the served list is a
-{{derived.longtail_lift_over_base_rate.final_after_mmr|.2f}}x lift over the base rate and the raw ranker's top-10 a {{derived.longtail_lift_over_base_rate.raw_ranker|.2f}}x lift (precision
-{{longtail_stages.stages.1_raw_ranker_top10.long_tail_precision|.3f}}). The MMR trade-off curve (a post-hoc holdout diagnostic, not a selection) runs from
-{{derived.mmr_lift_lambda_0_5|.2f}}x at lambda 0.5 to {{derived.mmr_lift_lambda_1_0|.2f}}x at lambda 1 with no diversity term (precision
-{{longtail_stages.mmr_lambda_diagnostic_post_hoc_on_holdout.1.long_tail_precision|.3f}}), so the target is out of reach even without diversity; the shipped lambda is
-{{longtail_stages.lambda_default}}. What is real: precision falls after ranking (raw {{longtail_stages.stages.1_raw_ranker_top10.long_tail_precision|.3f}} to served {{longtail.precision|.3f}}) and which of the gate,
-utility and MMR steps causes it was not isolated. `docs/REQUIREMENTS.md` marks the long-tail row PARTIAL for that reason.
+**Long-tail precision is {{longtail.precision|.3f}} against a 0.40 target.** The 0.40 was set a priori, without reference to the data: the candidate pool's own long-tail positive rate is
+{{derived.longtail_lift_over_base_rate.base_rate|.3f}}, so the served list is a {{derived.longtail_lift_over_base_rate.final_after_mmr|.2f}}x lift over the base rate (precision was {{l_holdout_report.shipped_config.longtail_precision|.3f}} before v1.1) and the raw ranker's top-10 a {{derived.longtail_lift_over_base_rate.raw_ranker|.2f}}x lift (precision {{longtail_stages.stages.1_raw_ranker_top10.long_tail_precision|.3f}}). The E3 stage table shows where it goes: the hard gate takes it to
+{{longtail_stages.stages.2_after_hard_gate_raw_order.long_tail_precision|.3f}}, the utility (now with the preference factor) leaves it at {{longtail_stages.stages.3_after_utility.long_tail_precision|.3f}} while the long-tail share rises to {{longtail_stages.stages.3_after_utility.long_tail_share|.3f}}
+(target 0.25), and MMR at the selected lambda {{longtail_stages.lambda_default}} changes nothing. The post-hoc lambda curve (a diagnostic, not a selection) runs from {{derived.mmr_lift_lambda_0_5|.2f}}x at lambda 0.5 to
+{{derived.mmr_lift_lambda_1_0|.2f}}x at lambda 1, so the target is out of reach even without a diversity term. `docs/REQUIREMENTS.md` keeps the long-tail row PARTIAL.

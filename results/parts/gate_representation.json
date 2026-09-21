@@ -1,33 +1,41 @@
 {
   "blocking_checks": {
-    "candidate_recall_lift_long_tail": {
-      "measured": 0.41693619629640377,
-      "op": ">=",
-      "passed": true,
-      "threshold": 0.35
-    },
-    "candidate_recall_lift_overall": {
-      "measured": 0.37368544427110595,
-      "op": ">=",
-      "passed": true,
-      "threshold": 0.35
-    },
     "candidate_recall_long_tail": {
       "measured": 0.8975155374255375,
       "op": ">=",
       "passed": true,
       "threshold": 0.75
     },
+    "effective_candidates_per_trip": {
+      "measured": 266.3206611570248,
+      "op": "<=",
+      "passed": true,
+      "threshold": 300.0
+    }
+  },
+  "n_passed": 2,
+  "n_total": 2,
+  "overall_pass": true,
+  "reporting_checks": {
+    "candidate_recall_lift_long_tail": {
+      "measured": 0.41693619629640377,
+      "meets_reference": true,
+      "op": ">=",
+      "threshold": 0.35
+    },
+    "candidate_recall_lift_overall": {
+      "measured": 0.37368544427110595,
+      "meets_reference": true,
+      "op": ">=",
+      "threshold": 0.35
+    },
     "candidate_recall_overall": {
       "measured": 0.9262135366807853,
+      "meets_reference": true,
       "op": ">=",
-      "passed": true,
       "threshold": 0.85
     }
   },
-  "n_passed": 4,
-  "n_total": 4,
-  "overall_pass": true,
   "reporting_only_after_freeze": {
     "d11_cca_first_corr_text_only": 0.9789811048645148,
     "d11_ridge_r2_text_only": 0.8654228140905081,

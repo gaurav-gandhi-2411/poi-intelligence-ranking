@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-20T16:24:53.825665+00:00",
+  "generated_at": "2026-09-21T05:38:34.838821+00:00",
   "model_version": "lambdamart-ips-v1",
   "profile": {
     "accessibility_needs": [],
@@ -26,6 +26,101 @@
   },
   "recommendations": [
     {
+      "category": "museum",
+      "compatibility_breakdown": {
+        "budget_fit": 0.6666666666666667,
+        "duration_fit": 0.7299738086409976,
+        "hours_fit": 0.75,
+        "mobility_fit": 0.9751861740302955,
+        "party_fit": 1.0,
+        "pref_align": 0.9359775470675256,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.6580807153749082,
+      "context_compatibility": 0.8418359530310472,
+      "diversity_group": "museum_touristy",
+      "expected_duration_min": 157.7695948868793,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in museum",
+        "Popular choice -- busier than 98% of comparable POIs in Seoul",
+        "A well-known highlight -- fits your preference for famous landmarks",
+        "Priced above what's typical for your high budget"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -1.655319381540688,
+      "name": "Artsy Itaewon Museum",
+      "planner_weight": 0.11667822263195968,
+      "poi_id": "PSEO0127",
+      "popularity_percentile": 97.5103734439834,
+      "pref_align": 0.9359775470675256,
+      "preference_score": 0.2523809523809524,
+      "rank": 1,
+      "top_signals": [
+        {
+          "contribution": 0.583914,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.547489,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.459754,
+          "feature_group": "popularity"
+        }
+      ],
+      "utility": 0.20940219718638808
+    },
+    {
+      "category": "historic_site",
+      "compatibility_breakdown": {
+        "budget_fit": 0.5,
+        "duration_fit": 1.0,
+        "hours_fit": 0.7916666666666667,
+        "mobility_fit": 0.819682592563774,
+        "party_fit": 1.0,
+        "pref_align": 0.9595398145063258,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5737599610936891,
+      "context_compatibility": 0.8289462017791052,
+      "diversity_group": "historic_site_touristy",
+      "expected_duration_min": 96.87777345754844,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in cultural",
+        "Popular choice -- busier than 97% of comparable POIs in Seoul",
+        "A well-known highlight -- fits your preference for famous landmarks",
+        "More budget-friendly than typical for your high budget",
+        "Would rank #1 instead of #2 if it fit your budget exactly"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -1.94531474916295,
+      "name": "Heritage Rich Myeongdong Fortress",
+      "planner_weight": 0.11396449356346937,
+      "poi_id": "PSEO0480",
+      "popularity_percentile": 97.30290456431536,
+      "pref_align": 0.9595398145063258,
+      "preference_score": 0.24306898774983882,
+      "rank": 2,
+      "top_signals": [
+        {
+          "contribution": 0.667383,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.51959,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.475706,
+          "feature_group": "popularity"
+        }
+      ],
+      "utility": 0.20453187248746876
+    },
+    {
       "category": "historic_site",
       "compatibility_breakdown": {
         "budget_fit": 0.8333333333333334,
@@ -33,6 +128,7 @@
         "hours_fit": 0.75,
         "mobility_fit": 0.9443315799091381,
         "party_fit": 1.0,
+        "pref_align": 0.8841502267555801,
         "reservation_fit": 1.0
       },
       "confidence": 0.5508957087648213,
@@ -43,16 +139,18 @@
         "Strong match with your stated interest in cultural",
         "Popular with travelers who share your interests",
         "Popular choice -- busier than 81% of comparable POIs in Seoul",
+        "A well-known highlight -- fits your preference for famous landmarks",
         "Only open 75% of your trip's plausible visiting hours"
       ],
       "hard_constraints_ok": true,
       "localness_index": -1.2656689249611766,
       "name": "Authentic Itaewon Temple",
-      "planner_weight": 0.16258260242699518,
+      "planner_weight": 0.11260250381714573,
       "poi_id": "PSEO0400",
       "popularity_percentile": 81.12033195020747,
+      "pref_align": 0.8841502267555801,
       "preference_score": 0.24306898774983882,
-      "rank": 1,
+      "rank": 3,
       "top_signals": [
         {
           "contribution": 0.617932,
@@ -67,405 +165,341 @@
           "feature_group": "popularity"
         }
       ],
-      "utility": 0.22856694011224568
+      "utility": 0.20208751192907112
+    },
+    {
+      "category": "historic_site",
+      "compatibility_breakdown": {
+        "budget_fit": 0.5,
+        "duration_fit": 1.0,
+        "hours_fit": 0.6041666666666667,
+        "mobility_fit": 0.9873645074519881,
+        "party_fit": 1.0,
+        "pref_align": 0.9387364388018238,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5572777550037232,
+      "context_compatibility": 0.8173988946533629,
+      "diversity_group": "historic_site_touristy",
+      "expected_duration_min": 103.33601724694296,
+      "explanation": [
+        "Strong match with your stated interest in historic",
+        "Popular with travelers who share your interests",
+        "Popular choice -- busier than 89% of comparable POIs in Seoul",
+        "A well-known highlight -- fits your preference for famous landmarks",
+        "More budget-friendly than typical for your high budget"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -1.6834881615755486,
+      "name": "Must See Itaewon Old Quarter",
+      "planner_weight": 0.11040420921127647,
+      "poi_id": "PSEO0286",
+      "popularity_percentile": 89.00414937759335,
+      "pref_align": 0.9387364388018238,
+      "preference_score": 0.24306898774983882,
+      "rank": 4,
+      "top_signals": [
+        {
+          "contribution": 0.591963,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.563216,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.435195,
+          "feature_group": "popularity"
+        }
+      ],
+      "utility": 0.1981422365370725
+    },
+    {
+      "category": "historic_site",
+      "compatibility_breakdown": {
+        "budget_fit": 0.5,
+        "duration_fit": 1.0,
+        "hours_fit": 0.8125000000000001,
+        "mobility_fit": 0.9888427252020467,
+        "party_fit": 1.0,
+        "pref_align": 0.8442706768234836,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5425197333275842,
+      "context_compatibility": 0.858987345961104,
+      "diversity_group": "historic_site_touristy",
+      "expected_duration_min": 83.70247576398044,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in cultural",
+        "Popular choice -- busier than 93% of comparable POIs in Seoul",
+        "A well-known highlight -- fits your preference for famous landmarks",
+        "More budget-friendly than typical for your high budget",
+        "Would rank #4 instead of #5 if it fit your budget exactly"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -1.0606733323787185,
+      "name": "Monument Insadong Temple",
+      "planner_weight": 0.10280413065809886,
+      "poi_id": "PSEO0481",
+      "popularity_percentile": 93.15352697095436,
+      "pref_align": 0.8442706768234836,
+      "preference_score": 0.24306898774983882,
+      "rank": 5,
+      "top_signals": [
+        {
+          "contribution": 0.763173,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.619468,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.361545,
+          "feature_group": "popularity"
+        }
+      ],
+      "utility": 0.18450238916945744
+    },
+    {
+      "category": "historic_site",
+      "compatibility_breakdown": {
+        "budget_fit": 0.5,
+        "duration_fit": 1.0,
+        "hours_fit": 0.75,
+        "mobility_fit": 0.9421022462258157,
+        "party_fit": 1.0,
+        "pref_align": 0.937609011035484,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.529832436183275,
+      "context_compatibility": 0.8407913166617696,
+      "diversity_group": "historic_site_touristy",
+      "expected_duration_min": 58.92995180775227,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Popular choice -- busier than 91% of comparable POIs in Seoul",
+        "Strong match with your stated interest in historic site",
+        "A well-known highlight -- fits your preference for famous landmarks",
+        "More budget-friendly than typical for your high budget",
+        "Would rank #5 instead of #6 if it fit your budget exactly"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -1.6718366498162578,
+      "name": "Green Insadong Fortress",
+      "planner_weight": 0.09613657467761387,
+      "poi_id": "PSEO0355",
+      "popularity_percentile": 90.66390041493776,
+      "pref_align": 0.937609011035484,
+      "preference_score": 0.20776699029126214,
+      "rank": 6,
+      "top_signals": [
+        {
+          "contribution": 0.582793,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.414393,
+          "feature_group": "popularity"
+        },
+        {
+          "contribution": 0.394426,
+          "feature_group": "interest_match"
+        }
+      ],
+      "utility": 0.17253613839290197
     },
     {
       "category": "museum",
       "compatibility_breakdown": {
-        "budget_fit": 0.8333333333333334,
-        "duration_fit": 0.9070344801262834,
-        "hours_fit": 0.75,
-        "mobility_fit": 0.9779274048486437,
-        "party_fit": 1.0,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.48821686883664706,
-      "context_compatibility": 0.9063621030716359,
-      "diversity_group": "museum_local",
-      "expected_duration_min": 131.70897768178085,
-      "explanation": [
-        "Popular with travelers who share your interests",
-        "Strong match with your stated interest in cultural",
-        "Popular choice -- busier than 8% of comparable POIs in Seoul",
-        "Only open 75% of your trip's plausible visiting hours"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": 0.29190148902635155,
-      "name": "Mealtime Seongsu Gallery",
-      "planner_weight": 0.1613992179102029,
-      "poi_id": "PSEO0401",
-      "popularity_percentile": 8.29875518672199,
-      "preference_score": 0.24306898774983882,
-      "rank": 2,
-      "top_signals": [
-        {
-          "contribution": 0.812219,
-          "feature_group": "implicit_taste"
-        },
-        {
-          "contribution": 0.651616,
-          "feature_group": "interest_match"
-        },
-        {
-          "contribution": 0.289903,
-          "feature_group": "popularity"
-        }
-      ],
-      "utility": 0.22690327761735557
-    },
-    {
-      "category": "restaurant",
-      "compatibility_breakdown": {
-        "budget_fit": 0.8333333333333334,
-        "duration_fit": 1.0,
-        "hours_fit": 0.8333333333333334,
-        "mobility_fit": 0.9803958388188645,
-        "party_fit": 1.0,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.6107577135949929,
-      "context_compatibility": 0.9379359046727912,
-      "diversity_group": "restaurant_touristy",
-      "expected_duration_min": 52.612912629787964,
-      "explanation": [
-        "Popular with travelers who share your interests",
-        "Popular choice -- busier than 95% of comparable POIs in Seoul",
-        "Matches your stated high budget",
-        "More budget-friendly than typical for your high budget"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": -0.5809657173561692,
-      "name": "Flavor Packed Insadong Table",
-      "planner_weight": 0.0995715200492031,
-      "poi_id": "PSEO0195",
-      "popularity_percentile": 95.0207468879668,
-      "preference_score": 0.1464041095890411,
-      "rank": 3,
-      "top_signals": [
-        {
-          "contribution": 0.859734,
-          "feature_group": "implicit_taste"
-        },
-        {
-          "contribution": 0.236276,
-          "feature_group": "popularity"
-        },
-        {
-          "contribution": 0.140097,
-          "feature_group": "price_fit"
-        }
-      ],
-      "utility": 0.13998273689948398
-    },
-    {
-      "category": "viewpoint",
-      "compatibility_breakdown": {
-        "budget_fit": 0.8333333333333334,
-        "duration_fit": 1.0,
-        "hours_fit": 1.0,
-        "mobility_fit": 0.9910241429698258,
-        "party_fit": 1.0,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.558019603755896,
-      "context_compatibility": 0.9686134562987606,
-      "diversity_group": "viewpoint_touristy",
-      "expected_duration_min": 26.654069448940383,
-      "explanation": [
-        "Popular with travelers who share your interests",
-        "Popular choice -- busier than 99% of comparable POIs in Seoul",
-        "Matches your stated high budget",
-        "More budget-friendly than typical for your high budget"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": -0.7503373604472787,
-      "name": "Dreamy Hongdae Overlook",
-      "planner_weight": 0.10647096459615028,
-      "poi_id": "PSEO0420",
-      "popularity_percentile": 99.37759336099586,
-      "preference_score": 0.1530612244897959,
-      "rank": 4,
-      "top_signals": [
-        {
-          "contribution": 0.707725,
-          "feature_group": "implicit_taste"
-        },
-        {
-          "contribution": 0.335915,
-          "feature_group": "popularity"
-        },
-        {
-          "contribution": 0.17652,
-          "feature_group": "price_fit"
-        }
-      ],
-      "utility": 0.1496823290146856
-    },
-    {
-      "category": "nightlife",
-      "compatibility_breakdown": {
-        "budget_fit": 0.6666666666666667,
-        "duration_fit": 1.0,
-        "hours_fit": 0.2708333333333333,
-        "mobility_fit": 0.95881723365518,
-        "party_fit": 1.0,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.6379605670755375,
-      "context_compatibility": 0.7465480771523014,
-      "diversity_group": "nightlife_touristy",
-      "expected_duration_min": 119.17680322708968,
-      "explanation": [
-        "Popular with travelers who share your interests",
-        "Popular choice -- busier than 99% of comparable POIs in Seoul",
-        "Highly rated (3.3/5 from 902 reviews)",
-        "Only open 27% of your trip's plausible visiting hours",
-        "Would rank #21 instead of #27 if your trip included a day when it's open during your preferred hours"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": -2.0151104912057316,
-      "name": "Late Night Hongdae Bar",
-      "planner_weight": 0.08487003300842011,
-      "poi_id": "PSEO0067",
-      "popularity_percentile": 98.54771784232366,
-      "preference_score": 0.1464041095890411,
-      "rank": 5,
-      "top_signals": [
-        {
-          "contribution": 0.527382,
-          "feature_group": "implicit_taste"
-        },
-        {
-          "contribution": 0.402794,
-          "feature_group": "popularity"
-        },
-        {
-          "contribution": 0.092092,
-          "feature_group": "quality"
-        }
-      ],
-      "utility": 0.11931463429901988
-    },
-    {
-      "category": "nature_park",
-      "compatibility_breakdown": {
         "budget_fit": 0.5,
         "duration_fit": 1.0,
-        "hours_fit": 1.0,
-        "mobility_fit": 0.8039881769190198,
+        "hours_fit": 0.7083333333333333,
+        "mobility_fit": 0.9795707592951506,
         "party_fit": 1.0,
+        "pref_align": 0.8812950652192552,
         "reservation_fit": 1.0
       },
-      "confidence": 0.5524475522883848,
-      "context_compatibility": 0.8590859395450776,
-      "diversity_group": "nature_park_touristy",
-      "expected_duration_min": 104.14554267825339,
+      "confidence": 0.5427747097364287,
+      "context_compatibility": 0.8382506833103884,
+      "diversity_group": "museum_touristy",
+      "expected_duration_min": 116.6733030492114,
       "explanation": [
         "Popular with travelers who share your interests",
-        "Popular choice -- busier than 96% of comparable POIs in Seoul",
-        "Highly rated (4.2/5 from 127 reviews)",
+        "Strong match with your stated interest in museum",
+        "Popular choice -- busier than 94% of comparable POIs in Seoul",
+        "A well-known highlight -- fits your preference for famous landmarks",
         "More budget-friendly than typical for your high budget",
-        "Would rank #26 instead of #28 if it fit your budget exactly"
+        "Would rank #6 instead of #7 if it fit your budget exactly"
       ],
       "hard_constraints_ok": true,
-      "localness_index": -0.6621434387444554,
-      "name": "Peaceful Gangnam Park",
-      "planner_weight": 0.08271584894269085,
-      "poi_id": "PSEO0145",
-      "popularity_percentile": 95.95435684647303,
-      "preference_score": 0.1293309438470729,
-      "rank": 6,
-      "top_signals": [
-        {
-          "contribution": 0.825651,
-          "feature_group": "implicit_taste"
-        },
-        {
-          "contribution": 0.22133,
-          "feature_group": "popularity"
-        },
-        {
-          "contribution": 0.125421,
-          "feature_group": "quality"
-        }
-      ],
-      "utility": 0.1162861721327596
-    },
-    {
-      "category": "wellness_spa",
-      "compatibility_breakdown": {
-        "budget_fit": 0.8333333333333334,
-        "duration_fit": 1.0,
-        "hours_fit": 0.9166666666666666,
-        "mobility_fit": 0.9807439230402945,
-        "party_fit": 1.0,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.5689847521004223,
-      "context_compatibility": 0.953010392209567,
-      "diversity_group": "wellness_spa_touristy",
-      "expected_duration_min": 86.8803013863027,
-      "explanation": [
-        "Popular with travelers who share your interests",
-        "Popular choice -- busier than 90% of comparable POIs in Seoul",
-        "Matches your stated high budget",
-        "More budget-friendly than typical for your high budget"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": -1.2878704870369861,
-      "name": "Nature Filled Itaewon Wellness Studio",
-      "planner_weight": 0.0762287621470494,
-      "poi_id": "PSEO0167",
-      "popularity_percentile": 90.04149377593362,
-      "preference_score": 0.11083830235005261,
+      "localness_index": -1.2491357445858062,
+      "name": "Wallet Friendly Gangnam Gallery",
+      "planner_weight": 0.090171272569149,
+      "poi_id": "PSEO0249",
+      "popularity_percentile": 93.56846473029046,
+      "pref_align": 0.8812950652192552,
+      "preference_score": 0.20776699029126214,
       "rank": 7,
       "top_signals": [
         {
-          "contribution": 0.533192,
+          "contribution": 0.597158,
           "feature_group": "implicit_taste"
         },
         {
-          "contribution": 0.263912,
+          "contribution": 0.476315,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.317583,
           "feature_group": "popularity"
-        },
-        {
-          "contribution": 0.170179,
-          "feature_group": "price_fit"
         }
       ],
-      "utility": 0.10716629364029844
+      "utility": 0.16183022138272138
     },
     {
-      "category": "religious_site",
-      "compatibility_breakdown": {
-        "budget_fit": 0.5,
-        "duration_fit": 1.0,
-        "hours_fit": 0.875,
-        "mobility_fit": 0.589992522737959,
-        "party_fit": 1.0,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.5708329493566254,
-      "context_compatibility": 0.7979409635532178,
-      "diversity_group": "religious_site_touristy",
-      "expected_duration_min": 30.803591021967065,
-      "explanation": [
-        "Popular with travelers who share your interests",
-        "Popular choice -- busier than 100% of comparable POIs in Seoul",
-        "Highly rated (4.0/5 from 535 reviews)",
-        "More budget-friendly than typical for your high budget"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": -1.1177266785233702,
-      "name": "Historic Gangnam Shrine",
-      "planner_weight": 0.0785493573538896,
-      "poi_id": "PSEO0280",
-      "popularity_percentile": 99.5850622406639,
-      "preference_score": 0.1293309438470729,
-      "rank": 8,
-      "top_signals": [
-        {
-          "contribution": 0.615772,
-          "feature_group": "implicit_taste"
-        },
-        {
-          "contribution": 0.346373,
-          "feature_group": "popularity"
-        },
-        {
-          "contribution": 0.175172,
-          "feature_group": "quality"
-        }
-      ],
-      "utility": 0.1104287051022184
-    },
-    {
-      "category": "cafe",
-      "compatibility_breakdown": {
-        "budget_fit": 0.8333333333333334,
-        "duration_fit": 1.0,
-        "hours_fit": 0.8541666666666667,
-        "mobility_fit": 0.9815718304659478,
-        "party_fit": 1.0,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.541672876337469,
-      "context_compatibility": 0.9419920624071204,
-      "diversity_group": "cafe_touristy",
-      "expected_duration_min": 34.68103991805685,
-      "explanation": [
-        "Popular with travelers who share your interests",
-        "Matches your stated high budget",
-        "1 min from your stay by public transport -- fits your public transport preference",
-        "More budget-friendly than typical for your high budget"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": -0.7435274393651932,
-      "name": "Teahouse Bukchon Bakery",
-      "planner_weight": 0.075610758056668,
-      "poi_id": "PSEO0071",
-      "popularity_percentile": 88.79668049792531,
-      "preference_score": 0.11083830235005261,
-      "rank": 9,
-      "top_signals": [
-        {
-          "contribution": 0.742941,
-          "feature_group": "implicit_taste"
-        },
-        {
-          "contribution": 0.127321,
-          "feature_group": "price_fit"
-        },
-        {
-          "contribution": 0.108609,
-          "feature_group": "geo"
-        }
-      ],
-      "utility": 0.10629747187335226
-    },
-    {
-      "category": "shopping",
+      "category": "museum",
       "compatibility_breakdown": {
         "budget_fit": 0.6666666666666667,
         "duration_fit": 1.0,
-        "hours_fit": 0.9166666666666666,
-        "mobility_fit": 0.7517256980483104,
+        "hours_fit": 0.7291666666666666,
+        "mobility_fit": 0.672657913246453,
         "party_fit": 1.0,
+        "pref_align": 0.8457451487701074,
         "reservation_fit": 1.0
       },
-      "confidence": 0.6157659288835323,
-      "context_compatibility": 0.8784086346346821,
-      "diversity_group": "shopping_touristy",
-      "expected_duration_min": 71.24987033150464,
+      "confidence": 0.5021894899783593,
+      "context_compatibility": 0.830019509626595,
+      "diversity_group": "museum_touristy",
+      "expected_duration_min": 86.51769441169131,
       "explanation": [
+        "Strong match with your stated interest in cultural",
         "Popular with travelers who share your interests",
-        "Popular choice -- busier than 98% of comparable POIs in Seoul",
-        "Highly rated (3.9/5 from 297 reviews)",
+        "Popular choice -- busier than 89% of comparable POIs in Seoul",
+        "A well-known highlight -- fits your preference for famous landmarks",
         "Priced above what's typical for your high budget"
       ],
       "hard_constraints_ok": true,
-      "localness_index": -1.4023652180996489,
-      "name": "Retail Heavy Itaewon Bazaar",
-      "planner_weight": 0.07200093550873049,
-      "poi_id": "PSEO0043",
-      "popularity_percentile": 97.9253112033195,
-      "preference_score": 0.11083830235005261,
-      "rank": 10,
+      "localness_index": -1.067421939763073,
+      "name": "Showcase Hongdae Museum",
+      "planner_weight": 0.0859382379858618,
+      "poi_id": "PSEO0263",
+      "popularity_percentile": 89.41908713692946,
+      "pref_align": 0.8457451487701074,
+      "preference_score": 0.20776699029126214,
+      "rank": 8,
       "top_signals": [
         {
-          "contribution": 0.601331,
+          "contribution": 0.60694,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.517892,
           "feature_group": "implicit_taste"
         },
         {
-          "contribution": 0.262875,
+          "contribution": 0.283567,
           "feature_group": "popularity"
-        },
-        {
-          "contribution": 0.141078,
-          "feature_group": "quality"
         }
       ],
-      "utility": 0.10122259865928399
+      "utility": 0.15423320179747865
+    },
+    {
+      "category": "historic_site",
+      "compatibility_breakdown": {
+        "budget_fit": 0.5,
+        "duration_fit": 1.0,
+        "hours_fit": 0.7916666666666667,
+        "mobility_fit": 0.9869705611979476,
+        "party_fit": 1.0,
+        "pref_align": 0.826467189530827,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5437406255109443,
+      "context_compatibility": 0.8550065211084673,
+      "diversity_group": "historic_site_touristy",
+      "expected_duration_min": 77.1150276715561,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in cultural",
+        "Popular choice -- busier than 96% of comparable POIs in Seoul",
+        "A well-known highlight -- fits your preference for famous landmarks",
+        "More budget-friendly than typical for your high budget",
+        "Would rank #7 instead of #9 if it fit your budget exactly"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -0.983009846777217,
+      "name": "Tranquil Gangnam Temple",
+      "planner_weight": 0.08574115610617644,
+      "poi_id": "PSEO0306",
+      "popularity_percentile": 95.64315352697096,
+      "pref_align": 0.826467189530827,
+      "preference_score": 0.20776699029126214,
+      "rank": 9,
+      "top_signals": [
+        {
+          "contribution": 0.572727,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.571837,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.445906,
+          "feature_group": "popularity"
+        }
+      ],
+      "utility": 0.15387949930098183
+    },
+    {
+      "category": "historic_site",
+      "compatibility_breakdown": {
+        "budget_fit": 0.16666666666666663,
+        "duration_fit": 1.0,
+        "hours_fit": 0.75,
+        "mobility_fit": 0.8246454973509302,
+        "party_fit": 1.0,
+        "pref_align": 0.9634094548440484,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.5516642999797287,
+      "context_compatibility": 0.6847460739033352,
+      "diversity_group": "historic_site_touristy",
+      "expected_duration_min": 93.35029786679534,
+      "explanation": [
+        "Strong match with your stated interest in cultural",
+        "Popular with travelers who share your interests",
+        "Popular choice -- busier than 96% of comparable POIs in Seoul",
+        "A well-known highlight -- fits your preference for famous landmarks",
+        "More budget-friendly than typical for your high budget",
+        "Would rank #5 instead of #10 if it fit your budget exactly"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": -2.0079880616847774,
+      "name": "Monument Bukchon Old Quarter",
+      "planner_weight": 0.08555919877924881,
+      "poi_id": "PSEO0107",
+      "popularity_percentile": 96.47302904564316,
+      "pref_align": 0.9634094548440484,
+      "preference_score": 0.20776699029126214,
+      "rank": 10,
+      "top_signals": [
+        {
+          "contribution": 0.582355,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.563286,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.482678,
+          "feature_group": "popularity"
+        }
+      ],
+      "utility": 0.15355294081223114
     }
   ],
   "scenario_name": "History & Architecture",

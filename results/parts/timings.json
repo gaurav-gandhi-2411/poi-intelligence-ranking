@@ -1,55 +1,55 @@
 {
   "target": "reproduce",
-  "total_seconds": 334.6,
+  "total_seconds": 376.7,
   "stages": [
     {
       "stage": "generate",
-      "seconds": 30.6,
+      "seconds": 31.6,
       "returncode": 0
     },
     {
       "stage": "prepare",
-      "seconds": 5.6,
+      "seconds": 5.5,
       "returncode": 0
     },
     {
       "stage": "features",
-      "seconds": 17.6,
+      "seconds": 16.7,
       "returncode": 0
     },
     {
       "stage": "candidates",
-      "seconds": 40.9,
+      "seconds": 40.8,
       "returncode": 0
     },
     {
       "stage": "gate-dgp",
-      "seconds": 9.9,
+      "seconds": 9.8,
       "returncode": 0
     },
     {
       "stage": "train",
-      "seconds": 78.1,
+      "seconds": 104.4,
       "returncode": 0
     },
     {
       "stage": "evaluate",
-      "seconds": 130.3,
+      "seconds": 147.5,
       "returncode": 0
     },
     {
       "stage": "representation",
-      "seconds": 15.2,
+      "seconds": 13.4,
       "returncode": 0
     },
     {
       "stage": "gate-representation",
-      "seconds": 3.2,
+      "seconds": 3.4,
       "returncode": 0
     },
     {
       "stage": "compose",
-      "seconds": 3.2,
+      "seconds": 3.6,
       "returncode": 0
     }
   ]

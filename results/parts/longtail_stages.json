@@ -1,40 +1,40 @@
 {
-  "lambda_default": 0.8,
+  "lambda_default": 1.0,
   "mmr_lambda_diagnostic_post_hoc_on_holdout": {
     "0.5": {
-      "long_tail_precision": 0.18445692883895132,
-      "long_tail_share": 0.16106167998793544,
-      "n_long_tail_recommended": 1068,
+      "long_tail_precision": 0.16219751471550034,
+      "long_tail_share": 0.23058362237973157,
+      "n_long_tail_recommended": 1529,
       "n_total_recommended": 6631
     },
     "0.6": {
-      "long_tail_precision": 0.1878121878121878,
-      "long_tail_share": 0.15095762328457246,
-      "n_long_tail_recommended": 1001,
+      "long_tail_precision": 0.16502301117685733,
+      "long_tail_share": 0.22937716784798673,
+      "n_long_tail_recommended": 1521,
       "n_total_recommended": 6631
     },
     "0.7": {
-      "long_tail_precision": 0.19019019019019018,
-      "long_tail_share": 0.15065600965163625,
-      "n_long_tail_recommended": 999,
+      "long_tail_precision": 0.1724137931034483,
+      "long_tail_share": 0.22304328155632636,
+      "n_long_tail_recommended": 1479,
       "n_total_recommended": 6631
     },
     "0.8": {
-      "long_tail_precision": 0.19642857142857142,
-      "long_tail_share": 0.14356808927763534,
-      "n_long_tail_recommended": 952,
+      "long_tail_precision": 0.18232428670842032,
+      "long_tail_share": 0.21670939526466595,
+      "n_long_tail_recommended": 1437,
       "n_total_recommended": 6631
     },
     "0.9": {
-      "long_tail_precision": 0.2512873326467559,
-      "long_tail_share": 0.14643341879052932,
-      "n_long_tail_recommended": 971,
+      "long_tail_precision": 0.213840830449827,
+      "long_tail_share": 0.2179158497964108,
+      "n_long_tail_recommended": 1445,
       "n_total_recommended": 6631
     },
     "1": {
-      "long_tail_precision": 0.2616387337057728,
-      "long_tail_share": 0.16196652088674407,
-      "n_long_tail_recommended": 1074,
+      "long_tail_precision": 0.26575342465753427,
+      "long_tail_share": 0.22017795204343235,
+      "n_long_tail_recommended": 1460,
       "n_total_recommended": 6631
     }
   },
@@ -57,15 +57,15 @@
       "n_total_recommended": 6631
     },
     "3_after_utility": {
-      "long_tail_precision": 0.2616387337057728,
-      "long_tail_share": 0.16196652088674407,
-      "n_long_tail_recommended": 1074,
+      "long_tail_precision": 0.26575342465753427,
+      "long_tail_share": 0.22017795204343235,
+      "n_long_tail_recommended": 1460,
       "n_total_recommended": 6631
     },
     "4_final_after_mmr": {
-      "long_tail_precision": 0.19642857142857142,
-      "long_tail_share": 0.14356808927763534,
-      "n_long_tail_recommended": 952,
+      "long_tail_precision": 0.26575342465753427,
+      "long_tail_share": 0.22017795204343235,
+      "n_long_tail_recommended": 1460,
       "n_total_recommended": 6631
     }
   }

@@ -29,8 +29,8 @@ properties of this simulator (`T` section 0).
 
 | Requirement | Where implemented | Where evidenced | Status |
 |---|---|---|---|
-| Traveler A (local food, neighborhoods, less touristy) and Traveler B (history, architecture, museums, landmarks OK) must **not** receive the same popularity-shaped ranking | `models/`, `scoring/`, `eval/scenarios.py` | Scenario artifacts `results/scenarios/{1,2}.json`; pairwise top-10 Jaccard scenario 1 vs 2 = 0.111, 1 vs 3 = 0.053, 2 vs 3 = 0.053; cross-archetype Jaccard@10 0.075 (`R` "Personalization") | MET |
-| The stated **less-touristy vs landmarks-acceptable** preference visibly changes the ranking | `features/traveler_features.py` (`explicit_touristiness_pref`, `interact_localness_gap`), `features/cross_features.py` (`xf_loc_*`), `scoring/utility.py` | Scenario-4 flip top-10 overlap 0.538 against a target of at most 0.35 (MISSED); real-trip counterfactual flip Jaccard 0.904 (`touristiness_axis` part: 0.834 in the top |pref| tercile); the ranker reproduces 83% of the outcome gradient for cold-start trips and -1% for trips with history while the simulator's outcomes carry it in both (`T` section 3.1) | PARTIAL |
+| Traveler A (local food, neighborhoods, less touristy) and Traveler B (history, architecture, museums, landmarks OK) must **not** receive the same popularity-shaped ranking | `models/`, `scoring/`, `eval/scenarios.py` | Scenario artifacts `results/scenarios/{1,2}.json`; pairwise top-10 Jaccard scenario 1 vs 2 = 0.000, 1 vs 3 = 0.000, 2 vs 3 = 0.000; cross-archetype Jaccard@10 0.057 (`R` "Personalization") | MET |
+| The stated **less-touristy vs landmarks-acceptable** preference visibly changes the ranking | `features/traveler_features.py` (`explicit_touristiness_pref`, `interact_localness_gap`), `features/cross_features.py` (`xf_loc_*`), `scoring/utility.py` (`pref_align`, experiment L1) | Scenario-4 flip top-10 overlap 0.000 (was 0.538 before experiment L1; target at most 0.35, met); local-experience vs history scenarios 0.000; on the 671 real holdout trips (read once) the served top-10 flip-overlap goes 0.837 -> 0.353 (with history 0.854 -> 0.360) at no NDCG cost (served NDCG@10 0.1345 -> 0.1636). The ranker alone still reproduces -1% of the outcome gradient for trips with history; the scoring-layer factor supplies the rest and overshoots it (about 11x the outcome slope), with the diversity penalty off by selection (`T` section 3.1; `docs/experiments/L-final.md`) | MET |
 
 ### Section 5 — input data
 
@@ -73,7 +73,7 @@ properties of this simulator (`T` section 0).
 |---|---|---|---|
 | 9. Candidate generation that reduces the catalog before ranking | `candidates/retriever.py`, `candidates/union.py` | Learned full-catalog retriever at K=240 plus long-tail floor and interest channel: 266 candidates per trip from a 1,446-POI catalog (DR12) | MET |
 | 9. Signals (geographic, interest, history, popularity, long-tail, budget, hours, availability, mobility) | `candidates/`, `scoring/compatibility.py` | The learned retriever scores POIs on 108 columns (51 explicit, 22 implicit, 14 behavioural, 9 POI numeric, 5 geo, 5 pair, 2 stay-location; `artifacts/retriever_columns.json`); the hard gate (closed for the whole trip, unmet accessibility need, unreachable by the traveler's mobility) and six soft compatibility terms (budget, mobility, hours, reservation, party, duration) apply after ranking, so a budget or hours mismatch lowers utility instead of removing a POI before it is ranked (`T` sections 4 and 7) | MET |
-| 9. "How do you prevent candidate generation from eliminating relevant long-tail POIs?" | `candidates/union.py` (long-tail hard floor of 50 per trip) | Long-tail recall 0.898 against a chance baseline 0.481 (lift +0.417); Gate-B rows all pass (`R` "Acceptance gates"); `T` section 4 | MET |
+| 9. "How do you prevent candidate generation from eliminating relevant long-tail POIs?" | `candidates/union.py` (long-tail hard floor of 50 per trip) | Long-tail recall 0.898 against a chance baseline 0.481 (lift +0.417); both blocking Gate-B rows pass after the L3a amendment: long-tail recall, and 266 effective candidates per trip against a cap of 300 (`R` "Acceptance gates"); `T` section 4 | MET |
 | 10. Ranking model chosen and the choice explained | `models/lambdamart.py` | LightGBM LambdaRank vs two-tower (DR2), objective sweep (DR3): `T` section 5 and section 12.1 | MET |
 | 10. Features used | `features/pair_frame.py` | 258 booster features in grouped blocks; `T` section 3, `artifacts/model.txt` | MET |
 | 10. Learning target | `models/lambdamart.py`, `configs/model.yaml` | Graded label 0-3, LambdaRank, linear label gain; `T` section 5 | MET |
@@ -95,13 +95,13 @@ properties of this simulator (`T` section 0).
 |---|---|---|---|
 | Precision@K, Recall@K, NDCG@K | `eval/metrics.py`, `eval/run.py` | Primary system, unbiased holdout, 671 trips: NDCG@10 0.1842, NDCG@5 0.1610, NDCG@20 0.2151, P@10 0.3165, R@10 0.1097; popularity NDCG@10 0.0523 (Wilcoxon p=3.5e-75); content cosine 0.1336 (p=1.3e-14); nine systems with bootstrap CIs in `R` | MET |
 | At least two of the six dimensions, discussed and measured | `eval/` | All six are measured (rows below) | MET |
-| Personalization | `eval/personalization.py` | Cross-archetype Jaccard@10 0.075 (target at most 0.25, met); within/cross ratio 1.20 against a target of 2.0 that a perfect ranker reaches only 1.89, i.e. 23% of the achievable gap above 1.0 (missed); weak responsiveness to a stated touristiness preference (`T` section 3.1) | PARTIAL |
-| POI coverage | `eval/coverage.py` | Catalog coverage@10 47.3% against 3.5% for popularity; Gini 0.832 against 0.977 | MET |
-| Long-tail / local discovery | `eval/longtail.py`, `eval/longtail_stages.py` | Precision 0.196 on 952 long-tail recommendations against a 0.40 target (missed) and share 0.144 against 0.25 (missed); against the candidate pool's own long-tail positive rate 0.097 that is a 2.03x lift served and 3.54x for the raw ranker; the target was set without reference to that base rate (`T` sections 4.2 and 10.2) | PARTIAL |
-| Constraint compatibility | `eval/constraints.py`, `scoring/compatibility.py` | 0 hard-constraint violations in 6631 recommended POIs; 92.2% at or above compatibility 0.7 | MET |
-| Diversity | `scoring/diversity.py` (MMR) | Category entropy@10 3.26 bits, intra-list mean distance 0.774, lambda sweep of NDCG@10 against diversity in `R` "Diversity" | MET |
+| Personalization | `eval/personalization.py` | Cross-archetype Jaccard@10 0.057 (target at most 0.25, met); within/cross ratio 1.44 against a target of 2.0 that a perfect ranker reaches only 1.89, i.e. 23% of the achievable gap above 1.0 (missed); the responsiveness to a stated touristiness preference was fixed in the scoring layer (`T` section 3.1), the archetype ratio is still short of the target | PARTIAL |
+| POI coverage | `eval/coverage.py` | Catalog coverage@10 52.7% against 3.5% for popularity; Gini 0.787 against 0.977 | MET |
+| Long-tail / local discovery | `eval/longtail.py`, `eval/longtail_stages.py` | Precision 0.266 on 1460 long-tail recommendations against a 0.40 target (missed) and share 0.220 against 0.25 (missed); against the candidate pool's own long-tail positive rate 0.097 that is a 2.74x lift served and 3.54x for the raw ranker; the target was set without reference to that base rate (`T` sections 4.2 and 10.2). The hard gate is the largest single loss (raw ranker 0.343 -> 0.268 after the gate); the MMR lambda, selected on validation (experiment L2), is 1.0 | PARTIAL |
+| Constraint compatibility | `eval/constraints.py`, `scoring/compatibility.py` | 0 hard-constraint violations in 6631 recommended POIs; 93.0% at or above compatibility 0.7 | MET |
+| Diversity | `scoring/diversity.py` (MMR) | Category entropy@10 2.94 bits, intra-list mean distance 0.623, lambda sweep of NDCG@10 against diversity in `R` "Diversity". The MMR lambda was selected on validation at 1.0 (no diversity penalty; the selection sat on the entropy constraint), so the list's mix of types is now whatever the utility yields, 2.94 bits against 3.26 before | MET |
 | Calibration of the predicted scores | `scoring/calibration.py` | ECE 0.471 -> 0.030 (target at most 0.05, met), Brier 0.332 -> 0.098 | MET |
-| Calibration of the confidence values against actual quality | `scoring/confidence.py`, `features/confidence.py` | Confidence-decile NDCG Spearman 0.358 against a target of at least 0.6 (missed); trip-level Spearman 0.064; the pre-fix 0.879 was inflated by the train/serve skew (`T` section 10.1) | PARTIAL |
+| Calibration of the confidence values against actual quality | `scoring/confidence.py`, `features/confidence.py` | Confidence-decile NDCG Spearman 0.236 against a target of at least 0.6 (missed); trip-level Spearman 0.064; the pre-fix 0.879 was inflated by the train/serve skew (`T` section 10.1) | PARTIAL |
 | Explain the methodology and what counts as success | `configs/eval.yaml`, `eval/report.py` | Success criteria stated before measurement, 14 rows, each MISSED row diagnosed (`R` "Success criteria scorecard", `T` section 10) | MET |
 
 ### Section 15 — cold start
@@ -128,13 +128,13 @@ properties of this simulator (`T` section 0).
 
 | Requirement | Where implemented | Where evidenced | Status |
 |---|---|---|---|
-| At least three traveler profiles (local experience; history; family) with their top-ranked POIs, showing personalized rather than one universal ranking | `eval/scenarios.py`, `poi_rank.cli scenarios` | `results/scenarios/{1,2,3}.json` and `R` "Scenarios"; pairwise top-10 Jaccard 0.111 / 0.053 / 0.053; scenario 4 is a fourth, diagnostic profile | MET |
+| At least three traveler profiles (local experience; history; family) with their top-ranked POIs, showing personalized rather than one universal ranking | `eval/scenarios.py`, `poi_rank.cli scenarios` | `results/scenarios/{1,2,3}.json` and `R` "Scenarios"; pairwise top-10 Jaccard 0.000 / 0.000 / 0.000; scenario 4 is a fourth, diagnostic profile | MET |
 
 ### Section 18 — deliverables (and the section 19 submission constraint)
 
 | Requirement | Where implemented | Where evidenced | Status |
 |---|---|---|---|
-| A. Runnable source code for the pipeline (prep, POI repr, traveler repr, candidates, ranking, scoring, evaluation) | `src/poi_rank/`, `Makefile`, `poi_rank.cli` | `make reproduce` (ten stages, 335 s); Gate-A True and Gate-B True | MET |
+| A. Runnable source code for the pipeline (prep, POI repr, traveler repr, candidates, ranking, scoring, evaluation) | `src/poi_rank/`, `Makefile`, `poi_rank.cli` | `make reproduce` (ten stages, 377 s); Gate-A True and Gate-B True | MET |
 | B. Dataset small enough to run locally | `data/synthetic/` (committed, ~17 MB), `poi_rank.cli generate` | Deterministic regeneration (`tests/test_determinism.py`, `poi_rank.cli audit --deep`) | MET |
 | C.1 Problem formulation | `T` section 1 | — | MET |
 | C.2 Architecture | `README.md` "Architecture" | Diagram and module map in the README; `T` section 1 points to it (it is not a section of `T` itself) | MET |
@@ -148,7 +148,7 @@ properties of this simulator (`T` section 0).
 | C.10 Cold-start strategy | `T` section 10.3 | Three cases with measurements | MET |
 | C.11 Production considerations | `T` section 11 | See section 16 rows | MET |
 | D. Example results for at least three scenarios: top POIs, scores, important signals, brief explanation, evaluation results | `poi_rank.cli scenarios`, `recommend` | `R` "Scenarios" (each POI: score, `top_signals`, explanation), `results/recommendations.json`, `R` "Success criteria scorecard" | MET |
-| 19. Another engineer can clone, install, run and reproduce the reported results | `README.md` quick start, `scripts/verify_fresh_clone.sh` | Cold fresh-clone run: regenerated `metrics.json` identical to the committed file = True; the verified SHA and timings are in the annotated tag (`git show v1.0-konnect-submission`) | MET |
+| 19. Another engineer can clone, install, run and reproduce the reported results | `README.md` quick start, `scripts/verify_fresh_clone.sh` | Cold fresh-clone run: regenerated `metrics.json` identical to the committed file = True; the verified SHA and timings are in the annotated tag (`git show v1.1-konnect-submission`) | MET |
 
 ## The three strongest and the three weakest results
 
@@ -165,20 +165,20 @@ properties of this simulator (`T` section 0).
 
 **Weakest, each with the measurement behind the framing.**
 
-1. **Long-tail precision 0.196 against the 0.40 target.** The pool's own long-tail positive rate is 0.097, so the
-   served list is a 2.03x lift and the raw ranker a 3.54x lift (raw precision
-   0.343); the MMR curve runs from 1.90x (lambda 0.5) to 2.70x (lambda 1, no diversity term), so
-   diversity costs precision but does not explain the gap to 0.40. The 0.40 was set a priori, without reference to that base rate (`T` section 10.2). The genuine weakness: precision is lost *after*
-   ranking (raw 0.343 -> served 0.196) and which scoring step is responsible was not isolated.
-2. **Responsiveness to a stated touristiness preference.** Scenario-4 overlap 0.538 against at most 0.35; real-trip flip Jaccard
-   0.904 overall, diluted by |pref| near zero (0.973 bottom tercile,
-   0.834 top). The simulator encodes the preference (trip-level Spearman
-   -0.51), so this is a model limitation: the ranker reproduces
-   83% of the outcome gradient for cold-start trips and
-   -1% for trips with history. Untested fixes: a preference-consistency term in the utility layer, or a hard filter (`T` section 3.1).
-3. **Confidence values are barely informative about ranking quality.** Decile Spearman 0.358 against at least 0.6; trip-level Spearman
-   0.064. The earlier 0.879 came from leaked features; reweighting the confidence terms
-   on holdout labels would be tuning on the holdout and was declined (`T` section 10.1).
+1. **Long-tail precision 0.266 against the 0.40 target** (share 0.220 against 0.25). The pool's own long-tail positive rate is
+   0.097, so the served list is a 2.74x lift and the raw ranker a
+   3.54x lift (raw precision 0.343). Precision is lost mostly at the hard
+   gate (0.268 after it), not in MMR (lambda 1.0 was selected on validation; the sweep runs from
+   1.67x at lambda 0.5 to 2.74x at lambda 1). Experiment L raised it from 0.196 but the 0.40 target, set a priori without
+   reference to the base rate (`T` section 10.2), is not reached.
+2. **Confidence values are barely informative about ranking quality.** Decile Spearman 0.236 against at least 0.6 (it was
+   0.358 before experiment L changed the served lists the confidence is averaged over); trip-level Spearman
+   0.064 before it. The earlier 0.879 came from leaked features; reweighting the confidence terms on
+   holdout labels would be tuning on the holdout and was declined (`T` section 10.1).
+3. **Archetype structure and the oracle ceiling.** Within/cross-archetype ratio 1.44 against 2.0 (a perfect ranker gets
+   1.89, so the target is unreachable by construction; the ranker recovers
+   23% of the achievable gap on the pre-L lists), and 50.0% of the candidate-level oracle ceiling against 70%: the taste estimator
+   run over the TRUE semantic vectors reaches only 0.572 within trip (`R` diagnoses).
 
-Also MISSED and diagnosed in `R`: % of oracle ceiling 50.0% against 70%, localness index Spearman 0.582 against 0.6, and the
-within/cross-archetype ratio 1.20 against 2.0 (unreachable by construction: a perfect ranker gets 1.89).
+Also MISSED and diagnosed in `R`: localness index Spearman 0.582 against 0.6. Not missed but worth a reviewer's eye: the stated-preference factor overshoots
+the outcome gradient (`T` section 3.1), and the selected MMR lambda turns the diversity re-rank off.

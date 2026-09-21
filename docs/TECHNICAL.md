@@ -99,11 +99,11 @@ holdouts (it is flattered by the biased log), the primary IPS-corrected model by
 inbound-travel already rank by popularity, so a popularity-shaped list is table stakes. The
 differentiating claim is surfacing the genuinely relevant, non-obvious POI, and it has to be
 backed by long-tail **precision**, not just share. Measured on the unbiased holdout, top-10
-lists: long-tail share 0.1436 (popularity ranker:
+lists: long-tail share 0.2202 (popularity ranker:
 0.0000), catalog coverage@10
-47.3% (popularity:
+52.7% (popularity:
 3.5%); long-tail precision
-0.1964 on 952 long-tail recommendations —
+0.2658 on 1460 long-tail recommendations —
 below the 0.40 target, diagnosed in the scorecard (section 10).
 
 ## 2. DGP / circularity defense
@@ -152,10 +152,14 @@ independently tested:
 
 | Blocking check | Threshold | Measured | Status |
 |---|---|---|---|
-| candidate_recall_lift_long_tail | >= 0.35 | 0.4169 | PASS |
-| candidate_recall_lift_overall | >= 0.35 | 0.3737 | PASS |
 | candidate_recall_long_tail | >= 0.75 | 0.8975 | PASS |
-| candidate_recall_overall | >= 0.85 | 0.9262 | PASS |
+| effective_candidates_per_trip | <= 300.0 | 266.3207 | PASS |
+
+| Reporting (former blocking rows) | Reference | Measured | Meets reference |
+|---|---|---|---|
+| candidate_recall_lift_long_tail | >= 0.35 | 0.4169 | yes |
+| candidate_recall_lift_overall | >= 0.35 | 0.3737 | yes |
+| candidate_recall_overall | >= 0.85 | 0.9262 | yes |
 
 | Reporting-only (after freeze) | Value |
 |---|---|
@@ -269,7 +273,7 @@ cheaper ablations; deltas are against the full model on the unbiased holdout):
 |---|---|---|---|
 | `-IPS_weighting` | -0.0603 | 1.19e-35 | 605 |
 | `-calibration` | -0.0030 | 0.0543 | 605 |
-| `-MMR` | +0.0406 | 8.49e-26 | 582 |
+| `-MMR` | +0.0000 | 1 | 582 |
 | `-interest_channel` | +0.0001 | 0.00769 | 605 |
 | `-long_tail_quota` | +0.0004 | 8.3e-06 | 605 |
 | `-text_embeddings` | +0.0011 | 0.971 | 605 |
@@ -377,20 +381,58 @@ by +0.0120 (p=7.94e-05, section 3 ablation table). Why the trees
 prefer history over a stated preference that the labels reward (collinearity of the two, or history's higher
 signal-to-noise in training) was **not** separately tested.
 
-*Consequence.* Taste- and history-based personalization is real: lists for different archetypes are almost
+*Consequence (before experiment L1).* Taste- and history-based personalization is real: lists for different archetypes are almost
 disjoint (cross-archetype Jaccard@10
 0.075), but the
 archetype structure is only partly recovered: the within/cross ratio is
 1.20 against 1.00 for no archetype signal
 and 1.89 for a perfect ranker,
-i.e. 23% of the way. Responsiveness to a stated touristiness
-preference is weak for every traveler with history. What would fix it, **untested**, in increasing order of
-invasiveness: (i) an explicit preference-consistency term in the utility layer (section 7), tuned on
-train-carved validation; (ii) preference-conditioned features whose across-traveler variance forces the
-trees to split on them (for example the cross features re-expressed per traveler, or dropout applied to the
-implicit block the way it already is to the behavioural block); (iii) a hard filter on the stated preference.
-**For production:** on a platform whose differentiator is non-touristy local discovery, a stated preference
-must be a hard filter or an explicit utility term, not something the ranker is trusted to learn.
+i.e. 23% of the way. Responsiveness to a stated touristiness preference is weak for every traveler with history *in the ranker itself*.
+
+*The fix, in the scoring layer (experiment L1; `docs/experiments/L-final.md`; no retraining).* A stated "prefer less
+touristy" is a per-trip instruction, not a long-term taste estimate, and the brief section 11 puts trip context in
+the scoring layer, so the utility gains a third factor: `utility = hard_gate * relevance^alpha * compatibility^beta *
+pref_align^gamma`, `pref_align = sigmoid(centered localness * (-touristiness_pref) / s)` (observable localness index
+only; `s` the train-frame sd of the numerator; a traveler with no stated preference gets a constant 0.5, so nothing
+is reordered). gamma and the MMR lambda (a spec default of 0.8 that no procedure had ever selected, so selecting it
+is not re-tuning but the selection that was skipped) were chosen together on the train-carved validation split by a
+rule written before the run: minimise the label-free flip-overlap subject to validation NDCG@10 within 0.003 of the
+shipped configuration (under a third of the holdout CI half-width) and category entropy at least 0.9x of shipped.
+The winner is gamma = 1.0, lambda = 1.0
+(9 of 30 configurations feasible); it sits on the entropy constraint, and
+lambda = 1 is the diversity penalty switched off. On the real holdout, read once after the selection was frozen (K1's
+statistic; the served utility is measured over the hard-gate survivors that can actually be served):
+
+| Share of the outcome gradient reproduced | Trips | Ranker score alone (K1 basis) | Served utility, gamma = 0 | Served utility, gamma = 1.0 |
+|---|---|---|---|---|
+| Cold-start (no history) | 65 | 83% | 82% | 1345% |
+| With history | 540 | -1% | -5% | 1056% |
+
+| Served top-10 flip-overlap (Jaccard, holdout) | Before (gamma 0, lambda 0.8) | After (selected) |
+|---|---|---|
+| All trips | 0.837 | 0.353 |
+| Cold-start | 0.697 | 0.293 |
+| With history | 0.854 | 0.360 |
+
+For trips with history the responsiveness moves from about nothing to a served ordering that follows the stated
+preference. It now **overshoots**: the served localness-versus-preference slope is about
+11x the outcome slope (the ratio in the table is
+1056%), because the rule minimised flip-overlap under two
+constraints rather than matching the slope; smaller gammas give a larger validation flip-overlap (every grid point is in
+`docs/experiments/L-final.md`), and their gradient reproduction was not measured because the holdout was read once. Measured costs and side effects on the same holdout:
+NDCG@10 of the served top-10 (project metric, 671 trips) 0.1345 before, 0.1636 after, so
+the term did **not** cost NDCG on these labels (the primary raw-ranker NDCG@10, 0.1842, is
+unchanged: the ranker was not touched); category entropy 3.26 to 2.94 bits (lambda = 1); long-tail
+precision and share 0.196 / 0.144 to 0.266 / 0.220 (both rows still MISSED
+against their targets); cross-archetype Jaccard@10 0.075 to
+0.057, within/cross ratio
+1.20 to 1.44; scenario-4 top-10 overlap
+0.538 to 0.000 and the local-experience versus history scenarios
+0.111 to 0.000. One row got worse: the confidence-decile Spearman fell from
+0.358 to 0.236 (a MISSED row; the confidence is averaged over the served
+top-10, which changed, and the confidence terms were not re-tuned). Untested alternatives for the remaining gap: dropout on the implicit block, or a hard filter on the
+stated preference. **For production:** on a platform whose differentiator is non-touristy local discovery a stated
+preference must be a filter or an explicit utility term, as it now is here, not something the ranker is trusted to learn.
 
 ## 4. Candidate generation
 
@@ -591,7 +633,7 @@ deliver — is 0.097; a precision of 0.40 would
 require roughly four times that. So the primary long-tail precision statistic is **lift over the
 pool's base rate**, and raw precision is secondary: the raw ranker delivers
 3.538x, and the served list (after the hard
-gate, utility and MMR) 2.026x. Raw precision
+gate, utility and MMR) 2.741x. Raw precision
 still misses 0.40 and is reported as a miss in the scorecard, with this note.
 
 The same audit applies to the **0.85 overall candidate-recall target**: it was also set a priori as
@@ -610,29 +652,33 @@ are long-tail; precision = fraction of those that are positives):
 | 0_candidate_pool (positive rate among long-tail candidates) | 0.434 | 0.097 | 1.000x |
 | 1_raw_ranker_top10 | 0.113 | 0.343 | 3.538x |
 | 2_after_hard_gate_raw_order | 0.153 | 0.268 | 2.762x |
-| 3_after_utility | 0.162 | 0.262 | 2.699x |
-| 4_final_after_mmr | 0.144 | 0.196 | 2.026x |
+| 3_after_utility | 0.220 | 0.266 | 2.741x |
+| 4_final_after_mmr | 0.220 | 0.266 | 2.741x |
 
 MMR lambda (diagnostic, post-hoc on the holdout -- not a selection):
 
 | lambda | Long-tail share | Long-tail precision |
 |---|---|---|
-| 0.5 | 0.161 | 0.184 |
-| 0.6 | 0.151 | 0.188 |
-| 0.7 | 0.151 | 0.190 |
-| 0.8 | 0.144 | 0.196 |
-| 0.9 | 0.146 | 0.251 |
-| 1 | 0.162 | 0.262 |
+| 0.5 | 0.231 | 0.162 |
+| 0.6 | 0.229 | 0.165 |
+| 0.7 | 0.223 | 0.172 |
+| 0.8 | 0.217 | 0.182 |
+| 0.9 | 0.218 | 0.214 |
+| 1 | 0.220 | 0.266 |
 
 Reading: the raw ranker already lifts long-tail precision from the pool's base rate to
 0.343
-(3.538x). The serving stages then give some of it
-back: the hard gate takes it to 0.268, the utility
-layer is ~neutral (0.262), and the MMR diversity re-rank takes it to
-0.196. The gate and MMR each cost about the same. The lambda sweep
-(RESULTS.md, diversity section) is a post-hoc diagnostic on the holdout — it is not a selection and
-lambda is unchanged: lambda 0.8 is a deliberate diversity-for-precision trade whose cost is
-quantified there, and even with no diversity term (lambda 1) precision stays well under 0.40.
+(3.538x). The serving stages then give some of it back: the hard gate takes
+it to 0.268 (the largest single loss), and the utility
+layer, which now includes the stated-preference factor of experiment L1 (section 3.1), leaves precision at
+0.266 while lifting the long-tail *share* from
+0.153 to 0.220. The MMR
+lambda was a spec default (0.8) that no procedure had ever selected; experiment L2 selected it on validation together
+with the preference factor (section 3.1), and the selected value 1.0 means the diversity re-rank no longer changes the list
+(0.266 after MMR). The lambda sweep (RESULTS.md, diversity section) is a
+post-hoc diagnostic on the holdout and not a selection: under the shipped utility it runs from
+1.67x the base rate at lambda 0.5 to 2.74x at lambda 1. Even with no
+diversity term precision stays under the 0.40 target, which was set a priori without reference to the base rate.
 
 ## 5. Ranking model choice — LambdaMART justified over a two-tower ranker
 
@@ -654,7 +700,7 @@ by the clipped inverse exposure propensity (section 6), 15% behavioural-block dr
 train-carved validation trips (never the holdout). *Inference:* candidates (learned retriever at
 K=240, long-tail floor, interest channel) -> the same feature builder -> booster raw
 score -> isotonic calibration -> hard-constraint gate and compatibility -> utility -> MMR (lambda
-0.8) -> top-10 with `confidence`, `planner_weight` and a grouped-TreeSHAP explanation
+1.0) -> top-10 with `confidence`, `planner_weight` and a grouped-TreeSHAP explanation
 (`eval/demo.py::recommend_for_traveler`, `scoring/output.py`).
 
 **Measured against a two-tower neural ranker (DR2, learning curve).** A small two-tower model
@@ -898,8 +944,14 @@ and this is reported as an open improvement:
 ```
 hard_gate     = 0 if closed_entire_trip or accessibility_need_unmet or unreachable else 1
 compatibility = (budget · mobility · hours · reservation · party · duration) ^ (1/6)
-utility       = hard_gate · relevance^α · compatibility^β          (α=1.0, β=0.7)
+utility       = hard_gate · relevance^α · compatibility^β · pref_align^γ   (α=1.0, β=0.7, γ=1.0)
 ```
+
+**Experiment L (`docs/experiments/L-final.md`).** `pref_align` is the per-trip stated touristiness preference as a
+scoring-layer factor (section 3.1); `gamma = 0` restores the two-factor formula exactly. `gamma` and the MMR
+`lambda` were selected together on the train-carved validation split by a rule written before the run
+(gamma = 1, lambda = 1.0). DR1, DR6 and DR10 below were run on the two-factor utility (gamma = 0), before this
+factor existed; they compare the *combination rule* and the *aggregator* and are kept as run.
 
 **DR1 (uncuttable): the additive formula lets violations through.** Same candidates, same
 relevance and compatibility; only the combination rule differs. The gate is applied *before*
@@ -992,17 +1044,17 @@ labels (dominant archetype, within-pairs also requiring mixture cosine > 0.8), w
 version kept and labelled as a proxy. (3) The ratio target is now bounded by a reference: the
 same statistic for lists ranked by the true utility.
 
-- same-destination mean pairwise Jaccard@10: 0.0764
+- same-destination mean pairwise Jaccard@10: 0.0586
   (74775 pairs); all-pairs (pooled, structurally diluted):
-  0.0254
-- true-label within / cross Jaccard: 0.0903
-  / 0.0752, ratio
-  **1.20**
+  0.0195
+- true-label within / cross Jaccard: 0.0816
+  / 0.0567, ratio
+  **1.44**
 - reference (perfect ranker): ratio
   1.89
-- K-Means proxy ratio: 1.19
+- K-Means proxy ratio: 1.17
 
-**Confidence.** The confidence-decile Spearman is 0.358, below
+**Confidence.** The confidence-decile Spearman is 0.236, below
 the ≥0.6 target (a MISSED scorecard row, diagnosed there; it was
 0.879 before the feature-skew fix of section 5.1).
 
@@ -1015,13 +1067,14 @@ Leave-one-destination-out (three retrains): see the cold-start section of `docs/
 
 **Scenarios** (Seoul; spec.md section 15's three required profiles plus the touristiness-flip
 diagnostic, narrated as inbound personas): the flip's top-10 overlap is
-0.538 (target ≤ 0.35), from candidate pools
+0.000 after experiment L1 (0.538 before; target ≤ 0.35), from candidate pools
 that overlap at 0.717.
 
 ### 10.1 The two rows the skew fix regressed, diagnosed
 
 **Scenario 4 (touristiness flip): overlap 0.176 →
-0.538.** Both scenario-4 travelers are synthetic
+0.538 after the skew fix (then 0.000 after
+experiment L1, section 3.1, which is why the diagnosis below is of the ranker alone).** Both scenario-4 travelers are synthetic
 and cold-start (zero interaction history), so this row measures how much `touristiness_pref` *alone*
 moves the ranking for a brand-new user. Grouped TreeSHAP of the ranker on the scenario candidate rows,
 for the model as first tagged (measured by running the same script against a checkout of commit
@@ -1116,7 +1169,7 @@ tuning on holdout labels, so it is declined and listed as an open follow-up.
 The a-priori targets were audited alongside the results, and three were set without reference to the
 data's own baselines: **long-tail precision 0.40** (the pool's positive rate among long-tail
 candidates is 0.097, so the target implied a lift of about four times
-that was never justified; the served list achieves 2.03x);
+that was never justified; the served list achieves 2.74x);
 **candidate recall 0.85** (an absolute number with no chance baseline: a random set of the shipped size
 already recalls 0.553); and the **chance-lift gate of +0.35**, which
 is what made the K rule infeasible (DR13): lift over chance is recall minus a chance baseline that
@@ -1139,25 +1192,24 @@ Stated up front, then measured. Every MISSED row carries a diagnosis below -- a 
 | Candidate recall, overall (exposed positives) | &ge; 0.85 | 0.9262 | **MET** |
 | Candidate recall, long-tail stratum | &ge; 0.75 | 0.8975 | **MET** |
 | Candidate recall lift over chance (overall) | &ge; +0.35 | +0.374 | **MET** |
-| Cross-archetype Jaccard@10 (true labels) | &le; 0.25 | 0.0752 | **MET** |
-| Within/cross Jaccard ratio (true labels) | &ge; 2.0 | 1.20 | **MISSED** |
+| Cross-archetype Jaccard@10 (true labels) | &le; 0.25 | 0.0567 | **MET** |
+| Within/cross Jaccard ratio (true labels) | &ge; 2.0 | 1.44 | **MISSED** |
 | Hard-constraint violations in top-10 | = 0 | 0 | **MET** |
 | ECE after calibration | &le; 0.05 | 0.0300 | **MET** |
-| Confidence-decile NDCG rank correlation (Spearman; need not be strictly monotone) | &ge; 0.6 (spec-v2; spec.md section 11.10 said 0.7) | 0.358 | **MISSED** |
-| Long-tail share of top-10 | &ge; 0.25 | 0.1436 | **MISSED** |
-| Long-tail precision of top-10 | &ge; 0.40 | 0.1964 | **MISSED** |
+| Confidence-decile NDCG rank correlation (Spearman; need not be strictly monotone) | &ge; 0.6 (spec-v2; spec.md section 11.10 said 0.7) | 0.236 | **MISSED** |
+| Long-tail share of top-10 | &ge; 0.25 | 0.2202 | **MISSED** |
+| Long-tail precision of top-10 | &ge; 0.40 | 0.2658 | **MISSED** |
 | Localness index Spearman vs latent localness | &ge; 0.6 | 0.5815 | **MISSED** |
-| Scenario-4 (touristiness flip) top-10 overlap | &le; 0.35 | 0.538 | **MISSED** |
+| Scenario-4 (touristiness flip) top-10 overlap | &le; 0.35 | 0.000 | **MET** |
 
 ### Diagnoses of the missed rows
 
 - **% of oracle ceiling (candidate-level NDCG@10)**: The oracle ranks the SAME candidates by the DGP's true utility; the model only sees observable features. Text is not the limiting link: text-alone within-trip taste fidelity is 0.927 and D11 ridge R2 is 0.865. The taste ESTIMATOR is: run over the TRUE semantic vectors it still reaches only 0.572 (shipped chain 0.473), from sparse, exposure-biased histories.
 - **Within/cross Jaccard ratio (true labels)**: Within/cross-archetype list similarity ratio for lists ranked by the TRUE utility (a perfect ranker, same-destination pairs): 1.89 (within 0.0632, cross 0.0334); so the target is NOT attainable even by a perfect ranker in this simulator: the shortfall is a property of the simulator under this target, not of the model.
-- **Confidence-decile NDCG rank correlation (Spearman; need not be strictly monotone)**: Confidence-decile Spearman is 0.358. Before the feature-skew fix this row was 0.879. Measured (TECHNICAL.md section 10.1): the statistic is a rank correlation over ten decile means of a weak trip-level relationship (trip-level Spearman 0.221 before, 0.064 after). The confidence inputs on holdout are unchanged and dominated by the traveler-evidence term; what changed is the ranker: before the fix its NDCG rose with history volume (Spearman 0.131), after it does not (-0.040), so an evidence-volume-dominated confidence has nothing to track. The pre-fix figure was inflated by the leaked features; the post-fix value is the honest one. Reweighting toward the ensemble term would be tuning on holdout labels and is declined.
-- **Long-tail share of top-10**: Long-tail share of the served top-10 is 0.1436. Decision Register DR9 varies the long-tail candidate quota and measures the raw ranker's top-10 share: quota 0 -> 0.106, quota 100 -> 0.106, quota 25 -> 0.106, quota 50 -> 0.106. The candidate quota is therefore not the lever; the share is set by the ranker's scores (and the MMR re-rank) over a candidate set that already contains long-tail POIs.
-- **Long-tail precision of top-10**: Long-tail precision is 0.1964 over 952 long-tail recommendations, with candidate recall 0.898 in that stratum, so retrieval is not the bottleneck. Measured against the pool's own long-tail positive rate (0.097) the served list is a 2.026x lift (raw ranker 3.538x): the 0.40 target was set a priori without reference to that base rate and was miscalibrated at design time, so lift over base rate is the primary statistic and raw precision secondary (TECHNICAL.md section 4.2). The raw ranker's top-10 long-tail precision (DR9, quota 50, before the compatibility gate, utility and MMR re-rank) is 0.3375 at share 0.1064, against 0.1964 at share 0.1436 in the served list: precision is lost AFTER ranking while share rises. Which of the three scoring-layer steps is responsible is not isolated (untested).
+- **Confidence-decile NDCG rank correlation (Spearman; need not be strictly monotone)**: Confidence-decile Spearman is 0.236. Before the feature-skew fix this row was 0.879. Measured (TECHNICAL.md section 10.1): the statistic is a rank correlation over ten decile means of a weak trip-level relationship (trip-level Spearman 0.221 before, 0.064 after). The confidence inputs on holdout are unchanged and dominated by the traveler-evidence term; what changed is the ranker: before the fix its NDCG rose with history volume (Spearman 0.131), after it does not (-0.040), so an evidence-volume-dominated confidence has nothing to track. The pre-fix figure was inflated by the leaked features; the post-fix value is the honest one. Reweighting toward the ensemble term would be tuning on holdout labels and is declined. Experiment L then changed the served lists the confidence is averaged over (the stated-preference factor and the selected MMR lambda); the decile Spearman fell from 0.358 to 0.236. The confidence terms were not re-tuned (that would be tuning on holdout labels).
+- **Long-tail share of top-10**: Long-tail share of the served top-10 is 0.2202. Decision Register DR9 varies the long-tail candidate quota and measures the raw ranker's top-10 share: quota 0 -> 0.106, quota 100 -> 0.106, quota 25 -> 0.106, quota 50 -> 0.106. The candidate quota is therefore not the lever; the share is set by the ranker's scores and the scoring layer (the stated-preference factor and the MMR lambda of experiment L) over a candidate set that already contains long-tail POIs.
+- **Long-tail precision of top-10**: Long-tail precision is 0.2658 over 1460 long-tail recommendations, with candidate recall 0.898 in that stratum, so retrieval is not the bottleneck. Measured against the pool's own long-tail positive rate (0.097) the served list is a 2.741x lift (raw ranker 3.538x): the 0.40 target was set a priori without reference to that base rate and was miscalibrated at design time, so lift over base rate is the primary statistic and raw precision secondary (TECHNICAL.md section 4.2). E3 stage table (TECHNICAL.md section 4.2): raw ranker top-10 0.3430 -> after the hard gate 0.2678 -> after the utility (with the stated-preference factor) 0.2658 -> after MMR at the selected lambda 0.2658; the hard gate is the largest single loss, and the long-tail share rises from 0.1526 to 0.2202 in the utility layer.
 - **Localness index Spearman vs latent localness**: The composite index reaches rho 0.582; its observable inputs correlate with the latent localness at dist_to_tourist_centroid_km 0.699, foreign_review_ratio -0.555, local_tag_hits 0.050, pop_pct -0.187. The composite is BELOW its best single input (dist_to_tourist_centroid_km, |rho| 0.699): the blend weights were fixed earlier, when the geo input carried almost no signal (before the simulator's geo/localness fix). Re-weighting them against the latent localness would be tuning on the oracle (there is no oracle-free validation target for this index), so that retune is declined on principle: the index is left as shipped and the gap is reported.
-- **Scenario-4 (touristiness flip) top-10 overlap**: Top-10 overlap 0.538 with candidate-pool Jaccard 0.717 between the two profiles (measured from the candidate generator's own output). Before the feature-skew fix this row was 0.176. Measured (TECHNICAL.md section 10.1): the features that read touristiness_pref carry 0.070 of the final model attribution for a cold-start traveler, and negating the preference on the 671 real holdout trips leaves the raw top-10 at Jaccard 0.904 (0.813 for pure cold-start trips). Personalization by taste is healthy (cross-archetype Jaccard 0.075); touristiness_pref is a weak lever for a brand-new traveler, whose ranking is driven mainly by stated interests, popularity/quality and compatibility. The pre-fix value reflected an off-distribution response (0.825 of that model attribution sat on leak-trained history-based features, absent for these travelers), not stronger personalization (interpretation; the numbers are measured). Reported as a cold-start limitation.
 
 **Amendment L3a (Gate-B, written before experiment L3b ran; `docs/experiments/L-final.md`).** The chance-lift gate
 is the third of the a-priori thresholds disclosed above, and it was a *blocking* rule that could decide between
@@ -1271,7 +1323,7 @@ six-channel union, each with a ranker retrained on it:
 | Candidate recall, overall | 0.926 | 0.596 |
 | Candidate recall, long-tail | 0.898 | 0.540 |
 | Lift over chance, overall / long-tail | +0.374 / +0.417 | +0.203 / +0.163 |
-| Gate-B rows passed (of 4) | 4 | 0 |
+| Gate-B rows passed (of the four rows as defined then; amended by L3a) | 4 | 0 |
 | End-to-end NDCG@10, ranker retrained on the set | 0.1814 | **0.1919** |
 
 The retriever wins recall and long-tail exposure and passes the Gate-B rows; the six-channel union wins
@@ -1349,41 +1401,41 @@ is CI). It runs both acceptance gates and ends in `compose`, the **only** writer
 enforce single-writer). `make reproduce-full` adds the inspection artifacts (`recommend`,
 capped at a seeded 300-trip sample; `scenarios`), leave-one-destination-out, and the docs.
 
-**reproduce**: 334.6 s total (16-logical-core laptop CPU, no GPU, no network).
+**reproduce**: 376.7 s total (16-logical-core laptop CPU, no GPU, no network).
 
 | Stage | Seconds |
 |---|---|
-| generate | 30.6 |
-| prepare | 5.6 |
-| features | 17.6 |
-| candidates | 40.9 |
-| gate-dgp | 9.9 |
-| train | 78.1 |
-| evaluate | 130.3 |
-| representation | 15.2 |
-| gate-representation | 3.2 |
-| compose | 3.2 |
+| generate | 31.6 |
+| prepare | 5.5 |
+| features | 16.7 |
+| candidates | 40.8 |
+| gate-dgp | 9.8 |
+| train | 104.4 |
+| evaluate | 147.5 |
+| representation | 13.4 |
+| gate-representation | 3.4 |
+| compose | 3.6 |
 
-**reproduce-full**: 432.5 s total (16-logical-core laptop CPU, no GPU, no network).
+**reproduce-full**: 521.1 s total (16-logical-core laptop CPU, no GPU, no network).
 
 | Stage | Seconds |
 |---|---|
-| generate | 30.6 |
-| prepare | 5.6 |
-| features | 17.6 |
-| candidates | 40.9 |
-| gate-dgp | 9.9 |
-| train | 78.1 |
-| evaluate | 130.3 |
-| representation | 15.2 |
-| gate-representation | 3.2 |
-| compose | 3.2 |
-| recommend | 32.7 |
-| scenarios | 21.0 |
-| lodo | 44.0 |
+| generate | 31.6 |
+| prepare | 5.5 |
+| features | 16.7 |
+| candidates | 40.8 |
+| gate-dgp | 9.8 |
+| train | 104.4 |
+| evaluate | 147.5 |
+| representation | 13.4 |
+| gate-representation | 3.4 |
+| compose | 3.6 |
+| recommend | 37.6 |
+| scenarios | 24.9 |
+| lodo | 81.7 |
 | docs | 0.2 |
 
-**Honest wall-clock:** `make reproduce` measured 5.6 min on the dev laptop (other
+**Honest wall-clock:** `make reproduce` measured 6.3 min on the dev laptop (other
 processes may have been running, so timings carry roughly 30-40% noise), which
 is above the original 5-minute target and was not chased further. The two largest stages are `train` and `evaluate` (LightGBM fits, now
 also computing the cross features of section 5.2); shaving them would cost fidelity (fewer

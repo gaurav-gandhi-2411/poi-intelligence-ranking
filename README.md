@@ -15,6 +15,8 @@ implementation, its evidence and a MET / PARTIAL / NOT DONE status, in one table
 
 ## Headline — read this first
 
+**v1.1 (experiment L, `docs/experiments/L-final.md`).** Three decisions were made in the scoring and retrieval layers, each by a rule written before it ran and on the train-carved validation split: the stated touristiness preference now steers the served ranking (`pref_align`, `docs/TECHNICAL.md` section 3.1), the MMR lambda was selected instead of defaulted, and the retrieval design was re-decided (the learned retriever stays). Gate-B's blocking rows were amended before the retrieval comparison ran. The tag `v1.0-konnect-submission` is the earlier submission and is not moved.
+
 Primary system (IPS-weighted LambdaMART + hard-gated utility) NDCG@10 on the unbiased random-exposure
 holdout: **0.1967 ± 0.0083 (mean ± sd over 5 independently regenerated seeds; the committed seed 42, 0.1842, is the LOWEST of the five)**. It is a **significant** improvement over the popularity ranker the
 incumbents already run (Wilcoxon p=3.54e-75, seed 42) **and over a
@@ -38,12 +40,12 @@ The incumbents already rank by popularity. On the unbiased random-exposure holdo
 
 | | This system | Popularity ranker |
 |---|---|---|
-| Long-tail share (bottom-50% popularity stratum) | **0.144** | 0.000 |
-| Catalog coverage@10 | **47.3%** | 3.5% |
+| Long-tail share (bottom-50% popularity stratum) | **0.220** | 0.000 |
+| Catalog coverage@10 | **52.7%** | 3.5% |
 | NDCG@10 | **0.1842** [0.1738, 0.1945] | 0.0523 |
 
-Long-tail **precision** is 0.196 against a pool base rate of
-0.097, i.e. a **2.026x lift over base rate**
+Long-tail **precision** is 0.266 against a pool base rate of
+0.097, i.e. a **2.741x lift over base rate**
 (3.538x at the raw ranker); lift over base rate is the primary statistic. The
 0.40 raw-precision target was set a priori without reference to that base rate and was miscalibrated
 at design time (`docs/TECHNICAL.md` section 4.2), so the honest claim is: it surfaces the long tail
@@ -70,14 +72,14 @@ uv run python -m poi_rank.cli gate-dgp               # Gate-A: simulator quality
 uv run python -m poi_rank.cli train
 uv run python -m poi_rank.cli evaluate
 uv run python -m poi_rank.cli representation
-uv run python -m poi_rank.cli gate-representation    # Gate-B: oracle-free recall rows (blocking)
+uv run python -m poi_rank.cli gate-representation    # Gate-B: long-tail recall + serving budget (blocking)
 uv run python -m poi_rank.cli compose                # the only writer of results/metrics.json
 ```
 
 That is `make reproduce` (data → gates → train → evaluate → compose). `make reproduce-full` adds
 `recommend` (a seeded 300-trip inspection sample), `scenarios`, `lodo` and the docs. Wall-clock
 on a 16-logical-core laptop CPU (`scripts/time_reproduce.py`):
-**335 s (5.6 min) for `reproduce`**, **432 s for
+**377 s (6.3 min) for `reproduce`**, **521 s for
 `reproduce-full`**. Per-stage timings are in `docs/RESULTS.md`. The measured `reproduce` value is above the original 5-minute target and was not chased further (the two largest stages are `train` and `evaluate`, i.e. LightGBM fits; the per-stage table is in `docs/RESULTS.md`).
 
 **Cold fresh-clone reproduction verified at the tagged commit.** The commit tagged
@@ -93,7 +95,7 @@ recent recorded cold run (`results/parts/fresh_clone_verification.json`): `uv sy
 6 s (warm: about
 4-5 s), the ten stages
 431 s, 668 s in total on a busy laptop (the warm
-figure above is 335 s). The committed LightGBM model text is pinned to LF by
+figure above is 377 s). The committed LightGBM model text is pinned to LF by
 `.gitattributes`, so a Windows checkout (`core.autocrlf=true`) loads it and `make demo` works.
 
 Integrity and tests:
@@ -166,7 +168,7 @@ datagen (firewalled) -> data prep -> features (POI + traveler + pair features)
                                           |
                        LambdaMART ranker (IPS-weighted) -> isotonic calibration
                                           |
-              compatibility (6 terms, hard-gated) -> utility = gate * rel^a * compat^b -> MMR
+              compatibility (6 terms, hard-gated) -> utility = gate * rel^a * compat^b * pref_align^g -> MMR
                                           |
                     explanations (grouped TreeSHAP on returned rows -> templates)
                                           |

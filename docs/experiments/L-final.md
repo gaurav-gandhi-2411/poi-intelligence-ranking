@@ -98,36 +98,36 @@ V-entropy >= 2.922. 9 of 30 configurations are feasible.
 
 | gamma | lambda | V-NDCG@10 (IPS) | V-entropy (bits) | V-LT precision | flip-overlap | cold-start | with history | feasible |
 |---|---|---|---|---|---|---|---|---|
-| 0 | 0.6 | 0.1402 | 3.281 | 0.305 | 0.796 | 0.677 | 0.813 | no |
-| 0 | 0.7 | 0.1413 | 3.283 | 0.302 | 0.825 | 0.695 | 0.844 | no |
-| 0 | 0.8 | 0.1463 | 3.247 | 0.317 | 0.847 | 0.719 | 0.866 | yes |
-| 0 | 0.9 | 0.1556 | 3.110 | 0.314 | 0.877 | 0.769 | 0.893 | yes |
-| 0 | 1 | 0.1630 | 2.938 | 0.309 | 0.893 | 0.780 | 0.910 | yes |
-| 0.25 | 0.6 | 0.1389 | 3.271 | 0.275 | 0.494 | 0.422 | 0.505 | no |
-| 0.25 | 0.7 | 0.1428 | 3.274 | 0.268 | 0.514 | 0.444 | 0.524 | no |
-| 0.25 | 0.8 | 0.1485 | 3.259 | 0.288 | 0.539 | 0.460 | 0.550 | yes |
-| 0.25 | 0.9 | 0.1556 | 3.143 | 0.315 | 0.585 | 0.475 | 0.601 | yes |
-| 0.25 | 1 | 0.1634 | 2.932 | 0.315 | 0.659 | 0.587 | 0.669 | yes |
-| 0.5 | 0.6 | 0.1285 | 3.293 | 0.245 | 0.380 | 0.310 | 0.390 | no |
-| 0.5 | 0.7 | 0.1337 | 3.300 | 0.256 | 0.393 | 0.331 | 0.402 | no |
-| 0.5 | 0.8 | 0.1427 | 3.285 | 0.266 | 0.410 | 0.354 | 0.418 | no |
-| 0.5 | 0.9 | 0.1504 | 3.163 | 0.299 | 0.439 | 0.379 | 0.447 | yes |
-| 0.5 | 1 | 0.1590 | 2.930 | 0.287 | 0.514 | 0.443 | 0.525 | yes |
-| 1 | 0.6 | 0.1191 | 3.313 | 0.187 | 0.262 | 0.205 | 0.270 | no |
-| 1 | 0.7 | 0.1233 | 3.312 | 0.195 | 0.267 | 0.220 | 0.274 | no |
-| 1 | 0.8 | 0.1256 | 3.313 | 0.207 | 0.283 | 0.233 | 0.290 | no |
-| 1 | 0.9 | 0.1394 | 3.236 | 0.233 | 0.303 | 0.268 | 0.308 | no |
-| 1 | 1 | 0.1480 | 2.933 | 0.246 | 0.357 | 0.294 | 0.366 | yes |
-| 2 | 0.6 | 0.1027 | 3.371 | 0.118 | 0.177 | 0.139 | 0.182 | no |
-| 2 | 0.7 | 0.1089 | 3.374 | 0.137 | 0.182 | 0.129 | 0.190 | no |
-| 2 | 0.8 | 0.1097 | 3.371 | 0.141 | 0.189 | 0.141 | 0.195 | no |
-| 2 | 0.9 | 0.1162 | 3.332 | 0.146 | 0.192 | 0.166 | 0.195 | no |
-| 2 | 1 | 0.1344 | 2.975 | 0.172 | 0.229 | 0.174 | 0.237 | no |
-| 4 | 0.6 | 0.0825 | 3.441 | 0.079 | 0.145 | 0.119 | 0.149 | no |
-| 4 | 0.7 | 0.0831 | 3.440 | 0.080 | 0.144 | 0.121 | 0.148 | no |
-| 4 | 0.8 | 0.0867 | 3.438 | 0.084 | 0.139 | 0.114 | 0.142 | no |
-| 4 | 0.9 | 0.0925 | 3.417 | 0.091 | 0.138 | 0.105 | 0.143 | no |
-| 4 | 1 | 0.1126 | 3.052 | 0.092 | 0.155 | 0.115 | 0.161 | no |
+| 0 | 0.6 | 0.1402 | 3.281 | 0.287 | 0.796 | 0.677 | 0.813 | no |
+| 0 | 0.7 | 0.1413 | 3.283 | 0.288 | 0.825 | 0.695 | 0.844 | no |
+| 0 | 0.8 | 0.1463 | 3.247 | 0.302 | 0.847 | 0.719 | 0.866 | yes |
+| 0 | 0.9 | 0.1556 | 3.110 | 0.302 | 0.877 | 0.769 | 0.893 | yes |
+| 0 | 1 | 0.1630 | 2.938 | 0.291 | 0.893 | 0.780 | 0.910 | yes |
+| 0.25 | 0.6 | 0.1389 | 3.271 | 0.254 | 0.494 | 0.422 | 0.505 | no |
+| 0.25 | 0.7 | 0.1428 | 3.274 | 0.251 | 0.514 | 0.444 | 0.524 | no |
+| 0.25 | 0.8 | 0.1485 | 3.259 | 0.278 | 0.539 | 0.460 | 0.550 | yes |
+| 0.25 | 0.9 | 0.1556 | 3.143 | 0.298 | 0.585 | 0.475 | 0.601 | yes |
+| 0.25 | 1 | 0.1634 | 2.932 | 0.283 | 0.659 | 0.587 | 0.669 | yes |
+| 0.5 | 0.6 | 0.1285 | 3.293 | 0.220 | 0.380 | 0.310 | 0.390 | no |
+| 0.5 | 0.7 | 0.1337 | 3.300 | 0.235 | 0.393 | 0.331 | 0.402 | no |
+| 0.5 | 0.8 | 0.1427 | 3.285 | 0.247 | 0.410 | 0.354 | 0.418 | no |
+| 0.5 | 0.9 | 0.1504 | 3.163 | 0.275 | 0.439 | 0.379 | 0.447 | yes |
+| 0.5 | 1 | 0.1590 | 2.930 | 0.258 | 0.514 | 0.443 | 0.525 | yes |
+| 1 | 0.6 | 0.1191 | 3.313 | 0.168 | 0.262 | 0.205 | 0.270 | no |
+| 1 | 0.7 | 0.1233 | 3.312 | 0.178 | 0.267 | 0.220 | 0.274 | no |
+| 1 | 0.8 | 0.1256 | 3.313 | 0.193 | 0.283 | 0.233 | 0.290 | no |
+| 1 | 0.9 | 0.1394 | 3.236 | 0.215 | 0.303 | 0.268 | 0.308 | no |
+| 1 | 1 | 0.1480 | 2.933 | 0.218 | 0.357 | 0.294 | 0.366 | yes |
+| 2 | 0.6 | 0.1027 | 3.371 | 0.107 | 0.177 | 0.139 | 0.182 | no |
+| 2 | 0.7 | 0.1089 | 3.374 | 0.124 | 0.182 | 0.129 | 0.190 | no |
+| 2 | 0.8 | 0.1097 | 3.371 | 0.128 | 0.189 | 0.141 | 0.195 | no |
+| 2 | 0.9 | 0.1162 | 3.332 | 0.135 | 0.192 | 0.166 | 0.195 | no |
+| 2 | 1 | 0.1344 | 2.975 | 0.153 | 0.229 | 0.174 | 0.237 | no |
+| 4 | 0.6 | 0.0825 | 3.441 | 0.071 | 0.145 | 0.119 | 0.149 | no |
+| 4 | 0.7 | 0.0831 | 3.440 | 0.073 | 0.144 | 0.121 | 0.148 | no |
+| 4 | 0.8 | 0.0867 | 3.438 | 0.077 | 0.139 | 0.114 | 0.142 | no |
+| 4 | 0.9 | 0.0925 | 3.417 | 0.085 | 0.138 | 0.105 | 0.143 | no |
+| 4 | 1 | 0.1126 | 3.052 | 0.085 | 0.155 | 0.115 | 0.161 | no |
 
 **Winner: gamma = 1, lambda = 1.** V-NDCG@10
 0.1480 (+0.0017 against shipped), flip-overlap
@@ -139,12 +139,13 @@ Reported, as the pre-registration requires:
 
 * The winner sits **on the entropy constraint**: V-entropy 2.933 against a floor of
   2.922. lambda = 1 is the MMR penalty switched off (the top-50 re-ranked by utility alone).
-* **Validation long-tail precision falls** from 0.317 to 0.246
-  and the long-tail share of the served lists rises from 0.126 to
-  0.162. Long-tail precision was the tie-break, not a constraint; it is the price of steering by
-  each traveler's stated preference (a traveler who states a preference for famous landmarks is now served fewer
-  long-tail POIs). Validation labels are the popularity-biased training log, so this number is used only to
-  compare configurations.
+* **Validation long-tail precision falls** from 0.302 to 0.218
+  and the long-tail share of the served lists rises from 0.137 to
+  0.196. Long-tail precision was the tie-break (no tie occurred: one configuration was inside the tie band), not a
+  constraint. The validation labels are the popularity-biased training log, so this number is used only to
+  compare configurations; the holdout (uniform-random exposure) is reported below and points the other way.
+  The long-tail cutoff is the scorecard one (`eval.yaml`, bottom 50%); an earlier run of this script used the
+  candidate channel's 0.40 floor by mistake, which changed only these two reported columns, not the selection.
 * Among the feasible configurations gamma = 0 is never the minimiser; the selection moved the flip-overlap from
   0.847 to 0.357 at a validation NDCG cost of
   +0.0017 (a gain, inside the pre-registered tolerance either way).
@@ -233,3 +234,32 @@ seeds of the two designs do not overlap; 274 validation trips, so trip-sampling 
 the ranker that scores the learned set (the shipped booster against a retrained one), so this does not overturn DR12's measurement, but it does mean the holdout
 advantage of the legacy union is not a stable property of the design. The chance-lift gate was not consulted:
 the amended Gate-B rows are the constraints above.
+
+## Holdout, read once (after L1, L2 and L3 were frozen)
+
+`scripts/l_holdout_report.py` -> `results/parts/l_holdout_report.json`, plus the full `reproduce-full` pipeline run
+(671 unbiased-exposure holdout trips). An earlier run of the report script used the candidate channel's 0.40
+long-tail cutoff instead of the scorecard's 0.5 for its long-tail columns; the definition was corrected and the script re-run (same
+trips, same frozen configuration; no selection depended on it).
+
+| | shipped (gamma 0, lambda 0.8) | selected (gamma 1, lambda 1) |
+|---|---|---|
+| Served top-10 flip-overlap, all trips | 0.837 | 0.353 |
+| ... cold-start (72 trips) | 0.697 | 0.293 |
+| ... with history | 0.854 | 0.360 |
+| Gradient reproduction by the served utility, cold-start | 82% | 1345% |
+| Gradient reproduction by the served utility, with history | -5% | 1056% |
+| Served NDCG@10 (project metric, 671 trips) | 0.1345 | 0.1636 |
+| Category entropy@10 (bits) | 3.257 | 2.940 |
+| Long-tail precision / share (scorecard definition) | 0.196 / 0.144 | 0.266 / 0.220 |
+
+The ranker score alone (K1's basis, every candidate row) reproduces 83% of the outcome gradient for cold-start trips and
+-1% for trips with history: the same figures as `results/parts/touristiness_axis.json`. The served utility at gamma = 1
+reproduces 1056% / 1345% (with history / cold-start): the factor **overshoots** the outcome gradient about
+11x, because the pre-registered rule minimised flip-overlap under two constraints instead of matching the slope. On validation the long-tail
+precision fell under the selection, on the holdout it rose: the validation labels are the popularity-biased training log.
+
+Scenario artifacts (`results/scenarios/`): scenario 4 (touristiness flipped) against scenario 1 top-10 overlap 0.538 -> 0.000 (target at most 0.35);
+local-experience against history 0.111 -> 0.000. Gate-B (amended): long-tail recall 0.898 (>= 0.75), effective candidates per trip
+266 (<= 300): both pass. Scorecard: no MET row degraded; the scenario-4 row moved MISSED -> MET (six MISSED rows remain); the confidence-decile
+Spearman (a MISSED row) fell 0.358 -> 0.236.

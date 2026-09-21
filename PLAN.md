@@ -686,3 +686,13 @@ would leak the oracle); long-tail precision 0.4 target unmet (hypothesis unteste
   signal/training data/inference (5), model serving and data freshness (11).
   Untested follow-ups for the stated-preference weakness: a preference-consistency utility term, implicit
   block dropout, a hard filter. Open: the tag `v1.0-konnect-submission` points at 17d1834 and is not moved.
+- Experiment L (2026-09-21, branch `fix/l-final`, tag `v1.1-konnect-submission`): three model-layer decisions, each by a rule
+  written in `docs/experiments/L-final.md` BEFORE it ran, on the train-carved validation split, holdout read once.
+  L1+L2: `pref_align^gamma` in the utility (scoring layer, no retraining) and the MMR lambda selected together: gamma=1, lambda=1.0
+  (9 of 30 configs feasible; the winner sits on the entropy constraint). Holdout: served flip-overlap 0.837 -> 0.353 (with history
+  0.854 -> 0.360), scenario-4 overlap 0.538 -> 0.000, served NDCG@10 0.1345 -> 0.1636, long-tail precision/share 0.196/0.144 ->
+  0.266/0.220 (still MISSED), within/cross 1.20 -> 1.44; the factor OVERSHOOTS the outcome gradient about 11x; confidence-decile
+  Spearman fell 0.358 -> 0.236 (a MISSED row). L3a: Gate-B amended before L3b (long-tail recall >= 0.75 and effective K <= 300 block;
+  overall recall and both lifts report). L3b: A learned 0.1851, B legacy 0.1745 (long-tail recall 0.592), C union 0.1845 (311 candidates):
+  A stays. Harness bug found and fixed: the long-tail columns used the 0.40 candidate cutoff instead of the scorecard's 0.5 (selection
+  unaffected). `scripts/verify_fresh_clone.sh` default ref is now v1.1. Open: the merge guard blocks `gh pr merge` (no CI checks exist).

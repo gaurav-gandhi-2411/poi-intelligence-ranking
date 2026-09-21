@@ -15,8 +15,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.281090162416402,
-      "v_longtail_precision": 0.3045977011494253,
-      "v_longtail_share": 0.1281767955801105,
+      "v_longtail_precision": 0.2868421052631579,
+      "v_longtail_share": 0.13996316758747698,
       "v_ndcg10_ips": 0.14022160241491116
     },
     {
@@ -29,8 +29,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.2828255305516927,
-      "v_longtail_precision": 0.3022598870056497,
-      "v_longtail_share": 0.13038674033149172,
+      "v_longtail_precision": 0.2879581151832461,
+      "v_longtail_share": 0.1406998158379374,
       "v_ndcg10_ips": 0.14129343878713474
     },
     {
@@ -43,8 +43,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.2470635496997473,
-      "v_longtail_precision": 0.31671554252199413,
-      "v_longtail_share": 0.12559852670349908,
+      "v_longtail_precision": 0.3018867924528302,
+      "v_longtail_share": 0.13664825046040516,
       "v_ndcg10_ips": 0.14632477339701663
     },
     {
@@ -57,8 +57,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.1103991707706364,
-      "v_longtail_precision": 0.31402439024390244,
-      "v_longtail_share": 0.12081031307550645,
+      "v_longtail_precision": 0.30193905817174516,
+      "v_longtail_share": 0.13296500920810314,
       "v_ndcg10_ips": 0.15557521345672837
     },
     {
@@ -71,8 +71,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 2.9382507305116543,
-      "v_longtail_precision": 0.30857142857142855,
-      "v_longtail_share": 0.1289134438305709,
+      "v_longtail_precision": 0.2914572864321608,
+      "v_longtail_share": 0.14659300184162063,
       "v_ndcg10_ips": 0.1630025945269108
     },
     {
@@ -85,8 +85,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.271135221384229,
-      "v_longtail_precision": 0.27525252525252525,
-      "v_longtail_share": 0.14585635359116023,
+      "v_longtail_precision": 0.2540415704387991,
+      "v_longtail_share": 0.15948434622467772,
       "v_ndcg10_ips": 0.13889634931845216
     },
     {
@@ -99,8 +99,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.2743483539944784,
-      "v_longtail_precision": 0.2683544303797468,
-      "v_longtail_share": 0.14548802946593,
+      "v_longtail_precision": 0.2511737089201878,
+      "v_longtail_share": 0.1569060773480663,
       "v_ndcg10_ips": 0.14283979035397523
     },
     {
@@ -113,8 +113,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.259495113104085,
-      "v_longtail_precision": 0.287598944591029,
-      "v_longtail_share": 0.13959484346224676,
+      "v_longtail_precision": 0.2780487804878049,
+      "v_longtail_share": 0.15101289134438306,
       "v_ndcg10_ips": 0.1484539850107246
     },
     {
@@ -127,8 +127,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.143000938287923,
-      "v_longtail_precision": 0.3150684931506849,
-      "v_longtail_share": 0.13443830570902393,
+      "v_longtail_precision": 0.29802955665024633,
+      "v_longtail_share": 0.14953959484346224,
       "v_ndcg10_ips": 0.1556353717440824
     },
     {
@@ -141,8 +141,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 2.932284192717143,
-      "v_longtail_precision": 0.3149171270718232,
-      "v_longtail_share": 0.13333333333333333,
+      "v_longtail_precision": 0.28337236533957844,
+      "v_longtail_share": 0.1572744014732965,
       "v_ndcg10_ips": 0.1633559135323928
     },
     {
@@ -155,8 +155,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.292537857900365,
-      "v_longtail_precision": 0.2449438202247191,
-      "v_longtail_share": 0.16390423572744015,
+      "v_longtail_precision": 0.22044088176352705,
+      "v_longtail_share": 0.1837937384898711,
       "v_ndcg10_ips": 0.12852434268488944
     },
     {
@@ -169,8 +169,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.300260516312155,
-      "v_longtail_precision": 0.25598086124401914,
-      "v_longtail_share": 0.15395948434622467,
+      "v_longtail_precision": 0.23478260869565218,
+      "v_longtail_share": 0.1694290976058932,
       "v_ndcg10_ips": 0.13366378586086683
     },
     {
@@ -183,8 +183,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.2851193702333936,
-      "v_longtail_precision": 0.26570048309178745,
-      "v_longtail_share": 0.15248618784530388,
+      "v_longtail_precision": 0.24669603524229075,
+      "v_longtail_share": 0.16721915285451197,
       "v_ndcg10_ips": 0.14269140110946998
     },
     {
@@ -197,8 +197,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.163359903081802,
-      "v_longtail_precision": 0.29949238578680204,
-      "v_longtail_share": 0.14511970534069982,
+      "v_longtail_precision": 0.2749445676274945,
+      "v_longtail_share": 0.16611418047882137,
       "v_ndcg10_ips": 0.1504303364434263
     },
     {
@@ -211,8 +211,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 2.930001718953301,
-      "v_longtail_precision": 0.28720626631853785,
-      "v_longtail_share": 0.14106813996316758,
+      "v_longtail_precision": 0.25820568927789933,
+      "v_longtail_share": 0.16832412523020257,
       "v_ndcg10_ips": 0.1590036288738208
     },
     {
@@ -225,8 +225,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.3128551418414194,
-      "v_longtail_precision": 0.1871345029239766,
-      "v_longtail_share": 0.18895027624309393,
+      "v_longtail_precision": 0.16808149405772496,
+      "v_longtail_share": 0.21694290976058933,
       "v_ndcg10_ips": 0.11912697065728503
     },
     {
@@ -239,8 +239,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.3117858431902185,
-      "v_longtail_precision": 0.19483101391650098,
-      "v_longtail_share": 0.1852670349907919,
+      "v_longtail_precision": 0.17832167832167833,
+      "v_longtail_share": 0.21068139963167587,
       "v_ndcg10_ips": 0.12334839744115932
     },
     {
@@ -253,8 +253,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.3133605410140614,
-      "v_longtail_precision": 0.2073170731707317,
-      "v_longtail_share": 0.18121546961325966,
+      "v_longtail_precision": 0.1931407942238267,
+      "v_longtail_share": 0.20405156537753222,
       "v_ndcg10_ips": 0.12559606124942388
     },
     {
@@ -267,8 +267,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.2360274336217323,
-      "v_longtail_precision": 0.23333333333333334,
-      "v_longtail_share": 0.16574585635359115,
+      "v_longtail_precision": 0.21511627906976744,
+      "v_longtail_share": 0.19005524861878453,
       "v_ndcg10_ips": 0.13936412162895553
     },
     {
@@ -281,8 +281,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 2.9326477723318716,
-      "v_longtail_precision": 0.2460136674259681,
-      "v_longtail_share": 0.16169429097605892,
+      "v_longtail_precision": 0.2176360225140713,
+      "v_longtail_share": 0.19631675874769797,
       "v_ndcg10_ips": 0.14803121526364788
     },
     {
@@ -295,8 +295,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.370825656921214,
-      "v_longtail_precision": 0.11774193548387096,
-      "v_longtail_share": 0.2283609576427256,
+      "v_longtail_precision": 0.10664819944598337,
+      "v_longtail_share": 0.2659300184162063,
       "v_ndcg10_ips": 0.10274635900961604
     },
     {
@@ -309,8 +309,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.3737901698827377,
-      "v_longtail_precision": 0.13747954173486088,
-      "v_longtail_share": 0.22504604051565377,
+      "v_longtail_precision": 0.12376933895921238,
+      "v_longtail_share": 0.261878453038674,
       "v_ndcg10_ips": 0.10885816963791835
     },
     {
@@ -323,8 +323,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.3709475798625292,
-      "v_longtail_precision": 0.14143094841930118,
-      "v_longtail_share": 0.22136279926335176,
+      "v_longtail_precision": 0.1278735632183908,
+      "v_longtail_share": 0.256353591160221,
       "v_ndcg10_ips": 0.10974812950798195
     },
     {
@@ -337,8 +337,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.331772209426027,
-      "v_longtail_precision": 0.1455160744500846,
-      "v_longtail_share": 0.2176795580110497,
+      "v_longtail_precision": 0.1346153846153846,
+      "v_longtail_share": 0.24898710865561693,
       "v_ndcg10_ips": 0.11622149087505512
     },
     {
@@ -351,8 +351,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 2.9750322172976236,
-      "v_longtail_precision": 0.1721014492753623,
-      "v_longtail_share": 0.20331491712707184,
+      "v_longtail_precision": 0.15279878971255673,
+      "v_longtail_share": 0.2434622467771639,
       "v_ndcg10_ips": 0.13435637823132868
     },
     {
@@ -365,8 +365,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.4408265213933587,
-      "v_longtail_precision": 0.07874015748031496,
-      "v_longtail_share": 0.28066298342541435,
+      "v_longtail_precision": 0.07101947308132875,
+      "v_longtail_share": 0.32154696132596683,
       "v_ndcg10_ips": 0.0825146775126359
     },
     {
@@ -379,8 +379,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.440212142059019,
-      "v_longtail_precision": 0.07984293193717278,
-      "v_longtail_share": 0.2813996316758748,
+      "v_longtail_precision": 0.07331042382588775,
+      "v_longtail_share": 0.32154696132596683,
       "v_ndcg10_ips": 0.08305622572332291
     },
     {
@@ -393,8 +393,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.437619036724852,
-      "v_longtail_precision": 0.084,
-      "v_longtail_share": 0.27624309392265195,
+      "v_longtail_precision": 0.07665505226480836,
+      "v_longtail_share": 0.31712707182320443,
       "v_ndcg10_ips": 0.08666479435270961
     },
     {
@@ -407,8 +407,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.417030612473792,
-      "v_longtail_precision": 0.09126984126984126,
-      "v_longtail_share": 0.27845303867403315,
+      "v_longtail_precision": 0.08518086347724621,
+      "v_longtail_share": 0.3156537753222836,
       "v_ndcg10_ips": 0.09249281165891263
     },
     {
@@ -421,8 +421,8 @@
       "n_cold_start_trips": 35,
       "n_trips": 274,
       "v_category_entropy_bits": 3.0516234838044896,
-      "v_longtail_precision": 0.09192200557103064,
-      "v_longtail_share": 0.26445672191528546,
+      "v_longtail_precision": 0.08482676224611709,
+      "v_longtail_share": 0.3082872928176796,
       "v_ndcg10_ips": 0.11262917323890688
     }
   ],
@@ -435,7 +435,7 @@
     "n_feasible": 9,
     "n_tied": 1,
     "ndcg_floor": 0.14332477339701663,
-    "reason": "min flip-overlap among feasible; ties within one SE broken by long-tail precision",
+    "reason": "min flip-overlap among feasible; ties within one SE: long-tail precision",
     "tie_band_se": 0.01984110272091742,
     "winner": {
       "gamma": 1.0,

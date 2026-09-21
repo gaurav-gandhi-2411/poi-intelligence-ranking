@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-20T16:24:53.825665+00:00",
+  "generated_at": "2026-09-21T05:38:34.838821+00:00",
   "model_version": "lambdamart-ips-v1",
   "profile": {
     "accessibility_needs": [],
@@ -25,140 +25,6 @@
   },
   "recommendations": [
     {
-      "category": "restaurant",
-      "compatibility_breakdown": {
-        "budget_fit": 0.8333333333333334,
-        "duration_fit": 1.0,
-        "hours_fit": 0.8541666666666667,
-        "mobility_fit": 0.9735852482104184,
-        "party_fit": 1.0,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.5494023606184211,
-      "context_compatibility": 0.9407102865805166,
-      "diversity_group": "restaurant_local",
-      "expected_duration_min": 67.52990411798437,
-      "explanation": [
-        "Popular with travelers who share your interests",
-        "Popular choice -- busier than 10% of comparable POIs in Seoul",
-        "Strong match with your stated interest in foodie",
-        "More budget-friendly than typical for your medium budget"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": -0.6314801935028278,
-      "name": "Eatery Insadong Kitchen",
-      "planner_weight": 0.13319980137363732,
-      "poi_id": "PSEO0125",
-      "popularity_percentile": 10.477178423236515,
-      "preference_score": 0.26897689768976896,
-      "rank": 1,
-      "top_signals": [
-        {
-          "contribution": 1.10571,
-          "feature_group": "implicit_taste"
-        },
-        {
-          "contribution": 0.326756,
-          "feature_group": "popularity"
-        },
-        {
-          "contribution": 0.319162,
-          "feature_group": "interest_match"
-        }
-      ],
-      "utility": 0.25771168194385125
-    },
-    {
-      "category": "nature_park",
-      "compatibility_breakdown": {
-        "budget_fit": 0.5,
-        "duration_fit": 1.0,
-        "hours_fit": 0.7291666666666666,
-        "mobility_fit": 0.981804465612722,
-        "party_fit": 1.0,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.5507347477921202,
-      "context_compatibility": 0.8426301006910765,
-      "diversity_group": "nature_park_touristy",
-      "expected_duration_min": 86.78599223943465,
-      "explanation": [
-        "Popular with travelers who share your interests",
-        "Strong match with your stated interest in authentic",
-        "Popular choice -- busier than 90% of comparable POIs in Seoul",
-        "More budget-friendly than typical for your medium budget",
-        "Would rank #3 instead of #6 if it fit your budget exactly"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": -1.2644654257933945,
-      "name": "Time Honored Seongsu Trail",
-      "planner_weight": 0.11144097487688455,
-      "poi_id": "PSEO0210",
-      "popularity_percentile": 89.83402489626556,
-      "preference_score": 0.24306898774983882,
-      "rank": 2,
-      "top_signals": [
-        {
-          "contribution": 0.984787,
-          "feature_group": "implicit_taste"
-        },
-        {
-          "contribution": 0.396917,
-          "feature_group": "interest_match"
-        },
-        {
-          "contribution": 0.288535,
-          "feature_group": "popularity"
-        }
-      ],
-      "utility": 0.2156132424884271
-    },
-    {
-      "category": "religious_site",
-      "compatibility_breakdown": {
-        "budget_fit": 0.8333333333333334,
-        "duration_fit": 1.0,
-        "hours_fit": 0.875,
-        "mobility_fit": 0.589992522737959,
-        "party_fit": 1.0,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.6415075534415765,
-      "context_compatibility": 0.8688514944198956,
-      "diversity_group": "religious_site_touristy",
-      "expected_duration_min": 30.803591021967065,
-      "explanation": [
-        "Popular with travelers who share your interests",
-        "Popular choice -- busier than 100% of comparable POIs in Seoul",
-        "Strong match with your stated interest in foodie",
-        "23 min from your stay by public transport -- a bit of a trek",
-        "Would rank #3 instead of #4 if it were closer to your stay"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": -1.1177266785233702,
-      "name": "Historic Gangnam Shrine",
-      "planner_weight": 0.11821917749551747,
-      "poi_id": "PSEO0280",
-      "popularity_percentile": 99.5850622406639,
-      "preference_score": 0.2523809523809524,
-      "rank": 3,
-      "top_signals": [
-        {
-          "contribution": 0.809378,
-          "feature_group": "implicit_taste"
-        },
-        {
-          "contribution": 0.394435,
-          "feature_group": "popularity"
-        },
-        {
-          "contribution": 0.376386,
-          "feature_group": "interest_match"
-        }
-      ],
-      "utility": 0.2287275413041146
-    },
-    {
       "category": "cafe",
       "compatibility_breakdown": {
         "budget_fit": 0.8333333333333334,
@@ -166,6 +32,7 @@
         "hours_fit": 0.8958333333333334,
         "mobility_fit": 0.7556214907904919,
         "party_fit": 1.0,
+        "pref_align": 0.7652021183762496,
         "reservation_fit": 1.0
       },
       "confidence": 0.4847889226204006,
@@ -176,16 +43,18 @@
         "Popular with travelers who share your interests",
         "Strong match with your stated interest in authentic",
         "Less touristy than 33% of comparable POIs in Seoul",
+        "Lower tourist concentration than comparable POIs -- fits your preference for less touristy places",
         "12 min from your stay by public transport -- a bit of a trek"
       ],
       "hard_constraints_ok": true,
       "localness_index": 0.30668426862665604,
       "name": "Lively Hongdae Bakery",
-      "planner_weight": 0.11751407582975387,
+      "planner_weight": 0.12061295715267399,
       "poi_id": "PSEO0112",
       "popularity_percentile": 66.80497925311202,
+      "pref_align": 0.7652021183762496,
       "preference_score": 0.24306898774983882,
-      "rank": 4,
+      "rank": 1,
       "top_signals": [
         {
           "contribution": 1.135319,
@@ -200,273 +69,433 @@
           "feature_group": "localness_fit"
         }
       ],
-      "utility": 0.22736332803689188
+      "utility": 0.1739789002549038
     },
     {
-      "category": "family_activity",
+      "category": "restaurant",
       "compatibility_breakdown": {
-        "budget_fit": 0.5,
-        "duration_fit": 0.6107965781273866,
-        "hours_fit": 0.75,
-        "mobility_fit": 0.6511489198817855,
+        "budget_fit": 0.6666666666666667,
+        "duration_fit": 1.0,
+        "hours_fit": 0.8958333333333333,
+        "mobility_fit": 0.8546919017296801,
         "party_fit": 1.0,
+        "pref_align": 0.9051186854039087,
         "reservation_fit": 1.0
       },
-      "confidence": 0.5465826964786371,
-      "context_compatibility": 0.728229103233447,
-      "diversity_group": "family_activity_touristy",
-      "expected_duration_min": 179.1589569520002,
+      "confidence": 0.4311808644761622,
+      "context_compatibility": 0.8939727029743245,
+      "diversity_group": "restaurant_local",
+      "expected_duration_min": 43.88132168816481,
       "explanation": [
         "Popular with travelers who share your interests",
-        "Strong match with your stated interest in foodie",
-        "Popular choice -- busier than 100% of comparable POIs in Seoul",
-        "More budget-friendly than typical for your medium budget"
+        "Strong match with your stated interest in authentic",
+        "Less touristy than 88% of comparable POIs in Seoul",
+        "Lower tourist concentration than comparable POIs -- fits your preference for less touristy places",
+        "Priced above what's typical for your medium budget",
+        "Would rank #1 instead of #2 if it fit your budget exactly"
       ],
       "hard_constraints_ok": true,
-      "localness_index": -1.2602571811881265,
-      "name": "Breezy Bukchon Adventure Park",
-      "planner_weight": 0.10062054056001649,
-      "poi_id": "PSEO0025",
-      "popularity_percentile": 99.79253112033194,
-      "preference_score": 0.24306898774983882,
-      "rank": 5,
+      "localness_index": 0.628590436398736,
+      "name": "Eatery Insadong Noodle House",
+      "planner_weight": 0.1205331326792454,
+      "poi_id": "PSEO0429",
+      "popularity_percentile": 12.033195020746888,
+      "pref_align": 0.9051186854039087,
+      "preference_score": 0.20776699029126214,
+      "rank": 2,
       "top_signals": [
         {
-          "contribution": 0.986659,
+          "contribution": 1.147548,
           "feature_group": "implicit_taste"
         },
         {
-          "contribution": 0.377711,
+          "contribution": 0.236856,
           "feature_group": "interest_match"
         },
         {
-          "contribution": 0.273217,
-          "feature_group": "popularity"
+          "contribution": 0.113249,
+          "feature_group": "localness_fit"
         }
       ],
-      "utility": 0.19467813373897108
+      "utility": 0.17386375695331843
     },
     {
-      "category": "shopping",
+      "category": "restaurant",
       "compatibility_breakdown": {
         "budget_fit": 0.8333333333333334,
         "duration_fit": 1.0,
-        "hours_fit": 0.9166666666666666,
-        "mobility_fit": 0.6601641118352044,
+        "hours_fit": 0.8541666666666667,
+        "mobility_fit": 0.839457932640625,
         "party_fit": 1.0,
+        "pref_align": 0.8034355424720188,
         "reservation_fit": 1.0
       },
-      "confidence": 0.6985607646752445,
-      "context_compatibility": 0.8921687710735221,
-      "diversity_group": "shopping_touristy",
-      "expected_duration_min": 57.888297119013146,
+      "confidence": 0.46432792457098926,
+      "context_compatibility": 0.9177549137837677,
+      "diversity_group": "restaurant_touristy",
+      "expected_duration_min": 51.49534652400058,
       "explanation": [
         "Popular with travelers who share your interests",
-        "Popular choice -- busier than 94% of comparable POIs in Seoul",
-        "Less touristy than 6% of comparable POIs in Seoul",
-        "18 min from your stay by public transport -- a bit of a trek",
-        "Would rank #9 instead of #14 if it were closer to your stay"
+        "Strong match with your stated interest in authentic",
+        "Matches your stated medium budget",
+        "Lower tourist concentration than comparable POIs -- fits your preference for less touristy places",
+        "More budget-friendly than typical for your medium budget"
       ],
       "hard_constraints_ok": true,
-      "localness_index": -1.2350165117959186,
-      "name": "Buzzy Gangnam Market",
-      "planner_weight": 0.09824297538126056,
-      "poi_id": "PSEO0394",
-      "popularity_percentile": 93.7759336099585,
-      "preference_score": 0.20588235294117646,
-      "rank": 6,
+      "localness_index": 0.37456824909769515,
+      "name": "Kid Focused Bukchon Diner",
+      "planner_weight": 0.10897670586561974,
+      "poi_id": "PSEO0153",
+      "popularity_percentile": 75.10373443983403,
+      "pref_align": 0.8034355424720188,
+      "preference_score": 0.20776699029126214,
+      "rank": 3,
       "top_signals": [
         {
-          "contribution": 0.793516,
+          "contribution": 0.930411,
           "feature_group": "implicit_taste"
         },
         {
-          "contribution": 0.349473,
-          "feature_group": "popularity"
+          "contribution": 0.257377,
+          "feature_group": "interest_match"
         },
         {
-          "contribution": 0.217275,
-          "feature_group": "localness_fit"
+          "contribution": 0.147767,
+          "feature_group": "price_fit"
         }
       ],
-      "utility": 0.1900780794233526
+      "utility": 0.15719411817341641
     },
     {
-      "category": "entertainment",
+      "category": "restaurant",
       "compatibility_breakdown": {
-        "budget_fit": 0.6666666666666667,
-        "duration_fit": 0.8428777210207102,
-        "hours_fit": 0.7708333333333334,
-        "mobility_fit": 0.6523203285708021,
-        "party_fit": 1.0,
-        "reservation_fit": 1.0
-      },
-      "confidence": 0.5838609550790159,
-      "context_compatibility": 0.8100573853534151,
-      "diversity_group": "entertainment_touristy",
-      "expected_duration_min": 140.51200604056092,
-      "explanation": [
-        "Popular with travelers who share your interests",
-        "Popular choice -- busier than 98% of comparable POIs in Seoul",
-        "Less touristy than 2% of comparable POIs in Seoul",
-        "18 min from your stay by public transport -- a bit of a trek"
-      ],
-      "hard_constraints_ok": true,
-      "localness_index": -1.1982928871237588,
-      "name": "Family Friendly Itaewon Arcade",
-      "planner_weight": 0.08007900084886913,
-      "poi_id": "PSEO0137",
-      "popularity_percentile": 98.3402489626556,
-      "preference_score": 0.1795511221945137,
-      "rank": 7,
-      "top_signals": [
-        {
-          "contribution": 0.699298,
-          "feature_group": "implicit_taste"
-        },
-        {
-          "contribution": 0.309843,
-          "feature_group": "popularity"
-        },
-        {
-          "contribution": 0.203526,
-          "feature_group": "localness_fit"
-        }
-      ],
-      "utility": 0.1549348706553676
-    },
-    {
-      "category": "viewpoint",
-      "compatibility_breakdown": {
-        "budget_fit": 0.6666666666666667,
+        "budget_fit": 0.8333333333333334,
         "duration_fit": 1.0,
-        "hours_fit": 1.0,
-        "mobility_fit": 0.9910241429698258,
+        "hours_fit": 0.8541666666666667,
+        "mobility_fit": 0.7946215990514379,
         "party_fit": 1.0,
+        "pref_align": 0.7196213309611819,
         "reservation_fit": 1.0
       },
-      "confidence": 0.6733670532202972,
-      "context_compatibility": 0.933251785044146,
-      "diversity_group": "viewpoint_touristy",
-      "expected_duration_min": 26.654069448940383,
+      "confidence": 0.4335542648469856,
+      "context_compatibility": 0.9093972219196429,
+      "diversity_group": "restaurant_touristy",
+      "expected_duration_min": 105.37043505174668,
       "explanation": [
         "Popular with travelers who share your interests",
-        "Popular choice -- busier than 99% of comparable POIs in Seoul",
-        "Highly rated (4.1/5 from 405 reviews)",
-        "Priced above what's typical for your medium budget",
-        "Would rank #23 instead of #31 if it fit your budget exactly"
+        "Strong match with your stated interest in authentic",
+        "Less touristy than 44% of comparable POIs in Seoul",
+        "Lower tourist concentration than comparable POIs -- fits your preference for less touristy places",
+        "10 min from your stay by public transport -- a bit of a trek"
       ],
       "hard_constraints_ok": true,
-      "localness_index": -0.7503373604472787,
-      "name": "Dreamy Hongdae Overlook",
-      "planner_weight": 0.08145911589422478,
-      "poi_id": "PSEO0420",
-      "popularity_percentile": 99.37759336099586,
-      "preference_score": 0.16541353383458646,
-      "rank": 8,
+      "localness_index": 0.2351019700643228,
+      "name": "Laid Back Itaewon Eatery",
+      "planner_weight": 0.09698520704343913,
+      "poi_id": "PSEO0140",
+      "popularity_percentile": 55.809128630705395,
+      "pref_align": 0.7196213309611819,
+      "preference_score": 0.20776699029126214,
+      "rank": 4,
       "top_signals": [
         {
-          "contribution": 0.743854,
+          "contribution": 0.920854,
           "feature_group": "implicit_taste"
         },
         {
-          "contribution": 0.327072,
-          "feature_group": "popularity"
+          "contribution": 0.278902,
+          "feature_group": "interest_match"
         },
         {
-          "contribution": 0.148056,
-          "feature_group": "quality"
+          "contribution": 0.253993,
+          "feature_group": "localness_fit"
         }
       ],
-      "utility": 0.15760508311774904
+      "utility": 0.13989690710470742
     },
     {
-      "category": "historic_site",
+      "category": "restaurant",
+      "compatibility_breakdown": {
+        "budget_fit": 0.8333333333333334,
+        "duration_fit": 1.0,
+        "hours_fit": 0.8958333333333334,
+        "mobility_fit": 0.916640366972894,
+        "party_fit": 1.0,
+        "pref_align": 0.9548314360763513,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.4194271976581825,
+      "context_compatibility": 0.938730276355979,
+      "diversity_group": "restaurant_local",
+      "expected_duration_min": 88.85683914440023,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in authentic",
+        "Matches your stated medium budget",
+        "Lower tourist concentration than comparable POIs -- fits your preference for less touristy places",
+        "More budget-friendly than typical for your medium budget"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": 0.867075590197919,
+      "name": "Breezy Itaewon Noodle House",
+      "planner_weight": 0.09693215187740704,
+      "poi_id": "PSEO0239",
+      "popularity_percentile": 23.651452282157674,
+      "pref_align": 0.9548314360763513,
+      "preference_score": 0.1530612244897959,
+      "rank": 5,
+      "top_signals": [
+        {
+          "contribution": 0.823546,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.141762,
+          "feature_group": "interest_match"
+        },
+        {
+          "contribution": 0.130568,
+          "feature_group": "price_fit"
+        }
+      ],
+      "utility": 0.13982037735486125
+    },
+    {
+      "category": "restaurant",
       "compatibility_breakdown": {
         "budget_fit": 0.8333333333333334,
         "duration_fit": 1.0,
         "hours_fit": 0.8333333333333334,
-        "mobility_fit": 0.6892375653251259,
+        "mobility_fit": 0.8834492183639824,
         "party_fit": 1.0,
+        "pref_align": 0.8852165171499295,
         "reservation_fit": 1.0
       },
-      "confidence": 0.576676647515498,
-      "context_compatibility": 0.8844387075396787,
-      "diversity_group": "historic_site_touristy",
-      "expected_duration_min": 71.25485878766139,
+      "confidence": 0.5738318406802385,
+      "context_compatibility": 0.9217996023835743,
+      "diversity_group": "restaurant_touristy",
+      "expected_duration_min": 88.75731493437506,
       "explanation": [
         "Popular with travelers who share your interests",
-        "Popular choice -- busier than 97% of comparable POIs in Seoul",
-        "Less touristy than 3% of comparable POIs in Seoul",
-        "16 min from your stay by public transport -- a bit of a trek"
+        "Less touristy than 59% of comparable POIs in Seoul",
+        "Strong match with your stated interest in foodie",
+        "Lower tourist concentration than comparable POIs -- fits your preference for less touristy places",
+        "More budget-friendly than typical for your medium budget"
       ],
       "hard_constraints_ok": true,
-      "localness_index": -0.6968325625749425,
-      "name": "Genuine Hongdae Old Quarter",
-      "planner_weight": 0.0851579139992202,
-      "poi_id": "PSEO0312",
-      "popularity_percentile": 97.0954356846473,
-      "preference_score": 0.1795511221945137,
-      "rank": 9,
+      "localness_index": 0.5648536756561818,
+      "name": "Restaurant Seongsu Eatery",
+      "planner_weight": 0.09588783087889236,
+      "poi_id": "PSEO0376",
+      "popularity_percentile": 40.66390041493776,
+      "pref_align": 0.8852165171499295,
+      "preference_score": 0.16541353383458646,
+      "rank": 6,
       "top_signals": [
         {
-          "contribution": 0.837633,
+          "contribution": 0.816001,
           "feature_group": "implicit_taste"
         },
         {
-          "contribution": 0.269995,
-          "feature_group": "popularity"
+          "contribution": 0.188979,
+          "feature_group": "localness_fit"
         },
         {
-          "contribution": 0.18574,
-          "feature_group": "localness_fit"
+          "contribution": 0.187777,
+          "feature_group": "interest_match"
         }
       ],
-      "utility": 0.16476142622771525
+      "utility": 0.1383139901214838
     },
     {
-      "category": "wellness_spa",
+      "category": "restaurant",
       "compatibility_breakdown": {
         "budget_fit": 0.8333333333333334,
         "duration_fit": 1.0,
-        "hours_fit": 0.6875,
-        "mobility_fit": 0.9923202635496503,
+        "hours_fit": 0.6666666666666666,
+        "mobility_fit": 0.9746482360897846,
         "party_fit": 1.0,
+        "pref_align": 0.8600808985326996,
         "reservation_fit": 1.0
       },
-      "confidence": 0.5555345683277892,
-      "context_compatibility": 0.9101728698729218,
-      "diversity_group": "wellness_spa_touristy",
-      "expected_duration_min": 39.83670381839875,
+      "confidence": 0.5903673622060686,
+      "context_compatibility": 0.902809040496449,
+      "diversity_group": "restaurant_touristy",
+      "expected_duration_min": 41.26597847724332,
       "explanation": [
         "Popular with travelers who share your interests",
-        "Popular choice -- busier than 88% of comparable POIs in Seoul",
+        "Less touristy than 38% of comparable POIs in Seoul",
         "Matches your stated medium budget",
-        "Only open 69% of your trip's plausible visiting hours"
+        "Lower tourist concentration than comparable POIs -- fits your preference for less touristy places",
+        "Only open 67% of your trip's plausible visiting hours",
+        "Would rank #4 instead of #7 if your trip included a day when it's open during your preferred hours"
       ],
       "hard_constraints_ok": true,
-      "localness_index": -1.017104742908769,
-      "name": "Neighborhood Itaewon Bathhouse",
-      "planner_weight": 0.0740664237406156,
-      "poi_id": "PSEO0327",
-      "popularity_percentile": 88.38174273858921,
+      "localness_index": 0.4968704843705307,
+      "name": "Ceremonial Myeongdong Kitchen",
+      "planner_weight": 0.09362757166438518,
+      "poi_id": "PSEO0176",
+      "popularity_percentile": 61.61825726141079,
+      "pref_align": 0.8600808985326996,
+      "preference_score": 0.1686746987951807,
+      "rank": 7,
+      "top_signals": [
+        {
+          "contribution": 1.067483,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.158897,
+          "feature_group": "localness_fit"
+        },
+        {
+          "contribution": 0.115772,
+          "feature_group": "price_fit"
+        }
+      ],
+      "utility": 0.13505366534615137
+    },
+    {
+      "category": "restaurant",
+      "compatibility_breakdown": {
+        "budget_fit": 0.8333333333333334,
+        "duration_fit": 1.0,
+        "hours_fit": 0.8958333333333333,
+        "mobility_fit": 0.6121314467720386,
+        "party_fit": 1.0,
+        "pref_align": 0.8226078177762832,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.4892842534186465,
+      "context_compatibility": 0.8776373764479113,
+      "diversity_group": "restaurant_touristy",
+      "expected_duration_min": 99.5095459626615,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Less touristy than 16% of comparable POIs in Seoul",
+        "Matches your stated medium budget",
+        "Lower tourist concentration than comparable POIs -- fits your preference for less touristy places",
+        "21 min from your stay by public transport -- a bit of a trek",
+        "Would rank #4 instead of #8 if it were closer to your stay"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": 0.41239586327615757,
+      "name": "Restaurant Bukchon Eatery",
+      "planner_weight": 0.09345422019091033,
+      "poi_id": "PSEO0193",
+      "popularity_percentile": 84.23236514522821,
+      "pref_align": 0.8226078177762832,
+      "preference_score": 0.1795511221945137,
+      "rank": 8,
+      "top_signals": [
+        {
+          "contribution": 1.111637,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.209345,
+          "feature_group": "localness_fit"
+        },
+        {
+          "contribution": 0.122498,
+          "feature_group": "price_fit"
+        }
+      ],
+      "utility": 0.13480361344936764
+    },
+    {
+      "category": "restaurant",
+      "compatibility_breakdown": {
+        "budget_fit": 0.8333333333333334,
+        "duration_fit": 1.0,
+        "hours_fit": 0.875,
+        "mobility_fit": 0.7615935026262282,
+        "party_fit": 1.0,
+        "pref_align": 0.9284565902447055,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.570121360651091,
+      "context_compatibility": 0.9066193964123692,
+      "diversity_group": "restaurant_local",
+      "expected_duration_min": 62.841103944889795,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Less touristy than 66% of comparable POIs in Seoul",
+        "Matches your stated medium budget",
+        "Lower tourist concentration than comparable POIs -- fits your preference for less touristy places",
+        "12 min from your stay by public transport -- a bit of a trek"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": 0.7208381235856174,
+      "name": "Mealtime Myeongdong Eatery",
+      "planner_weight": 0.08798522711303619,
+      "poi_id": "PSEO0423",
+      "popularity_percentile": 34.232365145228215,
+      "pref_align": 0.9284565902447055,
+      "preference_score": 0.1464041095890411,
+      "rank": 9,
+      "top_signals": [
+        {
+          "contribution": 1.005797,
+          "feature_group": "implicit_taste"
+        },
+        {
+          "contribution": 0.212185,
+          "feature_group": "localness_fit"
+        },
+        {
+          "contribution": 0.126035,
+          "feature_group": "price_fit"
+        }
+      ],
+      "utility": 0.1269148308206007
+    },
+    {
+      "category": "cafe",
+      "compatibility_breakdown": {
+        "budget_fit": 0.5,
+        "duration_fit": 1.0,
+        "hours_fit": 0.875,
+        "mobility_fit": 0.6051912736070773,
+        "party_fit": 1.0,
+        "pref_align": 0.9354350343360011,
+        "reservation_fit": 1.0
+      },
+      "confidence": 0.4602383907326666,
+      "context_compatibility": 0.8013307079814804,
+      "diversity_group": "cafe_touristy",
+      "expected_duration_min": 47.888933072306386,
+      "explanation": [
+        "Popular with travelers who share your interests",
+        "Strong match with your stated interest in authentic",
+        "Less touristy than 29% of comparable POIs in Seoul",
+        "Lower tourist concentration than comparable POIs -- fits your preference for less touristy places",
+        "More budget-friendly than typical for your medium budget"
+      ],
+      "hard_constraints_ok": true,
+      "localness_index": 0.75384340672042,
+      "name": "Brewed Seongsu Bakery",
+      "planner_weight": 0.08500499553439063,
+      "poi_id": "PSEO0313",
+      "popularity_percentile": 70.74688796680498,
+      "pref_align": 0.9354350343360011,
       "preference_score": 0.1530612244897959,
       "rank": 10,
       "top_signals": [
         {
-          "contribution": 0.590355,
+          "contribution": 0.793662,
           "feature_group": "implicit_taste"
         },
         {
-          "contribution": 0.217992,
-          "feature_group": "popularity"
+          "contribution": 0.275197,
+          "feature_group": "interest_match"
         },
         {
-          "contribution": 0.161954,
-          "feature_group": "price_fit"
+          "contribution": 0.186618,
+          "feature_group": "localness_fit"
         }
       ],
-      "utility": 0.14330188514483672
+      "utility": 0.12261597749009685
     }
   ],
   "scenario_name": "Local Experience",

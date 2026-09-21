@@ -3005,3 +3005,11 @@ Session-log numbers not backed by a committed artifact are marked (log).
   infeasible; K=240 by a validation-only tie-break), both promoted into TECHNICAL.md section 12.1 with DR3.
   Three a-priori targets (long-tail precision 0.40, recall 0.85, chance-lift +0.35) disclosed as miscalibrated
   (section 10.2). `scripts/verify_fresh_clone.sh` re-runs the cold-clone verification for any ref.
+
+## Experiment L (2026-09-21) -- scoring-layer and retrieval decisions
+
+No data was regenerated and no model was retrained. `docs/experiments/L-final.md` holds the pre-registered rules and every result;
+the numbers live in `results/parts/{l12_selection,l3b_designs,l_holdout_report,l_pre_scenarios}.json`. Dataset-side facts that
+matter to a reader of this card: the stated `touristiness_pref` distribution (sd 0.30 over 1,875 travelers, 10% with |pref| >= 0.5)
+and its behavioural effect (trip-level Spearman -0.51 between preference and the localness-outcome correlation) are documented in
+`docs/TECHNICAL.md` section 3.1 and were measured on the observable localness index only, never on `_oracle/`.

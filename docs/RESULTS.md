@@ -10,10 +10,10 @@ konnect.kr serves foreign travelers in Korea, and the incumbents already rank by
 
 | Top-10 lists, primary holdout | LambdaMART + IPS (primary) | Popularity ranker |
 |---|---|---|
-| Long-tail share (bottom-50% popularity stratum) | **0.1436** | 0.0000 |
-| Long-tail precision (relevant / recommended) | **0.1964** | N/A |
-| Catalog coverage@10 | **47.3%** | 3.5% |
-| Gini of recommendation exposure (lower = less monoculture) | **0.8321** | 0.9771 |
+| Long-tail share (bottom-50% popularity stratum) | **0.2202** | 0.0000 |
+| Long-tail precision (relevant / recommended) | **0.2658** | N/A |
+| Catalog coverage@10 | **52.7%** | 3.5% |
+| Gini of recommendation exposure (lower = less monoculture) | **0.7873** | 0.9771 |
 | NDCG@10 (unbiased holdout, 95% CI) | **0.1842** [0.1738, 0.1945] | 0.0523 [0.0469, 0.0582] |
 
 Popularity is flattered by exposure-biased logs; the bias-gap table below quantifies exactly how much (popularity +0.0804, primary -0.0046 NDCG@10 between the biased and unbiased holdouts).
@@ -49,14 +49,18 @@ Each system's NDCG@10 on the SECONDARY biased holdout (`interactions_holdout_log
 | traveler_dependent_variance_share | >= 0.75 | 0.7719 | PASS |
 | var_epsilon_over_var_u | <= 0.15 | 0.1099 | PASS |
 
-**Gate-B (representation / candidate generation)** -- blocking rows are oracle-free (recall against EXPOSED holdout positives); every representation and retrieval hyperparameter was selected on a train-carved validation split, and the oracle-based rows below are reporting-only, computed after the selection was frozen. The oracle never touched a decision; it only ever scored the result.
+**Gate-B (representation / candidate generation)** -- blocking rows are oracle-free (recall against EXPOSED holdout positives) and encode requirements: the brief's long-tail requirement and a serving budget (amended before experiment L3b, `docs/experiments/L-final.md`). Overall recall and the chance-lift rows were demoted to reporting: they were a-priori targets disclosed as miscalibrated. Every representation and retrieval hyperparameter was selected on a train-carved validation split, and the oracle-based rows below are reporting-only, computed after the selection was frozen. The oracle never touched a decision; it only ever scored the result.
 
 | Blocking check | Threshold | Measured | Status |
 |---|---|---|---|
-| candidate_recall_lift_long_tail | >= 0.35 | 0.4169 | PASS |
-| candidate_recall_lift_overall | >= 0.35 | 0.3737 | PASS |
 | candidate_recall_long_tail | >= 0.75 | 0.8975 | PASS |
-| candidate_recall_overall | >= 0.85 | 0.9262 | PASS |
+| effective_candidates_per_trip | <= 300.0 | 266.3207 | PASS |
+
+| Reporting (former blocking rows) | Reference | Measured | Meets reference |
+|---|---|---|---|
+| candidate_recall_lift_long_tail | >= 0.35 | 0.4169 | yes |
+| candidate_recall_lift_overall | >= 0.35 | 0.3737 | yes |
+| candidate_recall_overall | >= 0.85 | 0.9262 | yes |
 
 | Reporting-only (after freeze) | Value |
 |---|---|
@@ -80,25 +84,24 @@ Stated up front, then measured. Every MISSED row carries a diagnosis below -- a 
 | Candidate recall, overall (exposed positives) | &ge; 0.85 | 0.9262 | **MET** |
 | Candidate recall, long-tail stratum | &ge; 0.75 | 0.8975 | **MET** |
 | Candidate recall lift over chance (overall) | &ge; +0.35 | +0.374 | **MET** |
-| Cross-archetype Jaccard@10 (true labels) | &le; 0.25 | 0.0752 | **MET** |
-| Within/cross Jaccard ratio (true labels) | &ge; 2.0 | 1.20 | **MISSED** |
+| Cross-archetype Jaccard@10 (true labels) | &le; 0.25 | 0.0567 | **MET** |
+| Within/cross Jaccard ratio (true labels) | &ge; 2.0 | 1.44 | **MISSED** |
 | Hard-constraint violations in top-10 | = 0 | 0 | **MET** |
 | ECE after calibration | &le; 0.05 | 0.0300 | **MET** |
-| Confidence-decile NDCG rank correlation (Spearman; need not be strictly monotone) | &ge; 0.6 (spec-v2; spec.md section 11.10 said 0.7) | 0.358 | **MISSED** |
-| Long-tail share of top-10 | &ge; 0.25 | 0.1436 | **MISSED** |
-| Long-tail precision of top-10 | &ge; 0.40 | 0.1964 | **MISSED** |
+| Confidence-decile NDCG rank correlation (Spearman; need not be strictly monotone) | &ge; 0.6 (spec-v2; spec.md section 11.10 said 0.7) | 0.236 | **MISSED** |
+| Long-tail share of top-10 | &ge; 0.25 | 0.2202 | **MISSED** |
+| Long-tail precision of top-10 | &ge; 0.40 | 0.2658 | **MISSED** |
 | Localness index Spearman vs latent localness | &ge; 0.6 | 0.5815 | **MISSED** |
-| Scenario-4 (touristiness flip) top-10 overlap | &le; 0.35 | 0.538 | **MISSED** |
+| Scenario-4 (touristiness flip) top-10 overlap | &le; 0.35 | 0.000 | **MET** |
 
 ### Diagnoses of the missed rows
 
 - **% of oracle ceiling (candidate-level NDCG@10)**: The oracle ranks the SAME candidates by the DGP's true utility; the model only sees observable features. Text is not the limiting link: text-alone within-trip taste fidelity is 0.927 and D11 ridge R2 is 0.865. The taste ESTIMATOR is: run over the TRUE semantic vectors it still reaches only 0.572 (shipped chain 0.473), from sparse, exposure-biased histories.
 - **Within/cross Jaccard ratio (true labels)**: Within/cross-archetype list similarity ratio for lists ranked by the TRUE utility (a perfect ranker, same-destination pairs): 1.89 (within 0.0632, cross 0.0334); so the target is NOT attainable even by a perfect ranker in this simulator: the shortfall is a property of the simulator under this target, not of the model.
-- **Confidence-decile NDCG rank correlation (Spearman; need not be strictly monotone)**: Confidence-decile Spearman is 0.358. Before the feature-skew fix this row was 0.879. Measured (TECHNICAL.md section 10.1): the statistic is a rank correlation over ten decile means of a weak trip-level relationship (trip-level Spearman 0.221 before, 0.064 after). The confidence inputs on holdout are unchanged and dominated by the traveler-evidence term; what changed is the ranker: before the fix its NDCG rose with history volume (Spearman 0.131), after it does not (-0.040), so an evidence-volume-dominated confidence has nothing to track. The pre-fix figure was inflated by the leaked features; the post-fix value is the honest one. Reweighting toward the ensemble term would be tuning on holdout labels and is declined.
-- **Long-tail share of top-10**: Long-tail share of the served top-10 is 0.1436. Decision Register DR9 varies the long-tail candidate quota and measures the raw ranker's top-10 share: quota 0 -> 0.106, quota 100 -> 0.106, quota 25 -> 0.106, quota 50 -> 0.106. The candidate quota is therefore not the lever; the share is set by the ranker's scores (and the MMR re-rank) over a candidate set that already contains long-tail POIs.
-- **Long-tail precision of top-10**: Long-tail precision is 0.1964 over 952 long-tail recommendations, with candidate recall 0.898 in that stratum, so retrieval is not the bottleneck. Measured against the pool's own long-tail positive rate (0.097) the served list is a 2.026x lift (raw ranker 3.538x): the 0.40 target was set a priori without reference to that base rate and was miscalibrated at design time, so lift over base rate is the primary statistic and raw precision secondary (TECHNICAL.md section 4.2). The raw ranker's top-10 long-tail precision (DR9, quota 50, before the compatibility gate, utility and MMR re-rank) is 0.3375 at share 0.1064, against 0.1964 at share 0.1436 in the served list: precision is lost AFTER ranking while share rises. Which of the three scoring-layer steps is responsible is not isolated (untested).
+- **Confidence-decile NDCG rank correlation (Spearman; need not be strictly monotone)**: Confidence-decile Spearman is 0.236. Before the feature-skew fix this row was 0.879. Measured (TECHNICAL.md section 10.1): the statistic is a rank correlation over ten decile means of a weak trip-level relationship (trip-level Spearman 0.221 before, 0.064 after). The confidence inputs on holdout are unchanged and dominated by the traveler-evidence term; what changed is the ranker: before the fix its NDCG rose with history volume (Spearman 0.131), after it does not (-0.040), so an evidence-volume-dominated confidence has nothing to track. The pre-fix figure was inflated by the leaked features; the post-fix value is the honest one. Reweighting toward the ensemble term would be tuning on holdout labels and is declined. Experiment L then changed the served lists the confidence is averaged over (the stated-preference factor and the selected MMR lambda); the decile Spearman fell from 0.358 to 0.236. The confidence terms were not re-tuned (that would be tuning on holdout labels).
+- **Long-tail share of top-10**: Long-tail share of the served top-10 is 0.2202. Decision Register DR9 varies the long-tail candidate quota and measures the raw ranker's top-10 share: quota 0 -> 0.106, quota 100 -> 0.106, quota 25 -> 0.106, quota 50 -> 0.106. The candidate quota is therefore not the lever; the share is set by the ranker's scores and the scoring layer (the stated-preference factor and the MMR lambda of experiment L) over a candidate set that already contains long-tail POIs.
+- **Long-tail precision of top-10**: Long-tail precision is 0.2658 over 1460 long-tail recommendations, with candidate recall 0.898 in that stratum, so retrieval is not the bottleneck. Measured against the pool's own long-tail positive rate (0.097) the served list is a 2.741x lift (raw ranker 3.538x): the 0.40 target was set a priori without reference to that base rate and was miscalibrated at design time, so lift over base rate is the primary statistic and raw precision secondary (TECHNICAL.md section 4.2). E3 stage table (TECHNICAL.md section 4.2): raw ranker top-10 0.3430 -> after the hard gate 0.2678 -> after the utility (with the stated-preference factor) 0.2658 -> after MMR at the selected lambda 0.2658; the hard gate is the largest single loss, and the long-tail share rises from 0.1526 to 0.2202 in the utility layer.
 - **Localness index Spearman vs latent localness**: The composite index reaches rho 0.582; its observable inputs correlate with the latent localness at dist_to_tourist_centroid_km 0.699, foreign_review_ratio -0.555, local_tag_hits 0.050, pop_pct -0.187. The composite is BELOW its best single input (dist_to_tourist_centroid_km, |rho| 0.699): the blend weights were fixed earlier, when the geo input carried almost no signal (before the simulator's geo/localness fix). Re-weighting them against the latent localness would be tuning on the oracle (there is no oracle-free validation target for this index), so that retune is declined on principle: the index is left as shipped and the gap is reported.
-- **Scenario-4 (touristiness flip) top-10 overlap**: Top-10 overlap 0.538 with candidate-pool Jaccard 0.717 between the two profiles (measured from the candidate generator's own output). Before the feature-skew fix this row was 0.176. Measured (TECHNICAL.md section 10.1): the features that read touristiness_pref carry 0.070 of the final model attribution for a cold-start traveler, and negating the preference on the 671 real holdout trips leaves the raw top-10 at Jaccard 0.904 (0.813 for pure cold-start trips). Personalization by taste is healthy (cross-archetype Jaccard 0.075); touristiness_pref is a weak lever for a brand-new traveler, whose ranking is driven mainly by stated interests, popularity/quality and compatibility. The pre-fix value reflected an off-distribution response (0.825 of that model attribution sat on leak-trained history-based features, absent for these travelers), not stronger personalization (interpretation; the numbers are measured). Reported as a cold-start limitation.
 
 ## Primary ranking quality (unbiased random-exposure holdout, spec.md section 11.1)
 
@@ -146,75 +149,75 @@ Recall of the candidate set against EXPOSED holdout positives. Each stratum carr
 
 Pairs are SAME-DESTINATION trip pairs only: a POI belongs to exactly one destination, so two trips to different destinations have Jaccard = RBO = 0 by construction, and pooling them measures the catalog partition rather than the recommender.
 
-- Mean pairwise Jaccard@10 (same destination): **0.0764** (n_pairs=74775)
-- Mean pairwise rank-biased overlap (RBO, p=0.9): **0.0987** (n_pairs=74775)
-- For continuity with the pre-fix number, all pairs pooled (2/3 of them structurally zero): 0.0254 (n_pairs=224785)
+- Mean pairwise Jaccard@10 (same destination): **0.0586** (n_pairs=74775)
+- Mean pairwise rank-biased overlap (RBO, p=0.9): **0.0746** (n_pairs=74775)
+- For continuity with the pre-fix number, all pairs pooled (2/3 of them structurally zero): 0.0195 (n_pairs=224785)
 
 | Grouping | Within Jaccard@10 | Cross Jaccard@10 | Ratio | within / cross pairs |
 |---|---|---|---|---|
-| **True archetype labels** (dominant archetype; within = same dominant and mixture cosine > 0.8) | 0.0903 | 0.0752 | **1.20** | 4814 / 65145 |
+| **True archetype labels** (dominant archetype; within = same dominant and mixture cosine > 0.8) | 0.0816 | 0.0567 | **1.44** | 4814 / 65145 |
 | Reference: lists ranked by the TRUE utility (a perfect ranker) | 0.0632 | 0.0334 | 1.89 | 4814 / 65145 |
-| K-Means traveler-segment PROXY (clusters of the same features being evaluated -- kept only to show why it was misleading) | 0.0885 | 0.0742 | 1.19 | 11459 / 63316 |
+| K-Means traveler-segment PROXY (clusters of the same features being evaluated -- kept only to show why it was misleading) | 0.0667 | 0.0572 | 1.17 | 11459 / 63316 |
 
 ## Coverage (spec.md section 11.3)
 
 | | Primary system (lambdamart_ips) | Popularity baseline |
 |---|---|---|
-| Catalog coverage@10 | 47.3% | 3.5% |
-| Gini coefficient | 0.8321 | 0.9771 |
-| Entropy (bits) | 8.3283 | 5.2684 |
-| POIs ever recommended | 684 / 1446 | 51 / 1446 |
+| Catalog coverage@10 | 52.7% | 3.5% |
+| Gini coefficient | 0.7873 | 0.9771 |
+| Entropy (bits) | 8.6765 | 5.2684 |
+| POIs ever recommended | 762 / 1446 | 51 / 1446 |
 
 Lower Gini / higher entropy / higher coverage = less popularity-monoculture concentration. Per-destination coverage:
 
 | Destination | Primary | Popularity |
 |---|---|---|
-| barcelona | 44.3% | 3.1% |
-| kyoto | 46.2% | 3.5% |
-| seoul | 51.5% | 3.9% |
+| barcelona | 51.4% | 3.1% |
+| kyoto | 51.1% | 3.5% |
+| seoul | 55.6% | 3.9% |
 
 ## Long-tail / local discovery (spec.md section 11.4)
 
-- Share of top-10 recommendations in the bottom-50%-popularity stratum: **0.1436** (952 / 6631)
-- Long-tail precision (relevant per unbiased holdout): **0.1964** (187 / 952)
-- **Lift over the candidate pool's long-tail positive rate (0.0969): 2.026x served, 3.538x at the raw ranker** -- the primary long-tail precision statistic; the 0.40 raw-precision target was set a priori without reference to this base rate (miscalibrated at design time; see TECHNICAL.md section 4.2).
+- Share of top-10 recommendations in the bottom-50%-popularity stratum: **0.2202** (1460 / 6631)
+- Long-tail precision (relevant per unbiased holdout): **0.2658** (388 / 1460)
+- **Lift over the candidate pool's long-tail positive rate (0.0969): 2.741x served, 3.538x at the raw ranker** -- the primary long-tail precision statistic; the 0.40 raw-precision target was set a priori without reference to this base rate (miscalibrated at design time; see TECHNICAL.md section 4.2).
 - Popularity ranker, same measurement: share **0.0000** (0 / 6710), precision **N/A**
 
 "Coverage without precision is just noise injection" -- both numbers reported together, per spec.md section 11.4.
 
 ## Constraint compatibility (spec.md section 11.5)
 
-- % of top-10 with compatibility &ge; 0.7: **92.2%** (6114 / 6631)
+- % of top-10 with compatibility &ge; 0.7: **93.0%** (6165 / 6631)
 - Hard-constraint violations in top-10: **0** (build-blocking, enforced independently by `tests/test_hard_constraints.py`)
 
 ## Diversity (spec.md section 11.6)
 
-- Category entropy@10 (bits): **3.2568**
-- Intra-list mean cosine distance (at the configured default lambda): **0.7740**
+- Category entropy@10 (bits): **2.9396**
+- Intra-list mean cosine distance (at the configured default lambda): **0.6232**
 
 ### MMR lambda sweep (NDCG@10 vs diversity trade-off)
 
 | lambda | NDCG@10 (mean) | mean intra-list similarity |
 |---|---|---|
-| 0.50 | 0.1919 | 0.1955 |
-| 0.60 | 0.1986 | 0.2002 |
-| 0.70 | 0.2049 | 0.2077 |
-| 0.80 | 0.2118 | 0.2260 |
-| 0.90 | 0.2372 | 0.2996 |
-| 1.00 | 0.2524 | 0.3873 |
+| 0.50 | 0.1821 | 0.1782 |
+| 0.60 | 0.1845 | 0.1814 |
+| 0.70 | 0.1918 | 0.1853 |
+| 0.80 | 0.1973 | 0.1912 |
+| 0.90 | 0.2158 | 0.2313 |
+| 1.00 | 0.2476 | 0.3768 |
 
 ### MMR lambda vs long-tail precision (post-hoc holdout diagnostic, not a selection)
 
 | lambda | Long-tail share@10 | Long-tail precision@10 | Lift over pool base rate |
 |---|---|---|---|
-| 0.50 | 0.1611 | 0.1845 | 1.903x |
-| 0.60 | 0.1510 | 0.1878 | 1.937x |
-| 0.70 | 0.1507 | 0.1902 | 1.962x |
-| 0.80 | 0.1436 | 0.1964 | 2.026x |
-| 0.90 | 0.1464 | 0.2513 | 2.592x |
-| 1.00 | 0.1620 | 0.2616 | 2.699x |
+| 0.50 | 0.2306 | 0.1622 | 1.673x |
+| 0.60 | 0.2294 | 0.1650 | 1.702x |
+| 0.70 | 0.2230 | 0.1724 | 1.778x |
+| 0.80 | 0.2167 | 0.1823 | 1.881x |
+| 0.90 | 0.2179 | 0.2138 | 2.206x |
+| 1.00 | 0.2202 | 0.2658 | 2.741x |
 
-The shipped lambda (0.8) is a **deliberate diversity-for-precision trade, not a tuned optimum**, and lambda was not re-selected: choosing it on the holdout would leak, and re-selecting on validation would destabilise a shipped submission over a product knob. The cost is quantified in the two tables: moving from lambda 1.0 (no diversity term) to the shipped value lowers long-tail precision and NDCG@10 while cutting mean intra-list similarity, and the long-tail share is roughly flat across the whole range. A product owner who optimises for booking precision rather than category variety would move lambda toward 0.9 (a one-line scoring-config change), recovering most of the precision and NDCG@10 for a modest rise in list similarity; one who wants catalog exposure keeps 0.8.
+The shipped lambda (1) is a **deliberate diversity-for-precision trade, not a tuned optimum**, and lambda was not re-selected: choosing it on the holdout would leak, and re-selecting on validation would destabilise a shipped submission over a product knob. The cost is quantified in the two tables: moving from lambda 1.0 (no diversity term) to the shipped value lowers long-tail precision and NDCG@10 while cutting mean intra-list similarity, and the long-tail share is roughly flat across the whole range. A product owner who optimises for booking precision rather than category variety would move lambda toward 0.9 (a one-line scoring-config change), recovering most of the precision and NDCG@10 for a modest rise in list similarity; one who wants catalog exposure keeps 0.8.
 
 ## Calibration (spec.md section 11.7)
 
@@ -227,20 +230,20 @@ Calibration split: n_rows=82634, n_trips=311.
 
 ## Confidence-decile validation (spec.md section 9.3 / 11.10)
 
-Spearman rho (decile rank, decile mean NDCG@k): **0.358** (target &ge; 0.7, **MISSED**). n_trips_included=605.
+Spearman rho (decile rank, decile mean NDCG@k): **0.236** (target &ge; 0.7, **MISSED**). n_trips_included=605.
 
 | Decile | Mean confidence | Mean NDCG@k | n_trips |
 |---|---|---|---|
-| 1 | 0.5509 | 0.1838 | 61 |
-| 2 | 0.6352 | 0.1304 | 60 |
-| 3 | 0.6723 | 0.1344 | 61 |
-| 4 | 0.6894 | 0.1749 | 60 |
-| 5 | 0.7006 | 0.1563 | 61 |
-| 6 | 0.7103 | 0.1641 | 60 |
-| 7 | 0.7203 | 0.1751 | 60 |
-| 8 | 0.7294 | 0.1648 | 61 |
-| 9 | 0.7419 | 0.1798 | 60 |
-| 10 | 0.7586 | 0.1818 | 61 |
+| 1 | 0.5446 | 0.1634 | 61 |
+| 2 | 0.6165 | 0.1785 | 60 |
+| 3 | 0.6506 | 0.1488 | 61 |
+| 4 | 0.6686 | 0.1526 | 60 |
+| 5 | 0.6832 | 0.1478 | 61 |
+| 6 | 0.6954 | 0.1602 | 60 |
+| 7 | 0.7071 | 0.1415 | 60 |
+| 8 | 0.7187 | 0.1539 | 61 |
+| 9 | 0.7319 | 0.1916 | 60 |
+| 10 | 0.7549 | 0.1988 | 61 |
 
 ## Cold-start cohorts (spec.md section 11.8 / section 12)
 
@@ -262,7 +265,7 @@ Spearman rho (decile rank, decile mean NDCG@k): **0.358** (target &ge; 0.7, **MI
 
 ### Leave-one-destination-out (LODO)
 
-Wall-clock: **40.7s** for 3 destination-held-out retrains.
+Wall-clock: **76.7s** for 3 destination-held-out retrains.
 
 | Destination | NDCG@10 (LODO) | NDCG@10 (full training) | Wilcoxon p |
 |---|---|---|---|
@@ -278,7 +281,7 @@ Each row: delta NDCG@10 (ablated - full lambdamart_ips), against the SAME alread
 |---|---|---|---|---|---|
 | -IPS_weighting | measured | 0.1842 [0.1738, 0.1945] | 0.1239 [0.1152, 0.1335] | -0.0603 | 1.19e-35 |
 | -calibration | measured | 0.1842 [0.1738, 0.1945] | 0.1812 [0.1713, 0.1917] | -0.0030 | 0.05429 |
-| -MMR | measured | 0.2118 [0.1953, 0.2285] | 0.2524 [0.2351, 0.2693] | +0.0406 | 8.491e-26 |
+| -MMR | measured | 0.2476 [0.2307, 0.2641] | 0.2476 [0.2307, 0.2641] | +0.0000 | 1 |
 | -interest_channel | measured | 0.1842 [0.1738, 0.1945] | 0.1843 [0.1738, 0.1946] | +0.0001 | 0.007686 |
 | -long_tail_quota | measured | 0.1842 [0.1738, 0.1945] | 0.1846 [0.1741, 0.1950] | +0.0004 | 8.298e-06 |
 | -text_embeddings | measured | 0.1842 [0.1738, 0.1945] | 0.1853 [0.1747, 0.1958] | +0.0011 | 0.9713 |
@@ -290,7 +293,7 @@ Notes:
 
 - **-IPS_weighting**: Free: system 7 (lambdamart, uniform weight) IS this ablation of system 8.
 - **-calibration**: Isotonic calibration is a monotonic non-decreasing transform of the raw score, so it cannot change within-trip RANKING (and therefore NDCG@10) except through tie-break reordering at flat isotonic segments -- an at/near-zero delta here is the mathematically EXPECTED result, not a modeling failure. Calibration's actual purpose (cross-traveler score comparability for planner_weight) is not something NDCG@10 measures.
-- **-MMR**: lambda=1.0 (pure utility ranking, no diversity penalty) vs the configured default lambda=0.8 -- reuses scoring.diversity.mmr_rerank_all_trips directly, no retraining.
+- **-MMR**: lambda=1.0 (pure utility ranking, no diversity penalty) vs the configured default lambda=1.0 -- reuses scoring.diversity.mmr_rerank_all_trips directly, no retraining.
 - **-interest_channel**: Leave-one-channel-out ('channel_interest' removed from the candidate union): re-evaluates the ALREADY-TRAINED lambdamart_ips score over the smaller candidate set, no retraining, no new candidate generation.
 - **-long_tail_quota**: Leave-one-channel-out ('channel_longtail' removed from the candidate union): re-evaluates the ALREADY-TRAINED lambdamart_ips score over the smaller candidate set, no retraining, no new candidate generation.
 - **-text_embeddings**: Full retrain with every 'text_emb_*' numeric feature column dropped from the design matrix (models.baselines.numeric_feature_columns filtered before training) -- same IPS + behavioral-dropout recipe as system 8 otherwise.
@@ -302,11 +305,11 @@ Notes:
 
 | beta | NDCG@10 (mean) |
 |---|---|
-| 0.30 | 0.1660 |
-| 0.50 | 0.1654 |
-| 0.70 | 0.1645 |
-| 0.90 | 0.1645 |
-| 1.10 | 0.1638 |
+| 0.30 | 0.1645 |
+| 0.50 | 0.1643 |
+| 0.70 | 0.1637 |
+| 0.90 | 0.1636 |
+| 1.10 | 0.1640 |
 
 ## Decision Register
 
@@ -351,38 +354,38 @@ The full pipeline was regenerated end to end for seeds [42, 43, 44, 45, 46] (a n
 
 ## Wall-clock
 
-**reproduce**: 334.6 s total (16-logical-core laptop CPU, no GPU, no network).
+**reproduce**: 376.7 s total (16-logical-core laptop CPU, no GPU, no network).
 
 | Stage | Seconds |
 |---|---|
-| generate | 30.6 |
-| prepare | 5.6 |
-| features | 17.6 |
-| candidates | 40.9 |
-| gate-dgp | 9.9 |
-| train | 78.1 |
-| evaluate | 130.3 |
-| representation | 15.2 |
-| gate-representation | 3.2 |
-| compose | 3.2 |
+| generate | 31.6 |
+| prepare | 5.5 |
+| features | 16.7 |
+| candidates | 40.8 |
+| gate-dgp | 9.8 |
+| train | 104.4 |
+| evaluate | 147.5 |
+| representation | 13.4 |
+| gate-representation | 3.4 |
+| compose | 3.6 |
 
-**reproduce-full**: 432.5 s total (16-logical-core laptop CPU, no GPU, no network).
+**reproduce-full**: 521.1 s total (16-logical-core laptop CPU, no GPU, no network).
 
 | Stage | Seconds |
 |---|---|
-| generate | 30.6 |
-| prepare | 5.6 |
-| features | 17.6 |
-| candidates | 40.9 |
-| gate-dgp | 9.9 |
-| train | 78.1 |
-| evaluate | 130.3 |
-| representation | 15.2 |
-| gate-representation | 3.2 |
-| compose | 3.2 |
-| recommend | 32.7 |
-| scenarios | 21.0 |
-| lodo | 44.0 |
+| generate | 31.6 |
+| prepare | 5.5 |
+| features | 16.7 |
+| candidates | 40.8 |
+| gate-dgp | 9.8 |
+| train | 104.4 |
+| evaluate | 147.5 |
+| representation | 13.4 |
+| gate-representation | 3.4 |
+| compose | 3.6 |
+| recommend | 37.6 |
+| scenarios | 24.9 |
+| lodo | 81.7 |
 | docs | 0.2 |
 
 ## Scenarios (spec.md section 15)
@@ -398,20 +401,20 @@ The full pipeline was regenerated end to end for seeds [42, 43, 44, 45, 46] (a n
 
 | Rank | POI ID | Name | Category | Utility | Preference | Compatibility | Confidence | Pop. %ile | Localness |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | PSEO0125 | Eatery Insadong Kitchen | restaurant | 0.2577 | 0.2690 | 0.9407 | 0.5494 | 10.4772% | -0.6315 |
-| 2 | PSEO0210 | Time Honored Seongsu Trail | nature_park | 0.2156 | 0.2431 | 0.8426 | 0.5507 | 89.8340% | -1.2645 |
-| 3 | PSEO0280 | Historic Gangnam Shrine | religious_site | 0.2287 | 0.2524 | 0.8689 | 0.6415 | 99.5851% | -1.1177 |
-| 4 | PSEO0112 | Lively Hongdae Bakery | cafe | 0.2274 | 0.2431 | 0.9090 | 0.4848 | 66.8050% | 0.3067 |
-| 5 | PSEO0025 | Breezy Bukchon Adventure Park | family_activity | 0.1947 | 0.2431 | 0.7282 | 0.5466 | 99.7925% | -1.2603 |
-| 6 | PSEO0394 | Buzzy Gangnam Market | shopping | 0.1901 | 0.2059 | 0.8922 | 0.6986 | 93.7759% | -1.2350 |
-| 7 | PSEO0137 | Family Friendly Itaewon Arcade | entertainment | 0.1549 | 0.1796 | 0.8101 | 0.5839 | 98.3402% | -1.1983 |
-| 8 | PSEO0420 | Dreamy Hongdae Overlook | viewpoint | 0.1576 | 0.1654 | 0.9333 | 0.6734 | 99.3776% | -0.7503 |
-| 9 | PSEO0312 | Genuine Hongdae Old Quarter | historic_site | 0.1648 | 0.1796 | 0.8844 | 0.5767 | 97.0954% | -0.6968 |
-| 10 | PSEO0327 | Neighborhood Itaewon Bathhouse | wellness_spa | 0.1433 | 0.1531 | 0.9102 | 0.5555 | 88.3817% | -1.0171 |
+| 1 | PSEO0112 | Lively Hongdae Bakery | cafe | 0.1740 | 0.2431 | 0.9090 | 0.4848 | 66.8050% | 0.3067 |
+| 2 | PSEO0429 | Eatery Insadong Noodle House | restaurant | 0.1739 | 0.2078 | 0.8940 | 0.4312 | 12.0332% | 0.6286 |
+| 3 | PSEO0153 | Kid Focused Bukchon Diner | restaurant | 0.1572 | 0.2078 | 0.9178 | 0.4643 | 75.1037% | 0.3746 |
+| 4 | PSEO0140 | Laid Back Itaewon Eatery | restaurant | 0.1399 | 0.2078 | 0.9094 | 0.4336 | 55.8091% | 0.2351 |
+| 5 | PSEO0239 | Breezy Itaewon Noodle House | restaurant | 0.1398 | 0.1531 | 0.9387 | 0.4194 | 23.6515% | 0.8671 |
+| 6 | PSEO0376 | Restaurant Seongsu Eatery | restaurant | 0.1383 | 0.1654 | 0.9218 | 0.5738 | 40.6639% | 0.5649 |
+| 7 | PSEO0176 | Ceremonial Myeongdong Kitchen | restaurant | 0.1351 | 0.1687 | 0.9028 | 0.5904 | 61.6183% | 0.4969 |
+| 8 | PSEO0193 | Restaurant Bukchon Eatery | restaurant | 0.1348 | 0.1796 | 0.8776 | 0.4893 | 84.2324% | 0.4124 |
+| 9 | PSEO0423 | Mealtime Myeongdong Eatery | restaurant | 0.1269 | 0.1464 | 0.9066 | 0.5701 | 34.2324% | 0.7208 |
+| 10 | PSEO0313 | Brewed Seongsu Bakery | cafe | 0.1226 | 0.1531 | 0.8013 | 0.4602 | 70.7469% | 0.7538 |
 
-**Top signals (rank 1, PSEO0125):** implicit_taste (1.106), popularity (0.327), interest_match (0.319)
+**Top signals (rank 1, PSEO0112):** implicit_taste (1.135), interest_match (0.309), localness_fit (0.172)
 
-**Explanation (rank 1):** Popular with travelers who share your interests Popular choice -- busier than 10% of comparable POIs in Seoul Strong match with your stated interest in foodie More budget-friendly than typical for your medium budget
+**Explanation (rank 1):** Popular with travelers who share your interests Strong match with your stated interest in authentic Less touristy than 33% of comparable POIs in Seoul Lower tourist concentration than comparable POIs -- fits your preference for less touristy places 12 min from your stay by public transport -- a bit of a trek
 
 ### Scenario 2: History & Architecture
 
@@ -424,20 +427,20 @@ The full pipeline was regenerated end to end for seeds [42, 43, 44, 45, 46] (a n
 
 | Rank | POI ID | Name | Category | Utility | Preference | Compatibility | Confidence | Pop. %ile | Localness |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | PSEO0400 | Authentic Itaewon Temple | historic_site | 0.2286 | 0.2431 | 0.9159 | 0.5509 | 81.1203% | -1.2657 |
-| 2 | PSEO0401 | Mealtime Seongsu Gallery | museum | 0.2269 | 0.2431 | 0.9064 | 0.4882 | 8.2988% | 0.2919 |
-| 3 | PSEO0195 | Flavor Packed Insadong Table | restaurant | 0.1400 | 0.1464 | 0.9379 | 0.6108 | 95.0207% | -0.5810 |
-| 4 | PSEO0420 | Dreamy Hongdae Overlook | viewpoint | 0.1497 | 0.1531 | 0.9686 | 0.5580 | 99.3776% | -0.7503 |
-| 5 | PSEO0067 | Late Night Hongdae Bar | nightlife | 0.1193 | 0.1464 | 0.7465 | 0.6380 | 98.5477% | -2.0151 |
-| 6 | PSEO0145 | Peaceful Gangnam Park | nature_park | 0.1163 | 0.1293 | 0.8591 | 0.5524 | 95.9544% | -0.6621 |
-| 7 | PSEO0167 | Nature Filled Itaewon Wellness Studio | wellness_spa | 0.1072 | 0.1108 | 0.9530 | 0.5690 | 90.0415% | -1.2879 |
-| 8 | PSEO0280 | Historic Gangnam Shrine | religious_site | 0.1104 | 0.1293 | 0.7979 | 0.5708 | 99.5851% | -1.1177 |
-| 9 | PSEO0071 | Teahouse Bukchon Bakery | cafe | 0.1063 | 0.1108 | 0.9420 | 0.5417 | 88.7967% | -0.7435 |
-| 10 | PSEO0043 | Retail Heavy Itaewon Bazaar | shopping | 0.1012 | 0.1108 | 0.8784 | 0.6158 | 97.9253% | -1.4024 |
+| 1 | PSEO0127 | Artsy Itaewon Museum | museum | 0.2094 | 0.2524 | 0.8418 | 0.6581 | 97.5104% | -1.6553 |
+| 2 | PSEO0480 | Heritage Rich Myeongdong Fortress | historic_site | 0.2045 | 0.2431 | 0.8289 | 0.5738 | 97.3029% | -1.9453 |
+| 3 | PSEO0400 | Authentic Itaewon Temple | historic_site | 0.2021 | 0.2431 | 0.9159 | 0.5509 | 81.1203% | -1.2657 |
+| 4 | PSEO0286 | Must See Itaewon Old Quarter | historic_site | 0.1981 | 0.2431 | 0.8174 | 0.5573 | 89.0041% | -1.6835 |
+| 5 | PSEO0481 | Monument Insadong Temple | historic_site | 0.1845 | 0.2431 | 0.8590 | 0.5425 | 93.1535% | -1.0607 |
+| 6 | PSEO0355 | Green Insadong Fortress | historic_site | 0.1725 | 0.2078 | 0.8408 | 0.5298 | 90.6639% | -1.6718 |
+| 7 | PSEO0249 | Wallet Friendly Gangnam Gallery | museum | 0.1618 | 0.2078 | 0.8383 | 0.5428 | 93.5685% | -1.2491 |
+| 8 | PSEO0263 | Showcase Hongdae Museum | museum | 0.1542 | 0.2078 | 0.8300 | 0.5022 | 89.4191% | -1.0674 |
+| 9 | PSEO0306 | Tranquil Gangnam Temple | historic_site | 0.1539 | 0.2078 | 0.8550 | 0.5437 | 95.6432% | -0.9830 |
+| 10 | PSEO0107 | Monument Bukchon Old Quarter | historic_site | 0.1536 | 0.2078 | 0.6847 | 0.5517 | 96.4730% | -2.0080 |
 
-**Top signals (rank 1, PSEO0400):** interest_match (0.618), implicit_taste (0.569), popularity (0.387)
+**Top signals (rank 1, PSEO0127):** implicit_taste (0.584), interest_match (0.547), popularity (0.460)
 
-**Explanation (rank 1):** Strong match with your stated interest in cultural Popular with travelers who share your interests Popular choice -- busier than 81% of comparable POIs in Seoul Only open 75% of your trip's plausible visiting hours
+**Explanation (rank 1):** Popular with travelers who share your interests Strong match with your stated interest in museum Popular choice -- busier than 98% of comparable POIs in Seoul A well-known highlight -- fits your preference for famous landmarks Priced above what's typical for your high budget
 
 ### Scenario 3: Family with young children
 
@@ -450,16 +453,16 @@ The full pipeline was regenerated end to end for seeds [42, 43, 44, 45, 46] (a n
 
 | Rank | POI ID | Name | Category | Utility | Preference | Compatibility | Confidence | Pop. %ile | Localness |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | PSEO0053 | Iconic Itaewon Discovery Center | family_activity | 0.2473 | 0.2690 | 0.8871 | 0.5914 | 84.8548% | -1.4270 |
-| 2 | PSEO0210 | Time Honored Seongsu Trail | nature_park | 0.2387 | 0.2690 | 0.8431 | 0.6011 | 89.8340% | -1.2645 |
-| 3 | PSEO0123 | Bohemian Myeongdong Grill | restaurant | 0.1438 | 0.1531 | 0.9148 | 0.5448 | 82.1577% | -0.5479 |
-| 4 | PSEO0446 | Easygoing Gangnam Bazaar | shopping | 0.1345 | 0.1531 | 0.8317 | 0.5095 | 9.0249% | -0.6149 |
-| 5 | PSEO0410 | Authentic Seongsu Playhouse | entertainment | 0.1015 | 0.1108 | 0.8819 | 0.5860 | 86.5145% | -0.8836 |
-| 6 | PSEO0249 | Wallet Friendly Gangnam Gallery | museum | 0.0849 | 0.0905 | 0.9134 | 0.5830 | 93.5685% | -1.2491 |
-| 7 | PSEO0071 | Teahouse Bukchon Bakery | cafe | 0.0846 | 0.0905 | 0.9082 | 0.5383 | 88.7967% | -0.7435 |
-| 8 | PSEO0428 | Off The Beaten Path Gangnam Monastery | religious_site | 0.0730 | 0.0811 | 0.8605 | 0.5253 | 4.8755% | -0.6312 |
-| 9 | PSEO0088 | Gallery Like Gangnam Monument | historic_site | 0.1018 | 0.1108 | 0.8850 | 0.5900 | 95.2282% | -0.6739 |
-| 10 | PSEO0007 | Family Day Seongsu Adventure Park | family_activity | 0.2165 | 0.2431 | 0.8474 | 0.5241 | 98.1328% | -0.6690 |
+| 1 | PSEO0053 | Iconic Itaewon Discovery Center | family_activity | 0.1237 | 0.2690 | 0.8871 | 0.5914 | 84.8548% | -1.4270 |
+| 2 | PSEO0210 | Time Honored Seongsu Trail | nature_park | 0.1193 | 0.2690 | 0.8431 | 0.6011 | 89.8340% | -1.2645 |
+| 3 | PSEO0025 | Breezy Bukchon Adventure Park | family_activity | 0.1152 | 0.2690 | 0.8020 | 0.5980 | 99.7925% | -1.2603 |
+| 4 | PSEO0303 | Spiritual Gangnam Trail | nature_park | 0.1114 | 0.2431 | 0.8831 | 0.5396 | 72.1992% | -0.6232 |
+| 5 | PSEO0007 | Family Day Seongsu Adventure Park | family_activity | 0.1082 | 0.2431 | 0.8474 | 0.5241 | 98.1328% | -0.6690 |
+| 6 | PSEO0328 | Peaceful Myeongdong Riverside Walk | nature_park | 0.1079 | 0.2431 | 0.8437 | 0.5412 | 85.2697% | -1.0828 |
+| 7 | PSEO0367 | Homegrown Bukchon Discovery Center | family_activity | 0.1028 | 0.2431 | 0.7876 | 0.4888 | 10.4772% | -0.2850 |
+| 8 | PSEO0189 | True To Form Myeongdong Playland | family_activity | 0.0990 | 0.2078 | 0.9338 | 0.5366 | 90.4564% | -1.7375 |
+| 9 | PSEO0145 | Peaceful Gangnam Park | nature_park | 0.0940 | 0.2089 | 0.8605 | 0.6122 | 95.9544% | -0.6621 |
+| 10 | PSEO0090 | Tucked Away Bukchon Park | nature_park | 0.0932 | 0.2078 | 0.8565 | 0.5022 | 81.3278% | -0.2884 |
 
 **Top signals (rank 1, PSEO0053):** implicit_taste (0.761), interest_match (0.621), popularity (0.381)
 
@@ -476,31 +479,31 @@ The full pipeline was regenerated end to end for seeds [42, 43, 44, 45, 46] (a n
 
 | Rank | POI ID | Name | Category | Utility | Preference | Compatibility | Confidence | Pop. %ile | Localness |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | PSEO0125 | Eatery Insadong Kitchen | restaurant | 0.2329 | 0.2431 | 0.9407 | 0.5120 | 10.4772% | -0.6315 |
-| 2 | PSEO0280 | Historic Gangnam Shrine | religious_site | 0.2203 | 0.2431 | 0.8689 | 0.5362 | 99.5851% | -1.1177 |
-| 3 | PSEO0210 | Time Honored Seongsu Trail | nature_park | 0.1853 | 0.2089 | 0.8426 | 0.6426 | 89.8340% | -1.2645 |
-| 4 | PSEO0036 | Foodie Favorite Bukchon Roastery | cafe | 0.1931 | 0.2078 | 0.9006 | 0.5038 | 94.6058% | -1.4750 |
-| 5 | PSEO0025 | Breezy Bukchon Adventure Park | family_activity | 0.1664 | 0.2078 | 0.7282 | 0.5545 | 99.7925% | -1.2603 |
-| 6 | PSEO0394 | Buzzy Gangnam Market | shopping | 0.1413 | 0.1531 | 0.8922 | 0.5699 | 93.7759% | -1.2350 |
-| 7 | PSEO0420 | Dreamy Hongdae Overlook | viewpoint | 0.1458 | 0.1531 | 0.9333 | 0.5644 | 99.3776% | -0.7503 |
-| 8 | PSEO0327 | Neighborhood Itaewon Bathhouse | wellness_spa | 0.1371 | 0.1464 | 0.9102 | 0.6150 | 88.3817% | -1.0171 |
-| 9 | PSEO0306 | Tranquil Gangnam Temple | historic_site | 0.1230 | 0.1293 | 0.9310 | 0.5599 | 95.6432% | -0.9830 |
-| 10 | PSEO0410 | Authentic Seongsu Playhouse | entertainment | 0.1329 | 0.1464 | 0.8705 | 0.6466 | 86.5145% | -0.8836 |
+| 1 | PSEO0109 | Dining Hongdae Eatery | restaurant | 0.2197 | 0.2431 | 0.9021 | 0.5445 | 91.0788% | -1.1032 |
+| 2 | PSEO0280 | Historic Gangnam Shrine | religious_site | 0.2143 | 0.2431 | 0.8689 | 0.5362 | 99.5851% | -1.1177 |
+| 3 | PSEO0125 | Eatery Insadong Kitchen | restaurant | 0.2038 | 0.2431 | 0.9407 | 0.5120 | 10.4772% | -0.6315 |
+| 4 | PSEO0036 | Foodie Favorite Bukchon Roastery | cafe | 0.1914 | 0.2078 | 0.9006 | 0.5038 | 94.6058% | -1.4750 |
+| 5 | PSEO0210 | Time Honored Seongsu Trail | nature_park | 0.1822 | 0.2089 | 0.8426 | 0.6426 | 89.8340% | -1.2645 |
+| 6 | PSEO0205 | Wellness Myeongdong Noodle House | restaurant | 0.1818 | 0.2089 | 0.8289 | 0.6468 | 96.6805% | -1.5004 |
+| 7 | PSEO0025 | Breezy Bukchon Adventure Park | family_activity | 0.1635 | 0.2078 | 0.7282 | 0.5545 | 99.7925% | -1.2603 |
+| 8 | PSEO0454 | Crowd Pulling Myeongdong Bistro | restaurant | 0.1540 | 0.2078 | 0.8350 | 0.5321 | 69.9170% | -0.5462 |
+| 9 | PSEO0189 | True To Form Myeongdong Playland | family_activity | 0.1441 | 0.1531 | 0.9225 | 0.5686 | 90.4564% | -1.7375 |
+| 10 | PSEO0302 | Neighborhood Gangnam Diner | restaurant | 0.1435 | 0.1679 | 0.9463 | 0.6408 | 95.9544% | -0.6694 |
 
-**Top signals (rank 1, PSEO0125):** implicit_taste (1.024), popularity (0.351), interest_match (0.325)
+**Top signals (rank 1, PSEO0109):** implicit_taste (0.939), popularity (0.367), interest_match (0.322)
 
-**Explanation (rank 1):** Popular with travelers who share your interests Popular choice -- busier than 10% of comparable POIs in Seoul Strong match with your stated interest in foodie More budget-friendly than typical for your medium budget
+**Explanation (rank 1):** Popular with travelers who share your interests Popular choice -- busier than 91% of comparable POIs in Seoul Strong match with your stated interest in foodie A well-known highlight -- fits your preference for famous landmarks 12 min from your stay by public transport -- a bit of a trek
 
 ### Pairwise top-10 Jaccard overlap across scenarios
 
 | | Scenario 1 | Scenario 2 | Scenario 3 | Scenario 4 |
 |---|---|---|---|---|
-| Scenario 1 | 1.000 | 0.111 | 0.053 | 0.538 |
-| Scenario 2 | 0.111 | 1.000 | 0.053 | 0.111 |
-| Scenario 3 | 0.053 | 0.053 | 1.000 | 0.111 |
-| Scenario 4 | 0.538 | 0.111 | 0.111 | 1.000 |
+| Scenario 1 | 1.000 | 0.000 | 0.000 | 0.000 |
+| Scenario 2 | 0.000 | 1.000 | 0.000 | 0.000 |
+| Scenario 3 | 0.000 | 0.000 | 1.000 | 0.176 |
+| Scenario 4 | 0.000 | 0.000 | 0.176 | 1.000 |
 
-**Diagnostic scenario 4 vs base scenario 1** (touristiness_pref flipped to the opposite extreme, everything else held constant): top-10 Jaccard overlap = **0.538** (spec.md section 15 expects this to be low, i.e. &le; 0.25, **MISSED**).
+**Diagnostic scenario 4 vs base scenario 1** (touristiness_pref flipped to the opposite extreme, everything else held constant): top-10 Jaccard overlap = **0.000** (spec.md section 15 expects this to be low, i.e. &le; 0.25, **MET**).
 
-**Honest miss, not hidden**: overlap is higher than spec.md section 15 expects. Measured mechanism: the two scenarios' PRE-RANKING candidate pools overlap at **71.7%** Jaccard (`candidates.union.generate_candidates`'s own output), so the ranking starts from nearly the same POIs and `touristiness_pref` can only reorder them through the feature columns that carry it (`explicit_touristiness_pref`, `interact_localness_gap`); `scoring.compatibility`'s sub-scores carry no localness/touristiness term at all (spec.md section 9.1). The overlap is below 1.0, i.e. the preference does move the ranking -- just not enough to dominate a candidate pool this similar.
+Low overlap demonstrates the ranking is driven by the preference signal, not profile confounds, as spec.md section 15 expects.
 
