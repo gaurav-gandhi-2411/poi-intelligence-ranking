@@ -21,6 +21,7 @@ import pandas as pd
 
 from poi_rank.candidates.config import CandidatesConfig
 from poi_rank.eval import l_select as ls
+from poi_rank.eval.config import EvalConfig
 from poi_rank.features.config import FeatureBuildConfig
 from poi_rank.models import lambdamart as lm
 from poi_rank.models.baselines import categorical_feature_columns, numeric_feature_columns
@@ -43,6 +44,7 @@ def main() -> None:
     cand_cfg = CandidatesConfig.from_yaml(CONF / "features.yaml")
     model_cfg = ModelConfig.from_yaml(CONF / "model.yaml")
     scoring_cfg = ScoringConfig.from_yaml(CONF / "scoring.yaml")
+    eval_cfg = EvalConfig.from_yaml(CONF / "eval.yaml")
     budget = feature_cfg.traveler_features.budget_target_price_level
 
     train_frame = load_train_ranking_frame(DATA, budget)
@@ -100,7 +102,9 @@ def main() -> None:
         "trip_cold": trip_cold,
         "p_expose": lm.train_frame_p_expose(base, interactions_train, pois_df),
         "pop_pct_by_poi": dict(zip(pois_df["poi_id"], pois_df["pop_pct"], strict=True)),
-        "cutoff": cand_cfg.longtail.pop_pct_cutoff,
+        # the SCORECARD long-tail definition (eval.yaml, bottom 50%), not the candidate
+        # channel's 0.40 floor
+        "cutoff": eval_cfg.long_tail_pop_pct_cutoff,
         "label_by_trip_poi": {
             (str(t), str(p)): int(v)
             for t, p, v in zip(base["trip_id"], base["poi_id"], base["label"], strict=True)

@@ -23,6 +23,7 @@ import pandas as pd
 
 from poi_rank.candidates.config import CandidatesConfig
 from poi_rank.eval import l_select as ls
+from poi_rank.eval.config import EvalConfig
 from poi_rank.eval import longtail as lt
 from poi_rank.eval.decision_register import per_trip_ndcg10
 from poi_rank.features.config import FeatureBuildConfig
@@ -44,6 +45,7 @@ def main() -> None:
     feature_cfg = FeatureBuildConfig.from_yaml(CONF / "features.yaml")
     cand_cfg = CandidatesConfig.from_yaml(CONF / "features.yaml")
     scoring_cfg = ScoringConfig.from_yaml(CONF / "scoring.yaml")
+    eval_cfg = EvalConfig.from_yaml(CONF / "eval.yaml")
     budget = feature_cfg.traveler_features.budget_target_price_level
     u = scoring_cfg.utility
     selected = {"gamma": u.gamma, "lambda": scoring_cfg.diversity.lambda_default}
@@ -106,7 +108,9 @@ def main() -> None:
         warm = [v for t, v in overlap.items() if not trip_cold[t]]
         score = pd.Series(ls.list_score_column(base, lists_b), index=base.index)
         ndcg = per_trip_ndcg10(base, score)
-        rep = lt.longtail_share_and_precision(lists_b, pop_pct, cand_cfg.longtail.pop_pct_cutoff, labels)
+        rep = lt.longtail_share_and_precision(
+            lists_b, pop_pct, eval_cfg.long_tail_pop_pct_cutoff, labels
+        )
         surv_mask = (base["hard_gate"] == 1.0).to_numpy()
         grad = ls.gradient_reproduction(base.loc[surv_mask], util_b[surv_mask])
         return {
@@ -127,10 +131,16 @@ def main() -> None:
     raw_grad = ls.gradient_reproduction(
         base.loc[surv_mask], base.loc[surv_mask, "raw_score"].to_numpy(dtype=np.float64)
     )
+    # K1's basis (every candidate row, not only hard-gate survivors), for continuity with
+    # results/parts/touristiness_axis.json
+    raw_grad_all_rows = ls.gradient_reproduction(
+        base, base["raw_score"].to_numpy(dtype=np.float64)
+    )
     result = {
         "method": "scripts/l_holdout_report.py; holdout read once after L1/L2/L3 were frozen",
         "n_holdout_trips": int(base["trip_id"].nunique()),
         "raw_ranker_gradient_reproduction": raw_grad,
+        "raw_ranker_gradient_reproduction_all_candidate_rows": raw_grad_all_rows,
         "shipped_config": serve(shipped),
         "selected_config": serve(selected),
     }

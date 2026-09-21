@@ -191,15 +191,28 @@ def diagnoses(metrics: dict[str, Any], scenarios: dict[str, Any] | None = None) 
         "DR9", {}
     )
     raw = ((dr9_row.get("results") or {}).get("50") or {}).get("longtail_at_10")
-    tail = (
-        f" The raw ranker's top-10 long-tail precision (DR9, quota 50, before the compatibility "
-        f"gate, utility and MMR re-rank) is {_f(raw['precision'])} at share {_f(raw['share'])}, "
-        f"against {_f(lt['precision'])} at share {_f(lt['share'])} in the served list: precision "
-        "is lost AFTER ranking while share rises. Which of the three scoring-layer steps is "
-        "responsible is not isolated (untested)."
-        if raw
-        else ""
-    )
+    stages = (metrics.get("longtail_stages") or {}).get("stages")
+    if stages:
+        s1, s2 = stages["1_raw_ranker_top10"], stages["2_after_hard_gate_raw_order"]
+        s3, s4 = stages["3_after_utility"], stages["4_final_after_mmr"]
+        tail = (
+            " E3 stage table (TECHNICAL.md section 4.2): raw ranker top-10 "
+            f"{_f(s1['long_tail_precision'])} -> after the hard gate "
+            f"{_f(s2['long_tail_precision'])} -> after the utility (with the stated-preference "
+            f"factor) {_f(s3['long_tail_precision'])} -> after MMR at the selected lambda "
+            f"{_f(s4['long_tail_precision'])}; the hard gate is the largest single loss, and the "
+            f"long-tail share rises from {_f(s2['long_tail_share'])} to "
+            f"{_f(s3['long_tail_share'])} in the utility layer."
+        )
+    elif raw:
+        tail = (
+            " The raw ranker's top-10 long-tail precision (DR9, quota 50, before the "
+            f"compatibility gate, utility and MMR re-rank) is {_f(raw['precision'])} at share "
+            f"{_f(raw['share'])}, against {_f(lt['precision'])} at share {_f(lt['share'])} in "
+            "the served list."
+        )
+    else:
+        tail = ""
     lift = metrics.get("derived", {}).get("longtail_lift_over_base_rate")
     lift_txt = (
         f" Measured against the pool's own long-tail positive rate ({_f(lift['base_rate'], 3)}) "
@@ -225,8 +238,8 @@ def diagnoses(metrics: dict[str, Any], scenarios: dict[str, Any] | None = None) 
             "varies the long-tail candidate quota and measures the raw ranker's top-10 share: "
             + ", ".join(f"quota {q} -> {_f(v, 3)}" for q, v in shares.items())
             + ". The candidate quota is therefore not the lever; the share is set by the "
-            "ranker's scores (and the MMR re-rank) over a candidate set that already contains "
-            "long-tail POIs."
+            "ranker's scores and the scoring layer (the stated-preference factor and the MMR "
+            "lambda of experiment L) over a candidate set that already contains long-tail POIs."
         )
     loc = metrics.get("localness_validation", {})
     comps = loc.get("component_spearman_rho")
@@ -278,8 +291,9 @@ def diagnoses(metrics: dict[str, Any], scenarios: dict[str, Any] | None = None) 
                 "interests, popularity/quality and compatibility. The pre-fix value reflected an "
                 f"off-distribution response ({_f(pre_taste, 3)} of that model attribution sat on "
                 "leak-trained history-based features, absent for these travelers), not stronger "
-                "personalization (interpretation; the numbers are measured). Reported as a "
-                "cold-start limitation."
+                "personalization (interpretation; the numbers are measured). This is the ranker "
+                "alone; experiment L1 (TECHNICAL.md section 3.1) fixed the row in the scoring "
+                "layer."
             )
         out["scenario4"] = (
             f"Top-10 overlap {_f(ov['diagnostic_vs_base_jaccard'], 3)} with candidate-pool "
@@ -309,6 +323,14 @@ def diagnoses(metrics: dict[str, Any], scenarios: dict[str, Any] | None = None) 
         )
     else:
         tail = ""
+    if cd:
+        tail += (
+            " Experiment L then changed the served lists the confidence is averaged over (the "
+            "stated-preference factor and the selected MMR lambda); the decile Spearman fell from "
+            f"{_f(cd['post_fix']['decile_spearman_recomputed'], 3)} to "
+            f"{_f(dv['spearman_rho'], 3)}. "
+            "The confidence terms were not re-tuned (that would be tuning on holdout labels)."
+        )
     out["confidence_decile"] = f"Confidence-decile Spearman is {_f(dv['spearman_rho'], 3)}." + tail
     return out
 
