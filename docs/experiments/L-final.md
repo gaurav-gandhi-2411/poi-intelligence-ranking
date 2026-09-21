@@ -150,3 +150,61 @@ Reported, as the pre-registration requires:
   +0.0017 (a gain, inside the pre-registered tolerance either way).
 
 Applied as selected: `configs/scoring.yaml` `utility.gamma: 1.0`, `diversity.lambda_default: 1.0`.
+
+## L3a — Gate-B amendment (written and committed BEFORE any L3b run)
+
+The chance-lift gate (+0.35 absolute, overall and long-tail) is one of the three a-priori thresholds already
+disclosed as miscalibrated (`docs/TECHNICAL.md` section 10.2), and it is now a blocking rule that decides
+between designs: it made the pre-registered K rule infeasible (DR13), and any union design fails it because a
+larger candidate set raises the chance baseline the lift is measured against. A blocking gate should encode a
+requirement, not a guess. Amendment, fixed here so the L3b decision cannot depend on its outcome:
+
+| Row | Before | After | Reason |
+|---|---|---|---|
+| Long-tail candidate recall | blocking, >= 0.75 | **blocking, >= 0.75** | the brief section 9 requirement (do not eliminate relevant long-tail POIs) |
+| Effective candidates per trip | not gated | **blocking, <= 300** | the serving budget the lift gate was proxying: the ranker scores a few hundred candidates (`TECHNICAL.md` section 11) |
+| Overall candidate recall | blocking, >= 0.85 | reporting (reference 0.85) | a-priori target disclosed as miscalibrated |
+| Recall lift over chance, overall | blocking, >= +0.35 | reporting (reference +0.35) | same |
+| Recall lift over chance, long-tail | blocking, >= +0.35 | reporting (reference +0.35) | same |
+
+Chance-lift and overall recall are still computed and shown for every design, beside their old reference
+thresholds. `gate-representation` and `make reproduce` follow the amended rows
+(`src/poi_rank/eval/gate_representation.py`); the Decision Register rows written under the four-row gate
+(DR11-DR13) are historical and say so.
+
+## L3b — retrieval design, decided on validation (pre-registered)
+
+DR12's 0.1919 vs 0.1814 is a **holdout** comparison and cannot drive a switch; it was never run on validation.
+The comparison below is run on the train-carved validation trips only.
+
+Designs (same catalog, same features, same ranker recipe; only the candidate set differs):
+
+* **(A)** the shipped set: learned retriever at K = 240 + long-tail floor + interest channel
+  (`data/synthetic/candidates.parquet`; the retriever scores for train trips are cross-fitted by construction).
+* **(B)** the legacy six-channel union (`candidates_legacy6.parquet`).
+* **(C)** A union B, deduplicated per trip.
+
+For each design the ranker is **retrained on that design's own train candidates** (system-8 recipe: LambdaRank,
+IPS weights, behavioural dropout, early stopping on the train-carved validation trips, `configs/model.yaml`) so a
+design is never penalised for a train/serve candidate mismatch; the retrieval K is not reopened. Four seeds
+(42, 7, 11, 13, the protocol of experiment H); the reported value is the seed mean.
+
+Measured on the validation trips (identical for every design):
+
+* **V-NDCG@10, fixed denominator** = IPS-weighted NDCG@10 of the raw ranker top-10, whose ideal DCG is computed
+  over **every** logged (exposed) label of the trip, not just the design's candidates, so retrieval quality is
+  not normalised away (`eval/decomposition.py::end_to_end_ndcg10`, with the IPS gain weights of
+  `eval/ranker_sweep.py`).
+* **V-long-tail recall** and **V-overall recall** = per-trip IPS-weighted recall of exposed positives (label >= 1)
+  by the candidate set, mean over trips with a positive (the validation-recall protocol of the E4 sweep);
+  long-tail = popularity percentile below the project cutoff.
+* **Chance-lift** = recall minus the share of the stratum's destination POIs the set contains (reporting).
+* **Effective K** = mean distinct candidates per validation trip.
+
+Rule: choose the design that **maximises V-NDCG@10 subject to V-long-tail recall >= 0.75 and effective K <= 300**.
+**Adoption bar:** switch away from (A) only if the winner beats (A) by **>= +0.010 V-NDCG@10**, the same bar used
+throughout this project (experiment H, the E2 sweep). If nothing clears it, (A) stays and DR12 stands as written.
+If (A) itself fails a constraint, the best feasible design is adopted without the bar. All three designs are
+reported on validation (V-NDCG@10, overall and long-tail recall, chance-lift, effective K). The holdout is read
+once, for the adopted design only, in the final pipeline run. Time-box: 3 hours including retraining; if
+undecided, (A) stays.

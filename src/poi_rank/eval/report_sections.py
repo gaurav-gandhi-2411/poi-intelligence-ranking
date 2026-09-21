@@ -89,10 +89,13 @@ def render_gates(metrics: dict[str, Any]) -> str:
         lines.append("")
     lines += [
         "**Gate-B (representation / candidate generation)** -- blocking rows are oracle-free "
-        "(recall against EXPOSED holdout positives); every representation and retrieval "
-        "hyperparameter was selected on a train-carved validation split, and the oracle-based "
-        "rows below are reporting-only, computed after the selection was frozen. The oracle "
-        "never touched a decision; it only ever scored the result.",
+        "(recall against EXPOSED holdout positives) and encode requirements: the brief's "
+        "long-tail requirement and a serving budget (amended before experiment L3b, "
+        "`docs/experiments/L-final.md`). Overall recall and the chance-lift rows were demoted to "
+        "reporting: they were a-priori targets disclosed as miscalibrated. Every representation "
+        "and retrieval hyperparameter was selected on a train-carved validation split, and the "
+        "oracle-based rows below are reporting-only, computed after the selection was frozen. "
+        "The oracle never touched a decision; it only ever scored the result.",
         "",
     ]
     if b is None:
@@ -104,6 +107,18 @@ def render_gates(metrics: dict[str, Any]) -> str:
             lines.append(
                 f"| {name} | {c['op']} {c['threshold']} | {_f(c['measured'])} | {status} |"
             )
+        rc = b.get("reporting_checks")
+        if rc:
+            lines += [
+                "",
+                "| Reporting (former blocking rows) | Reference | Measured | Meets reference |",
+                "|---|---|---|---|",
+            ]
+            for name, c in rc.items():
+                met = "yes" if c["meets_reference"] else "no"
+                lines.append(
+                    f"| {name} | {c['op']} {c['threshold']} | {_f(c['measured'])} | {met} |"
+                )
         lines += ["", "| Reporting-only (after freeze) | Value |", "|---|---|"]
         for name, value in b["reporting_only_after_freeze"].items():
             if isinstance(value, float):

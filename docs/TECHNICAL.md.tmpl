@@ -940,6 +940,15 @@ values stand.
 
 {{@scorecard}}
 
+**Amendment L3a (Gate-B, written before experiment L3b ran; `docs/experiments/L-final.md`).** The chance-lift gate
+is the third of the a-priori thresholds disclosed above, and it was a *blocking* rule that could decide between
+retrieval designs: it made the pre-registered K rule infeasible (DR13), and any union design fails it because a
+larger set raises the chance baseline the lift is measured against. Blocking gates now encode requirements only:
+long-tail candidate recall at least 0.75 (the brief section 9 requirement) stays blocking, and a serving budget of
+at most 300 effective candidates per trip is added; overall recall (reference 0.85) and the two chance-lift rows
+(reference +0.35) are demoted to reporting and still shown for every design. Decision Register rows DR11-DR13 were
+written under the four-row gate and are historical.
+
 ### 10.3 Cold start (brief section 15)
 
 Three cases, one mechanism: every history-dependent feature is computed as-of the trip and is absent

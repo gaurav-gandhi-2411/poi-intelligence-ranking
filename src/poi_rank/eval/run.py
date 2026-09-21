@@ -57,6 +57,7 @@ import pandas as pd
 
 from poi_rank.candidates.config import CandidatesConfig, GeoChannelConfig
 from poi_rank.candidates.recall_metrics import (
+    _candidate_set_by_trip,
     overall_and_longtail_recall,
     recall_with_chance_lift,
 )
@@ -227,6 +228,11 @@ def _candidate_recall_payload(
     # destination POIs a random set of the same candidates would contain) and the absolute lift
     # over it -- raw recall alone hid a near-chance failure for four phases.
     payload["by_stratum"] = recall_with_chance_lift(pois_df, candidates_df, holdout_random)
+    # Effective serving budget (Gate-B amendment L3a): mean number of distinct candidates the
+    # ranker must score per holdout trip.
+    holdout_trips = {str(t) for t in holdout_random["trip_id"].unique()}
+    sizes = [len(v) for t, v in _candidate_set_by_trip(candidates_df).items() if t in holdout_trips]
+    payload["mean_candidates_per_trip"] = float(np.mean(sizes))
     return payload
 
 
