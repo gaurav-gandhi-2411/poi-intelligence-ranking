@@ -1,8 +1,15 @@
 """Two-factor multiplicative utility (spec.md section 9.1):
 
 ```
-utility = hard_gate * relevance^alpha * compatibility^beta   # alpha=1.0, beta=0.7
+utility = hard_gate * relevance^alpha * compatibility^beta * pref_align^gamma
 ```
+
+`pref_align` (experiment L1, `docs/experiments/L-final.md`) is the per-trip stated-touristiness
+instruction as a scoring-layer factor: `sigmoid(localness_centered * (-touristiness_pref) / s)`.
+A repeat visitor who says "this time, local only" must get local results even when their history is
+landmark-heavy; the ranker alone does not do that (`docs/TECHNICAL.md` section 3.1), and the brief
+section 11 puts trip context in the scoring layer. At `gamma = 0` the utility is the original
+two-factor formula exactly.
 
 **Multiplicative, not additive -- the brief's section 11 example is additive, we
 deviate and justify it** (spec.md section 9.1): additive scoring lets
@@ -31,17 +38,39 @@ from poi_rank.scoring.config import UtilityConfig
 FloatArray = npt.NDArray[np.float64]
 
 
+def pref_align(
+    localness: FloatArray, touristiness_pref: FloatArray, center: float, scale: float
+) -> FloatArray:
+    """`sigmoid((localness - center) * (-touristiness_pref) / scale)` in `(0, 1)`.
+
+    Sign: negative `touristiness_pref` = prefers local (the resolved DGP convention,
+    `docs/DATA_CARD.md` ambiguity 1), so a local-preferring traveler scores a local POI above 0.5.
+    `localness` is the OBSERVABLE localness index (`num_localness`); `center` and `scale` are the
+    train-frame mean of that index and the train-frame sd of the numerator (`configs/scoring.yaml`).
+    A traveler with `pref = 0` gets the constant 0.5, which cannot reorder their candidates."""
+    z = (localness - center) * (-touristiness_pref) / scale
+    out: FloatArray = 1.0 / (1.0 + np.exp(-z))
+    return out
+
+
 def compute_utility(
     hard_gate: FloatArray,
     relevance: FloatArray,
     compatibility: FloatArray,
     alpha: float,
     beta: float,
+    gamma: float = 0.0,
+    pref_align_factor: FloatArray | None = None,
 ) -> FloatArray:
-    """`hard_gate * relevance^alpha * compatibility^beta` (spec.md section 9.1,
-    verbatim). `relevance`/`compatibility` are expected in `[0, 1]`; `hard_gate` in
-    `{0.0, 1.0}`."""
+    """`hard_gate * relevance^alpha * compatibility^beta * pref_align^gamma` (spec.md section 9.1
+    plus experiment L1). `relevance`/`compatibility` are expected in `[0, 1]`; `hard_gate` in
+    `{0.0, 1.0}`. With `gamma == 0` (the default) `pref_align_factor` is not read and the result is
+    the original two-factor utility exactly."""
     result: FloatArray = hard_gate * np.power(relevance, alpha) * np.power(compatibility, beta)
+    if gamma != 0.0:
+        if pref_align_factor is None:
+            raise ValueError("gamma != 0 requires pref_align_factor")
+        result = result * np.power(pref_align_factor, gamma)
     return result
 
 

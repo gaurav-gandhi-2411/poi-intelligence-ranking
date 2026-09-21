@@ -99,6 +99,7 @@ def build_context_frame(
     travelers_df: pd.DataFrame,
     mobility_cfg: MobilityFitConfig,
     budget_target_price_level: BudgetTargetPriceLevel,
+    pref_align_active: bool = False,
 ) -> list[ExplanationContext]:
     """One `ExplanationContext` per row of `full`, in row order -- `party_type`
     (dropped by both `models.ranking_data.build_ranking_frame` and
@@ -144,6 +145,8 @@ def build_context_frame(
                 poi_terms=poi_terms,
                 price_level=float(price_level.iloc[i]),
                 budget_target_price_level=float(budget_target.iloc[i]),
+                pref_align=float(row["pref_align"]) if pref_align_active else 0.5,
+                touristiness_pref=float(row["explicit_touristiness_pref"]),
             )
         )
     return contexts
@@ -242,6 +245,7 @@ def enrich_recommend_result(
         travelers_df,
         scoring_cfg.compatibility.mobility_fit,
         feature_cfg.traveler_features.budget_target_price_level,
+        pref_align_active=scoring_cfg.utility.gamma != 0.0,
     )
     group_contrib_records = shap_result.group_contributions.to_dict("records")
 
@@ -275,6 +279,7 @@ def enrich_recommend_result(
                     poi_id,
                     scoring_cfg.utility.alpha,
                     scoring_cfg.utility.beta,
+                    scoring_cfg.utility.gamma,
                 )
                 if cf_line is not None:
                     explanation.append(cf_line)

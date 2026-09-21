@@ -55,6 +55,9 @@ from poi_rank.explain.shap_groups import (
 TOP_N_SIGNALS = 3
 CONTRIBUTION_EPSILON = 1e-9
 NEAR_BINDING_THRESHOLD = 0.85  # judgment call, documented in docs/DATA_CARD.md
+# Experiment L1: a `pref_align` line is only rendered when the POI is clearly on the side of the
+# traveler's stated touristiness preference (0.5 is neutral); judgment call, docs/DATA_CARD.md.
+PREF_ALIGN_LINE_THRESHOLD = 0.6
 
 FAMILY_PARTY_TYPES: tuple[str, ...] = ("family_young_kids", "family_teens")
 
@@ -100,6 +103,10 @@ class ExplanationContext:
     poi_terms: frozenset[str]
     price_level: float
     budget_target_price_level: float
+    # Experiment L1: the per-trip preference factor and the stated preference it reads. The
+    # neutral defaults render no line (used when gamma == 0 or by callers that predate L1).
+    pref_align: float = 0.5
+    touristiness_pref: float = 0.0
 
 
 def _category_label(category: str) -> str:
@@ -230,6 +237,22 @@ def _weak_compat_line(subscore_name: str, subscore_value: float, ctx: Explanatio
     return f"Weaker fit on {label} than most of your other options"
 
 
+def _pref_align_line(ctx: ExplanationContext) -> str | None:
+    """The brief section 13 example line ("lower tourist concentration than comparable POIs"),
+    tied to the traveler's own stated preference; `None` unless the POI is clearly on the side the
+    traveler asked for."""
+    if ctx.pref_align < PREF_ALIGN_LINE_THRESHOLD:
+        return None
+    if ctx.touristiness_pref < 0.0:
+        return (
+            "Lower tourist concentration than comparable POIs -- "
+            "fits your preference for less touristy places"
+        )
+    if ctx.touristiness_pref > 0.0:
+        return "A well-known highlight -- fits your preference for famous landmarks"
+    return None
+
+
 def _budget_confirmation_line(ctx: ExplanationContext) -> str:
     if ctx.budget_fit >= 0.9:
         return f"Within your {ctx.budget} budget"
@@ -256,8 +279,14 @@ def build_explanation(
         if line is not None:
             lines.append(line)
 
-    weakest_name = min(compatibility_breakdown, key=lambda name: compatibility_breakdown[name])
-    weakest_value = compatibility_breakdown[weakest_name]
+    pref_line = _pref_align_line(ctx)
+    if pref_line is not None:
+        lines.append(pref_line)
+
+    # `pref_align` rides in the breakdown for the planner but is not a compatibility sub-score.
+    subscores = {k: v for k, v in compatibility_breakdown.items() if k in SUBSCORE_LABEL}
+    weakest_name = min(subscores, key=lambda name: subscores[name])
+    weakest_value = subscores[weakest_name]
     if weakest_value < NEAR_BINDING_THRESHOLD:
         lines.append(_weak_compat_line(weakest_name, weakest_value, ctx))
     else:

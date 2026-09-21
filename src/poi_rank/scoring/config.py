@@ -22,6 +22,11 @@ class UtilityConfig:
     alpha: float
     beta: float
     beta_sweep: tuple[float, ...]
+    # Experiment L1 (`docs/experiments/L-final.md`): exponent of the per-trip stated-touristiness
+    # factor `pref_align`, and its two label-free train-frame constants. gamma = 0 disables it.
+    gamma: float = 0.0
+    pref_align_center: float = 0.0
+    pref_align_scale: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -147,7 +152,12 @@ class ScoringConfig:
         return cls(
             seed=raw["seed"],
             utility=UtilityConfig(
-                alpha=u["alpha"], beta=u["beta"], beta_sweep=tuple(u["beta_sweep"])
+                alpha=u["alpha"],
+                beta=u["beta"],
+                beta_sweep=tuple(u["beta_sweep"]),
+                gamma=u.get("gamma", 0.0),
+                pref_align_center=u.get("pref_align_center", 0.0),
+                pref_align_scale=u.get("pref_align_scale", 1.0),
             ),
             compatibility=CompatibilityConfig(
                 budget_fit=BudgetFitConfig(**c["budget_fit"]),

@@ -64,6 +64,7 @@ from poi_rank.scoring.utility import (
     beta_sensitivity_payload,
     beta_sensitivity_table,
     compute_utility,
+    pref_align,
 )
 
 FloatArray = npt.NDArray[np.float64]
@@ -73,7 +74,12 @@ CALIBRATOR_FILENAME = "calibrator.pkl"
 RELIABILITY_FIGURE_FILENAME = "calibration_reliability.png"
 LAMBDA_SWEEP_FIGURE_FILENAME = "mmr_lambda_sweep.png"
 
-COMPATIBILITY_BREAKDOWN_KEYS: tuple[str, ...] = compat.COMPATIBILITY_SUB_SCORE_NAMES
+# `pref_align` (experiment L1) is reported beside the six compatibility sub-scores so a downstream
+# planner sees every factor of the utility; it is NOT one of the six geometric-mean terms.
+COMPATIBILITY_BREAKDOWN_KEYS: tuple[str, ...] = (
+    *compat.COMPATIBILITY_SUB_SCORE_NAMES,
+    "pref_align",
+)
 
 _PLACEHOLDER_TOP_SIGNALS: list[dict[str, Any]] = [
     {
@@ -276,6 +282,7 @@ def assemble_output_payload(
                     "planner_weight": float(weight),
                     "preference_score": float(row["relevance"]),
                     "context_compatibility": float(row["compatibility"]),
+                    "pref_align": float(row["pref_align"]),
                     "compatibility_breakdown": {
                         name: float(row[name]) for name in COMPATIBILITY_BREAKDOWN_KEYS
                     },
@@ -465,18 +472,33 @@ def run_scoring_pipeline(
     # candidate this phase could not fully score).
     full = holdout_frame.merge(compat_frame, on=["trip_id", "poi_id"], how="inner")
 
+    ucfg = scoring_cfg.utility
+    full["pref_align"] = pref_align(
+        full["num_localness"].to_numpy(dtype=np.float64),
+        full["explicit_touristiness_pref"].to_numpy(dtype=np.float64),
+        ucfg.pref_align_center,
+        ucfg.pref_align_scale,
+    )
     full["utility"] = compute_utility(
         full["hard_gate"].to_numpy(dtype=np.float64),
         full["relevance"].to_numpy(dtype=np.float64),
         full["compatibility"].to_numpy(dtype=np.float64),
-        scoring_cfg.utility.alpha,
-        scoring_cfg.utility.beta,
+        ucfg.alpha,
+        ucfg.beta,
+        ucfg.gamma,
+        full["pref_align"].to_numpy(dtype=np.float64),
     )
 
+    # Beta sensitivity: the preference factor rides along inside the relevance term
+    # (relevance_eff^alpha == relevance^alpha * pref_align^gamma), so each beta row is the utility
+    # actually served at that beta.
+    relevance_eff = full["relevance"].to_numpy(dtype=np.float64) * np.power(
+        full["pref_align"].to_numpy(dtype=np.float64), ucfg.gamma / ucfg.alpha
+    )
     beta_rows = beta_sensitivity_table(
         full,
         full["hard_gate"].to_numpy(dtype=np.float64),
-        full["relevance"].to_numpy(dtype=np.float64),
+        relevance_eff,
         full["compatibility"].to_numpy(dtype=np.float64),
         scoring_cfg.utility,
         k=scoring_cfg.output.top_k,

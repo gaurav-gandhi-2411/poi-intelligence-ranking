@@ -79,6 +79,7 @@ def compute_counterfactual_line(
     poi_id: str,
     alpha: float,
     beta: float,
+    gamma: float = 0.0,
 ) -> str | None:
     """`trip_survivors`: every `hard_gate == 1` candidate for ONE trip, carrying
     `poi_id`, `hard_gate`, `relevance`, `utility`, and all 6
@@ -111,6 +112,8 @@ def compute_counterfactual_line(
             np.array([new_compatibility]),
             alpha,
             beta,
+            gamma,
+            np.array([float(row["pref_align"])]) if gamma != 0.0 else None,
         )[0]
     )
 

@@ -24,6 +24,13 @@ utility:
   # utility = hard_gate * relevance^alpha * compatibility^beta (spec.md section 9.1)
   alpha: 1.0
   beta: 0.7
+  # Experiment L1 (docs/experiments/L-final.md): pref_align^gamma, the per-trip stated
+  # touristiness preference as a scoring-layer factor. gamma selected on the train-carved
+  # validation split (results/parts/l12_selection.json); gamma = 0 restores the two-factor
+  # utility. center / scale are label-free train-frame constants (a test recomputes them).
+  gamma: 1.0
+  pref_align_center: -0.047408966233720796
+  pref_align_scale: 0.23977569461475273
   # Swept for the beta-sensitivity table (spec.md section 9.1: "swept, sensitivity
   # reported") -- 0.7 (the default) plus 2 values on either side.
   beta_sweep: [0.3, 0.5, 0.7, 0.9, 1.1]
@@ -171,8 +178,11 @@ confidence:
   weight_calibration: 0.2
 
 diversity:
-  # MMR re-rank over top-50 (spec.md section 9.4), default lambda = 0.8.
-  lambda_default: 0.8
+  # MMR re-rank over top-50 (spec.md section 9.4). lambda was a spec default of 0.8 that no procedure
+  # ever selected; experiment L2 selected it on the train-carved validation split
+  # (results/parts/l12_selection.json, rule in docs/experiments/L-final.md). 1.0 = no diversity
+  # penalty: the selected point sits on the category-entropy constraint (0.9x of shipped).
+  lambda_default: 1.0
   lambda_sweep: [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
   top_pool_size: 50
   # similarity = 0.6*cosine(emb) + 0.4*same-category indicator (spec.md section
