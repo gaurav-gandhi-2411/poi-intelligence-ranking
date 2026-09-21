@@ -1174,8 +1174,8 @@ that was never justified; the served list achieves 2.74x);
 already recalls 0.553); and the **chance-lift gate of +0.35**, which
 is what made the K rule infeasible (DR13): lift over chance is recall minus a chance baseline that
 grows with the set size, so "smallest K with validation recall >= 0.93" and "lift >= 0.35" pull in
-opposite directions as K grows and cannot both hold at this catalog size. Of the seven MISSED
-scorecard rows, **two trace to target miscalibration rather than system performance**: long-tail
+opposite directions as K grows and cannot both hold at this catalog size. Of the six MISSED
+scorecard rows (seven before experiment L1 moved the scenario-4 row to MET), **two trace to target miscalibration rather than system performance**: long-tail
 precision (above) and the within/cross-archetype ratio target of 2.0 (a *perfect* ranker reaches only
 1.89 in this simulator, so the target is unattainable by construction).
 The targets were not relaxed to make rows pass; they are reported as miscalibrated and the measured

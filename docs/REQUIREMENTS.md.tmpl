@@ -144,7 +144,7 @@ properties of this simulator (`T` section 0).
 | C.6 Training methodology | `T` sections 5, 5.1, 5.2, 6 | Train-carved validation, IPS, dropout, seed 42; the train/serve skew found and fixed (5.1) | MET |
 | C.7 Ranking methodology | `T` sections 4-5 | Retriever -> ranker -> gate/utility/MMR | MET |
 | C.8 Scoring methodology | `T` sections 7-8 | Multiplicative utility, calibration, confidence | MET |
-| C.9 Evaluation | `T` section 10, `R` | Scorecard: 7 MET, 7 MISSED, each MISSED row diagnosed | MET |
+| C.9 Evaluation | `T` section 10, `R` | Scorecard: 8 MET, 6 MISSED, each MISSED row diagnosed | MET |
 | C.10 Cold-start strategy | `T` section 10.3 | Three cases with measurements | MET |
 | C.11 Production considerations | `T` section 11 | See section 16 rows | MET |
 | D. Example results for at least three scenarios: top POIs, scores, important signals, brief explanation, evaluation results | `poi_rank.cli scenarios`, `recommend` | `R` "Scenarios" (each POI: score, `top_signals`, explanation), `results/recommendations.json`, `R` "Success criteria scorecard" | MET |
