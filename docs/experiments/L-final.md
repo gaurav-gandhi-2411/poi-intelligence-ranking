@@ -208,3 +208,28 @@ If (A) itself fails a constraint, the best feasible design is adopted without th
 reported on validation (V-NDCG@10, overall and long-tail recall, chance-lift, effective K). The holdout is read
 once, for the adopted design only, in the final pipeline run. Time-box: 3 hours including retraining; if
 undecided, (A) stays.
+
+## Result of L3b (validation only; the holdout is read once, for the adopted design, in the final pipeline run)
+
+Run: `scripts/l3b_designs.py` -> `results/parts/l3b_designs.json` (274 validation trips;
+ranker retrained per design, seeds 42/7/11/13, seed mean).
+
+| Design | V-NDCG@10 (fixed denominator, IPS) | overall recall | long-tail recall | overall lift | long-tail lift | effective K | feasible |
+|---|---|---|---|---|---|---|---|
+| A learned K=240 (shipped) | 0.1851 (sd 0.0012) | 0.918 | 0.908 | +0.365 | +0.401 | 267 | yes |
+| B legacy six-channel | 0.1745 (sd 0.0021) | 0.601 | 0.592 | +0.171 | +0.177 | 207 | no |
+| C = A union B | 0.1845 (sd 0.0015) | 0.942 | 0.940 | +0.297 | +0.344 | 311 | no |
+
+**Decision: design (A) stays.** No feasible design beats the incumbent by the adoption bar. Against (A): (B) -0.0106 V-NDCG@10
+and it fails the long-tail recall requirement (0.592 < 0.75); (C) -0.0007 and it
+exceeds the serving budget (311 > 300 effective candidates per trip). DR12 stands as
+written.
+
+Reported, because it changes how DR12 should be read: on validation, with the ranker retrained per design, the
+legacy six-channel union is **not** ahead of the learned retriever (B is 0.0106 behind on the seed mean, and the four
+seeds of the two designs do not overlap; 274 validation trips, so trip-sampling noise is not captured by the seed spread). DR12's holdout comparison
+(legacy 0.1919 against learned 0.1814) pointed the other way. The two comparisons differ in the population
+(exposed, popularity-biased training log against the uniform-random holdout), in the NDCG denominator, and in
+the ranker that scores the learned set (the shipped booster against a retrained one), so this does not overturn DR12's measurement, but it does mean the holdout
+advantage of the legacy union is not a stable property of the design. The chance-lift gate was not consulted:
+the amended Gate-B rows are the constraints above.

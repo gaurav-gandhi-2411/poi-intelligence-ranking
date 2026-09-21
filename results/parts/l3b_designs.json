@@ -1,0 +1,76 @@
+{
+  "decision": {
+    "adopted": "A",
+    "best_feasible": "A",
+    "gain_of_best_feasible": 0.0,
+    "reason": "no feasible design beats the incumbent by the adoption bar"
+  },
+  "designs": {
+    "A": {
+      "effective_k": 266.6715328467153,
+      "long_tail_chance": 0.507375414798859,
+      "long_tail_lift": 0.4005053486554302,
+      "long_tail_recall": 0.9078807634542891,
+      "n_validation_trips": 274,
+      "overall_chance": 0.5533159723873071,
+      "overall_lift": 0.3650594536984074,
+      "overall_recall": 0.9183754260857145,
+      "v_ndcg10": 0.18513797927745976,
+      "v_ndcg10_per_seed": [
+        0.18657733748756147,
+        0.18561249763467436,
+        0.18465965835551698,
+        0.18370242363208622
+      ],
+      "v_ndcg10_seed_sd": 0.0012364641312566623
+    },
+    "B": {
+      "effective_k": 207.3065693430657,
+      "long_tail_chance": 0.41538578315318286,
+      "long_tail_lift": 0.176819897203644,
+      "long_tail_recall": 0.5922056803568269,
+      "n_validation_trips": 274,
+      "overall_chance": 0.43013511501352414,
+      "overall_lift": 0.17058310035380636,
+      "overall_recall": 0.6007182153673305,
+      "v_ndcg10": 0.17449211984517615,
+      "v_ndcg10_per_seed": [
+        0.17618572924803036,
+        0.17643401317519977,
+        0.17316407122145153,
+        0.172184665736023
+      ],
+      "v_ndcg10_seed_sd": 0.002139105742084062
+    },
+    "C": {
+      "effective_k": 310.8868613138686,
+      "long_tail_chance": 0.5957110970419099,
+      "long_tail_lift": 0.3442871578200305,
+      "long_tail_recall": 0.9399982548619404,
+      "n_validation_trips": 274,
+      "overall_chance": 0.6450559679594525,
+      "overall_lift": 0.29696459276526266,
+      "overall_recall": 0.9420205607247152,
+      "v_ndcg10": 0.18445633492824692,
+      "v_ndcg10_per_seed": [
+        0.18377343507580762,
+        0.18322002923104191,
+        0.18665906989053094,
+        0.1841728055156072
+      ],
+      "v_ndcg10_seed_sd": 0.0015195650942844766
+    }
+  },
+  "gate_amendment": {
+    "adoption_bar": 0.01,
+    "effective_k_cap": 300.0,
+    "long_tail_recall_floor": 0.75
+  },
+  "method": "scripts/l3b_designs.py; rule pre-registered in docs/experiments/L-final.md",
+  "seeds": [
+    42,
+    7,
+    11,
+    13
+  ]
+}
