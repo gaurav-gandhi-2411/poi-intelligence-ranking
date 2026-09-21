@@ -2,7 +2,9 @@
 
 > Generated from `submission/SUBMISSION.md.tmpl`; every number resolves from `results/metrics.json`.
 
-**Repo:** https://github.com/gaurav-gandhi-2411/poi-intelligence-ranking · **Tag:** `v1.1-konnect-submission` · **Requirement-by-requirement coverage:** `docs/REQUIREMENTS.md`
+**Start here:** [`docs/TECHNICAL_SUMMARY.md`](../docs/TECHNICAL_SUMMARY.md), the concise technical document in the brief's order.
+
+**Repo:** https://github.com/gaurav-gandhi-2411/poi-intelligence-ranking · **Tag:** `v1.2-konnect-submission` (v1.1 plus the documentation-only summary; `results/metrics.json` byte-identical) · **Requirement-by-requirement coverage:** `docs/REQUIREMENTS.md`
 
 ## Headline: we found a train/serve skew in our own pipeline, and retracted our own conclusion
 
@@ -33,7 +35,7 @@ to diagnose a train/serve skew. No labels were used for selection and no hyperpa
 
 ```bash
 git clone https://github.com/gaurav-gandhi-2411/poi-intelligence-ranking.git && cd poi-intelligence-ranking
-git checkout v1.1-konnect-submission
+git checkout v1.2-konnect-submission
 uv sync --frozen && export PYTHONHASHSEED=0      # PowerShell: $env:PYTHONHASHSEED = "0"
 for s in generate prepare features candidates gate-dgp train evaluate representation \
          gate-representation compose; do uv run python -m poi_rank.cli $s; done   # = make reproduce
@@ -43,7 +45,7 @@ make demo TRAVELER=U0005                          # live top-10 from the committ
 `make reproduce` measured {{timings.total_seconds|.0f}} s ({{~reproduce_minutes}}; reported as measured, no longer optimised).
 The tagged commit was cold-cloned (empty uv cache, new venv), run in the order above, and its regenerated
 `results/metrics.json` compared byte-for-byte with the committed file; the verified SHA and the result are in the
-annotated tag (`git show v1.1-konnect-submission`), and `bash scripts/verify_fresh_clone.sh` repeats the check.
+annotated tag (`git show v1.2-konnect-submission`), and `bash scripts/verify_fresh_clone.sh` repeats the check.
 
 ## What a reviewer should see (seed 42)
 

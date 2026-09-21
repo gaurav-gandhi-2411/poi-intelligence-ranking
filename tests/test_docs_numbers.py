@@ -76,7 +76,12 @@ _STRUCTURAL_ALLOWLIST: frozenset[float] = frozenset(
 )
 
 _SOURCE_DOC_NAMES = ("docs/RESULTS.md", "docs/DATA_CARD.md", "spec.md")
-_TARGET_DOC_NAMES = ("docs/TECHNICAL.md", "README.md", "docs/REQUIREMENTS.md")
+_TARGET_DOC_NAMES = (
+    "docs/TECHNICAL_SUMMARY.md",
+    "docs/TECHNICAL.md",
+    "README.md",
+    "docs/REQUIREMENTS.md",
+)
 
 
 def _flatten_numbers(obj: object, out: list[float]) -> None:

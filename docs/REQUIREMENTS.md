@@ -1,5 +1,7 @@
 # REQUIREMENTS.md — traceability matrix against the assignment brief
 
+Start with [`TECHNICAL_SUMMARY.md`](TECHNICAL_SUMMARY.md), the concise technical document in the brief's order; this matrix is the coverage audit.
+
 > Generated from `docs/REQUIREMENTS.md.tmpl`; every number resolves from `results/metrics.json` (which composes
 > `results/parts/*.json`). One row per numbered requirement in sections 5-18 of the brief (every sub-bullet of
 > 6.1, 14 and 15 included), plus the two section-2 behaviours the brief singles out. Written as a reviewer aid:
@@ -148,7 +150,7 @@ properties of this simulator (`T` section 0).
 | C.10 Cold-start strategy | `T` section 10.3 | Three cases with measurements | MET |
 | C.11 Production considerations | `T` section 11 | See section 16 rows | MET |
 | D. Example results for at least three scenarios: top POIs, scores, important signals, brief explanation, evaluation results | `poi_rank.cli scenarios`, `recommend` | `R` "Scenarios" (each POI: score, `top_signals`, explanation), `results/recommendations.json`, `R` "Success criteria scorecard" | MET |
-| 19. Another engineer can clone, install, run and reproduce the reported results | `README.md` quick start, `scripts/verify_fresh_clone.sh` | Cold fresh-clone run: regenerated `metrics.json` identical to the committed file = True; the verified SHA and timings are in the annotated tag (`git show v1.1-konnect-submission`) | MET |
+| 19. Another engineer can clone, install, run and reproduce the reported results | `README.md` quick start, `scripts/verify_fresh_clone.sh` | Cold fresh-clone run: regenerated `metrics.json` identical to the committed file = True; the verified SHA and timings are in the annotated tag (`git show v1.2-konnect-submission`) | MET |
 
 ## The three strongest and the three weakest results
 

@@ -3,6 +3,8 @@
 > **Generated file.** Prose lives in `README.md.tmpl`; every number is resolved from
 > `results/metrics.json` by `poi_rank.eval.report` (`make docs`). Do not hand-edit.
 
+**Start here:** [`docs/TECHNICAL_SUMMARY.md`](docs/TECHNICAL_SUMMARY.md), the concise technical document in the brief's order (one short section per required item, each linking to its depth in `docs/TECHNICAL.md`).
+
 Personalized POI (point-of-interest) intelligence and ranking for **konnect.kr** — an
 inbound-travel platform for foreigners in Korea — built on a fully synthetic, non-circular
 dataset (three destinations, **Seoul first**). A two-factor (preference × compatibility)
@@ -15,7 +17,7 @@ implementation, its evidence and a MET / PARTIAL / NOT DONE status, in one table
 
 ## Headline — read this first
 
-**v1.1 (experiment L, `docs/experiments/L-final.md`).** Three decisions were made in the scoring and retrieval layers, each by a rule written before it ran and on the train-carved validation split: the stated touristiness preference now steers the served ranking (`pref_align`, `docs/TECHNICAL.md` section 3.1), the MMR lambda was selected instead of defaulted, and the retrieval design was re-decided (the learned retriever stays). Gate-B's blocking rows were amended before the retrieval comparison ran. The tag `v1.0-konnect-submission` is the earlier submission and is not moved.
+**v1.1 (experiment L, `docs/experiments/L-final.md`).** Three decisions were made in the scoring and retrieval layers, each by a rule written before it ran and on the train-carved validation split: the stated touristiness preference now steers the served ranking (`pref_align`, `docs/TECHNICAL.md` section 3.1), the MMR lambda was selected instead of defaulted, and the retrieval design was re-decided (the learned retriever stays). Gate-B's blocking rows were amended before the retrieval comparison ran. Tags: `v1.0-konnect-submission` is the first submission, `v1.1-konnect-submission` adds experiment L, and `v1.2-konnect-submission` is v1.1 plus the documentation-only technical summary (`results/metrics.json` byte-identical); none was moved.
 
 Primary system (IPS-weighted LambdaMART + hard-gated utility) NDCG@10 on the unbiased random-exposure
 holdout: **{{~seed_headline}}**. It is a **significant** improvement over the popularity ranker the
@@ -83,11 +85,11 @@ on a 16-logical-core laptop CPU (`scripts/time_reproduce.py`):
 `reproduce-full`**. Per-stage timings are in `docs/RESULTS.md`. The measured `reproduce` value {{~reproduce_vs_target}} (the two largest stages are `train` and `evaluate`, i.e. LightGBM fits; the per-stage table is in `docs/RESULTS.md`).
 
 **Cold fresh-clone reproduction verified at the tagged commit.** The commit tagged
-`v1.0-konnect-submission` was cloned into a clean directory, dependencies installed with
+`v1.2-konnect-submission` was cloned into a clean directory, dependencies installed with
 `uv sync --frozen` on an empty cache, the `demo` commands below run from the committed artifacts, and the
 ten stages above run in order; the regenerated `results/metrics.json` is **byte-identical** to the committed
 one (no key differs; regenerated model files differ only in line endings). The verified SHA and the result
-of that final run are recorded in the annotated tag (`git show v1.0-konnect-submission`), because a commit
+of that final run are recorded in the annotated tag (`git show v1.2-konnect-submission`), because a commit
 cannot contain its own SHA; `bash scripts/verify_fresh_clone.sh` repeats the check for any ref. The most
 recent recorded cold run (`results/parts/fresh_clone_verification.json`): `uv sync`
 {{fresh_clone_verification.uv_sync_seconds|.0f}} s, first `demo` runs
@@ -183,7 +185,7 @@ src/poi_rank/    datagen (firewalled) data features candidates models scoring ex
 data/synthetic/  committed dataset; _oracle/ is readable only by eval/oracle.py
 artifacts/       models, retriever, confidence ensemble, poi_emb, calibrator
 results/         parts/<stage>.json -> metrics.json (compose), scenarios/, figures/
-docs/            TECHNICAL.md, RESULTS.md, REQUIREMENTS.md, DATA_CARD.md (+ the .md.tmpl sources)
+docs/            TECHNICAL_SUMMARY.md, TECHNICAL.md, RESULTS.md, REQUIREMENTS.md, DATA_CARD.md (+ the .md.tmpl sources)
 scripts/         evidence scripts (A3/A4 experiments, timing)
 tests/           firewall, oracle isolation, leakage, determinism, doc provenance, ...
 ```

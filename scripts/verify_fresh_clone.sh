@@ -9,7 +9,7 @@
 # regenerated results/metrics.json is byte-identical to the committed one. Prints one summary block
 # (the commit SHA it actually verified is the first line). Re-run it whenever the tag moves.
 set -u
-REF=${1:-v1.1-konnect-submission}
+REF=${1:-v1.2-konnect-submission}
 D=${2:-$HOME/fresh_clone_verify}
 URL=${REPO_URL:-https://github.com/gaurav-gandhi-2411/poi-intelligence-ranking.git}
 LOG="$D.log"
